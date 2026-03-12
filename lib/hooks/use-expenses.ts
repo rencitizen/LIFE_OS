@@ -1,0 +1,139 @@
+'use client'
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import type { Expense, InsertTables, UpdateTables } from '@/types'
+
+interface ExpenseWithCategory extends Expense {
+  expense_categories: { name: string; icon: string | null; color: string | null } | null
+}
+
+export function useExpenses(coupleId: string | undefined, yearMonth?: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['expenses', coupleId, yearMonth],
+    queryFn: async () => {
+      let query = supabase
+        .from('expenses')
+        .select('*')
+        .eq('couple_id', coupleId!)
+        .order('expense_date', { ascending: false })
+
+      if (yearMonth) {
+        const startDate = `${yearMonth}-01`
+        const [year, month] = yearMonth.split('-').map(Number)
+        const nextMonth = month === 12 ? 1 : month + 1
+        const nextYear = month === 12 ? year + 1 : year
+        const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+        query = query.gte('expense_date', startDate).lt('expense_date', endDate)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+      return data as unknown as ExpenseWithCategory[]
+    },
+    enabled: !!coupleId,
+  })
+}
+
+export function useMonthlyExpenseSummary(coupleId: string | undefined, yearMonth: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['expense-summary', coupleId, yearMonth],
+    queryFn: async () => {
+      const startDate = `${yearMonth}-01`
+      const [year, month] = yearMonth.split('-').map(Number)
+      const nextMonth = month === 12 ? 1 : month + 1
+      const nextYear = month === 12 ? year + 1 : year
+      const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('couple_id', coupleId!)
+        .gte('expense_date', startDate)
+        .lt('expense_date', endDate)
+      if (error) throw error
+
+      const expenses = data as unknown as Expense[]
+      const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0)
+      const fixed = expenses.filter((e) => e.is_fixed).reduce((sum, e) => sum + Number(e.amount), 0)
+      const variable = total - fixed
+      const shared = expenses.filter((e) => e.expense_type === 'shared').reduce((sum, e) => sum + Number(e.amount), 0)
+      const personal = expenses.filter((e) => e.expense_type === 'personal').reduce((sum, e) => sum + Number(e.amount), 0)
+
+      const byCategory: Record<string, { name: string; icon: string | null; total: number }> = {}
+      for (const e of expenses) {
+        const catId = e.category_id || 'uncategorized'
+        if (!byCategory[catId]) {
+          byCategory[catId] = { name: 'その他', icon: null, total: 0 }
+        }
+        byCategory[catId].total += Number(e.amount)
+      }
+
+      return { total, fixed, variable, shared, personal, byCategory, count: expenses.length }
+    },
+    enabled: !!coupleId,
+  })
+}
+
+export function useCreateExpense() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (expense: InsertTables<'expenses'>) => {
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert(expense)
+        .select()
+        .single()
+      if (error) throw error
+      return data as unknown as Expense
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
+    },
+  })
+}
+
+export function useUpdateExpense() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: UpdateTables<'expenses'> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('expenses')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as unknown as Expense
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
+    },
+  })
+}
+
+export function useDeleteExpense() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('expenses').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
+    },
+  })
+}

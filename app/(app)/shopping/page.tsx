@@ -1,0 +1,238 @@
+'use client'
+
+import { useState } from 'react'
+import { Plus, ShoppingCart, Check } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useAuth } from '@/lib/hooks/use-auth'
+import { useShoppingLists, useShoppingItems, useCreateShoppingList, useCreateShoppingItem, useToggleShoppingItem } from '@/lib/hooks/use-shopping'
+import { cn } from '@/lib/utils'
+
+const categoryLabels: Record<string, string> = {
+  food: '食材',
+  daily: '日用品',
+  other: 'その他',
+  general: '全般',
+}
+
+const priorityColors: Record<string, string> = {
+  high: 'text-destructive',
+  medium: 'text-yellow-600',
+  low: 'text-muted-foreground',
+}
+
+export default function ShoppingPage() {
+  const { user, couple } = useAuth()
+  const { data: lists } = useShoppingLists(couple?.id)
+  const [selectedListId, setSelectedListId] = useState<string | null>(null)
+  const { data: items } = useShoppingItems(selectedListId || undefined)
+  const createList = useCreateShoppingList()
+  const createItem = useCreateShoppingItem()
+  const toggleItem = useToggleShoppingItem()
+
+  const [newListName, setNewListName] = useState('')
+  const [newListCategory, setNewListCategory] = useState('general')
+  const [newItemName, setNewItemName] = useState('')
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  const handleCreateList = async () => {
+    if (!newListName || !couple?.id || !user?.id) return
+    await createList.mutateAsync({
+      couple_id: couple.id,
+      created_by: user.id,
+      name: newListName,
+      category: newListCategory,
+    })
+    setNewListName('')
+    setDialogOpen(false)
+  }
+
+  const handleAddItem = async () => {
+    if (!newItemName || !selectedListId) return
+    await createItem.mutateAsync({
+      list_id: selectedListId,
+      name: newItemName,
+    })
+    setNewItemName('')
+  }
+
+  const handleToggle = async (itemId: string, currentChecked: boolean) => {
+    if (!user?.id) return
+    await toggleItem.mutateAsync({
+      id: itemId,
+      is_checked: !currentChecked,
+      checked_by: user.id,
+    })
+  }
+
+  const uncheckedCount = items?.filter((i) => !i.is_checked).length || 0
+  const checkedCount = items?.filter((i) => i.is_checked).length || 0
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">買い物リスト</h1>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger
+            render={<Button size="sm" />}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            新しいリスト
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>リスト作成</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>リスト名</Label>
+                <Input
+                  placeholder="今週の買い物"
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>カテゴリ</Label>
+                <Select value={newListCategory} onValueChange={(v) => v && setNewListCategory(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="food">食材</SelectItem>
+                    <SelectItem value="daily">日用品</SelectItem>
+                    <SelectItem value="other">その他</SelectItem>
+                    <SelectItem value="general">全般</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleCreateList} className="w-full" disabled={createList.isPending}>
+                作成
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Lists */}
+        <div className="space-y-2">
+          {lists && lists.length > 0 ? (
+            lists.map((list) => (
+              <Card
+                key={list.id}
+                className={cn(
+                  'cursor-pointer transition-colors hover:bg-muted/50',
+                  selectedListId === list.id && 'ring-1 ring-primary'
+                )}
+                onClick={() => setSelectedListId(list.id)}
+              >
+                <CardContent className="flex items-center justify-between p-4">
+                  <div>
+                    <p className="font-medium text-sm">{list.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {categoryLabels[list.category] || list.category}
+                    </p>
+                  </div>
+                  <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground p-4">リストがありません</p>
+          )}
+        </div>
+
+        {/* Items */}
+        <div className="lg:col-span-2">
+          {selectedListId ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    アイテム
+                    {uncheckedCount > 0 && (
+                      <Badge variant="secondary" className="ml-2">{uncheckedCount}件</Badge>
+                    )}
+                  </CardTitle>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    placeholder="アイテムを追加..."
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                  />
+                  <Button size="sm" onClick={handleAddItem} disabled={createItem.isPending}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {items && items.length > 0 ? (
+                  <div className="space-y-2">
+                    {items
+                      .filter((i) => !i.is_checked)
+                      .map((item) => (
+                        <div key={item.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50">
+                          <Checkbox
+                            checked={item.is_checked}
+                            onCheckedChange={() => handleToggle(item.id, item.is_checked)}
+                          />
+                          <div className="flex-1">
+                            <p className={cn('text-sm', priorityColors[item.priority])}>{item.name}</p>
+                            {item.memo && <p className="text-xs text-muted-foreground">{item.memo}</p>}
+                          </div>
+                          {item.estimated_price && (
+                            <span className="text-xs text-muted-foreground">
+                              ¥{Number(item.estimated_price).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+
+                    {checkedCount > 0 && (
+                      <>
+                        <div className="flex items-center gap-2 py-2">
+                          <Check className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            完了済み ({checkedCount}件)
+                          </span>
+                        </div>
+                        {items
+                          .filter((i) => i.is_checked)
+                          .map((item) => (
+                            <div key={item.id} className="flex items-center gap-3 p-2 rounded-md opacity-50">
+                              <Checkbox
+                                checked={item.is_checked}
+                                onCheckedChange={() => handleToggle(item.id, item.is_checked)}
+                              />
+                              <p className="text-sm line-through">{item.name}</p>
+                            </div>
+                          ))}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">アイテムがありません</p>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex items-center justify-center p-12">
+                <p className="text-sm text-muted-foreground">リストを選択してください</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

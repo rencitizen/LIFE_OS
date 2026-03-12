@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Couple OS
+
+> 二人の生活を、一つのOSで動かす
+
+カップル向けの統合生活管理プラットフォーム。共有カレンダー、買い物リスト、TODO管理、支出管理、予算管理、立替精算を一つのアプリで。
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **UI**: Tailwind CSS + shadcn/ui
+- **State**: Zustand + TanStack Query
+- **Backend**: Supabase (Auth, PostgreSQL, Realtime, Storage)
+- **Language**: TypeScript
+- **Validation**: Zod + React Hook Form
 
 ## Getting Started
 
-First, run the development server:
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+2. Copy environment variables:
+   ```bash
+   cp .env.local.example .env.local
+   ```
+
+3. Fill in your Supabase project credentials in `.env.local`
+
+4. Run database migrations:
+   ```bash
+   npx supabase db push
+   ```
+
+5. Start development:
+   ```bash
+   npm run dev
+   ```
+
+## Project Structure
+
+```
+app/
+├── (auth)/          # 認証ページ (login, register, callback)
+├── (app)/           # メインアプリ
+│   ├── home/        # ホームダッシュボード
+│   ├── calendar/    # 共有カレンダー
+│   ├── shopping/    # 買い物リスト
+│   ├── todos/       # TODO管理
+│   ├── finance/     # 家計管理
+│   │   ├── dashboard/   # CFOダッシュボード
+│   │   ├── expenses/    # 支出管理
+│   │   ├── settlements/ # 立替精算
+│   │   ├── budgets/     # 予算管理
+│   │   └── savings/     # 積立 (Phase 2)
+│   └── settings/    # 設定
+components/
+├── ui/              # shadcn/ui コンポーネント
+├── shared/          # 共通コンポーネント (sidebar, header, bottom-nav)
+├── calendar/        # カレンダー関連
+├── finance/         # 家計関連
+├── shopping/        # 買い物関連
+└── todos/           # TODO関連
+lib/
+├── supabase/        # Supabase クライアント (client, server, middleware)
+├── hooks/           # React Query カスタムフック
+├── validators/      # Zod スキーマ
+└── utils/           # ユーティリティ
+stores/              # Zustand ストア
+types/               # TypeScript 型定義
+supabase/
+└── migrations/      # DBマイグレーション
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Full Specification
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [couple-os-spec.md](./couple-os-spec.md) for the complete product specification.
