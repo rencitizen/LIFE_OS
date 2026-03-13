@@ -51,13 +51,13 @@ export function useMonthlyExpenseSummary(coupleId: string | undefined, yearMonth
 
       const { data, error } = await supabase
         .from('expenses')
-        .select('*')
+        .select('*, expense_categories(name, icon)')
         .eq('couple_id', coupleId!)
         .gte('expense_date', startDate)
         .lt('expense_date', endDate)
       if (error) throw error
 
-      const expenses = data as unknown as Expense[]
+      const expenses = data as unknown as (Expense & { expense_categories: { name: string; icon: string | null } | null })[]
       const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0)
       const fixed = expenses.filter((e) => e.is_fixed).reduce((sum, e) => sum + Number(e.amount), 0)
       const variable = total - fixed
@@ -68,7 +68,11 @@ export function useMonthlyExpenseSummary(coupleId: string | undefined, yearMonth
       for (const e of expenses) {
         const catId = e.category_id || 'uncategorized'
         if (!byCategory[catId]) {
-          byCategory[catId] = { name: 'その他', icon: null, total: 0 }
+          byCategory[catId] = {
+            name: e.expense_categories?.name || 'その他',
+            icon: e.expense_categories?.icon || null,
+            total: 0,
+          }
         }
         byCategory[catId].total += Number(e.amount)
       }

@@ -1,18 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, ShoppingCart, Check } from 'lucide-react'
+import { Plus, ShoppingCart, Check, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useShoppingLists, useShoppingItems, useCreateShoppingList, useCreateShoppingItem, useToggleShoppingItem } from '@/lib/hooks/use-shopping'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const categoryLabels: Record<string, string> = {
   food: '食材',
@@ -23,7 +24,7 @@ const categoryLabels: Record<string, string> = {
 
 const priorityColors: Record<string, string> = {
   high: 'text-destructive',
-  medium: 'text-yellow-600',
+  medium: 'text-[#85B59B]',
   low: 'text-muted-foreground',
 }
 
@@ -42,33 +43,49 @@ export default function ShoppingPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const handleCreateList = async () => {
-    if (!newListName || !couple?.id || !user?.id) return
-    await createList.mutateAsync({
-      couple_id: couple.id,
-      created_by: user.id,
-      name: newListName,
-      category: newListCategory,
-    })
-    setNewListName('')
-    setDialogOpen(false)
+    if (!newListName) { toast.error('リスト名を入力してください'); return }
+    if (!couple?.id || !user?.id) { toast.error('ログインが必要です'); return }
+    try {
+      const result = await createList.mutateAsync({
+        couple_id: couple.id,
+        created_by: user.id,
+        name: newListName,
+        category: newListCategory,
+      })
+      setNewListName('')
+      setDialogOpen(false)
+      setSelectedListId(result.id)
+      toast.success('リストを作成しました')
+    } catch {
+      toast.error('リストの作成に失敗しました')
+    }
   }
 
   const handleAddItem = async () => {
-    if (!newItemName || !selectedListId) return
-    await createItem.mutateAsync({
-      list_id: selectedListId,
-      name: newItemName,
-    })
-    setNewItemName('')
+    if (!newItemName) { toast.error('アイテム名を入力してください'); return }
+    if (!selectedListId) { toast.error('リストを選択してください'); return }
+    try {
+      await createItem.mutateAsync({
+        list_id: selectedListId,
+        name: newItemName,
+      })
+      setNewItemName('')
+    } catch {
+      toast.error('アイテムの追加に失敗しました')
+    }
   }
 
   const handleToggle = async (itemId: string, currentChecked: boolean) => {
     if (!user?.id) return
-    await toggleItem.mutateAsync({
-      id: itemId,
-      is_checked: !currentChecked,
-      checked_by: user.id,
-    })
+    try {
+      await toggleItem.mutateAsync({
+        id: itemId,
+        is_checked: !currentChecked,
+        checked_by: user.id,
+      })
+    } catch {
+      toast.error('更新に失敗しました')
+    }
   }
 
   const uncheckedCount = items?.filter((i) => !i.is_checked).length || 0
@@ -78,47 +95,48 @@ export default function ShoppingPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">買い物リスト</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger
-            render={<Button size="sm" />}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            新しいリスト
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>リスト作成</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>リスト名</Label>
-                <Input
-                  placeholder="今週の買い物"
-                  value={newListName}
-                  onChange={(e) => setNewListName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>カテゴリ</Label>
-                <Select value={newListCategory} onValueChange={(v) => v && setNewListCategory(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="food">食材</SelectItem>
-                    <SelectItem value="daily">日用品</SelectItem>
-                    <SelectItem value="other">その他</SelectItem>
-                    <SelectItem value="general">全般</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={handleCreateList} className="w-full" disabled={createList.isPending}>
-                作成
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          新しいリスト
+        </Button>
       </div>
+
+      {/* Create List Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>リスト作成</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>リスト名</Label>
+              <Input
+                placeholder="今週の買い物"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateList()}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>カテゴリ</Label>
+              <Select value={newListCategory} onValueChange={(v) => v && setNewListCategory(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="food">食材</SelectItem>
+                  <SelectItem value="daily">日用品</SelectItem>
+                  <SelectItem value="other">その他</SelectItem>
+                  <SelectItem value="general">全般</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleCreateList} className="w-full" disabled={createList.isPending}>
+              作成
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Lists */}
@@ -208,12 +226,20 @@ export default function ShoppingPage() {
                         {items
                           .filter((i) => i.is_checked)
                           .map((item) => (
-                            <div key={item.id} className="flex items-center gap-3 p-2 rounded-md opacity-50">
+                            <div key={item.id} className="flex items-center gap-3 p-2 rounded-md opacity-50 hover:opacity-80 transition-opacity group">
                               <Checkbox
                                 checked={item.is_checked}
                                 onCheckedChange={() => handleToggle(item.id, item.is_checked)}
                               />
-                              <p className="text-sm line-through">{item.name}</p>
+                              <p className="text-sm line-through flex-1">{item.name}</p>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleToggle(item.id, item.is_checked)}
+                              >
+                                <Undo2 className="h-3 w-3" />
+                              </Button>
                             </div>
                           ))}
                       </>

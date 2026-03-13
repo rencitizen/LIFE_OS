@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { useExpenses, useCreateExpense } from '@/lib/hooks/use-expenses'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useFinanceStore } from '@/stores/finance-store'
+import { toast } from 'sonner'
 
 const expenseTypeLabels: Record<string, string> = {
   personal: '個人',
@@ -23,10 +24,10 @@ const expenseTypeLabels: Record<string, string> = {
 }
 
 const expenseTypeBadgeColors: Record<string, string> = {
-  personal: 'bg-gray-100 text-gray-700',
-  shared: 'bg-blue-100 text-blue-700',
-  advance: 'bg-yellow-100 text-yellow-700',
-  pending_settlement: 'bg-red-100 text-red-700',
+  personal: 'bg-muted text-muted-foreground',
+  shared: 'bg-[#85B59B]/10 text-[#1E5945]',
+  advance: 'bg-[#85B59B]/20 text-[#1E5945]',
+  pending_settlement: 'bg-destructive/10 text-destructive',
 }
 
 export default function ExpensesPage() {
@@ -45,20 +46,29 @@ export default function ExpensesPage() {
   const [paymentMethod, setPaymentMethod] = useState('card')
 
   const handleCreate = async () => {
-    if (!amount || !couple?.id || !user?.id) return
-    await createExpense.mutateAsync({
-      couple_id: couple.id,
-      paid_by: user.id,
-      amount: Number(amount),
-      description: description || undefined,
-      expense_date: format(new Date(), 'yyyy-MM-dd'),
-      expense_type: expenseType,
-      category_id: categoryId || undefined,
-      payment_method: paymentMethod,
-    })
-    setAmount('')
-    setDescription('')
-    setDialogOpen(false)
+    if (!amount) { toast.error('金額を入力してください'); return }
+    if (!couple?.id || !user?.id) { toast.error('ログインが必要です'); return }
+    try {
+      await createExpense.mutateAsync({
+        couple_id: couple.id,
+        paid_by: user.id,
+        amount: Number(amount),
+        description: description || undefined,
+        expense_date: format(new Date(), 'yyyy-MM-dd'),
+        expense_type: expenseType,
+        category_id: categoryId || undefined,
+        payment_method: paymentMethod,
+      })
+      setAmount('')
+      setDescription('')
+      setCategoryId('')
+      setExpenseType('shared')
+      setPaymentMethod('card')
+      setDialogOpen(false)
+      toast.success('支出を登録しました')
+    } catch {
+      toast.error('支出の登録に失敗しました')
+    }
   }
 
   const filteredExpenses = expenses?.filter((e) =>

@@ -11,9 +11,10 @@ import {
   Wallet,
   BarChart3,
   ArrowLeftRight,
-  PiggyBank,
   Settings,
   Target,
+  TrendingUp,
+  LineChart,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useUIStore } from '@/stores/ui-store'
@@ -27,10 +28,11 @@ const navigation = [
 
 const financeNavigation = [
   { name: 'ダッシュボード', href: '/finance/dashboard', icon: BarChart3 },
+  { name: '計画vs実績', href: '/finance/analysis', icon: LineChart },
   { name: '支出', href: '/finance/expenses', icon: Wallet },
-  { name: '立替・精算', href: '/finance/settlements', icon: ArrowLeftRight },
   { name: '予算', href: '/finance/budgets', icon: Target },
-  { name: '積立', href: '/finance/savings', icon: PiggyBank },
+  { name: '立替・精算', href: '/finance/settlements', icon: ArrowLeftRight },
+  { name: 'ライフプラン', href: '/finance/life-plan', icon: TrendingUp },
 ]
 
 export function AppSidebar() {

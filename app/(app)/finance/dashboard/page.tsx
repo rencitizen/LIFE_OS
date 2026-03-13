@@ -1,15 +1,35 @@
 'use client'
 
+import { useMemo } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet, PieChart } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet, PieChart, LineChart, ArrowRight } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useIncomes } from '@/lib/hooks/use-incomes'
 import { useBudget } from '@/lib/hooks/use-budgets'
+import { usePlanVsActual } from '@/lib/hooks/use-plan-vs-actual'
 import { useFinanceStore } from '@/stores/finance-store'
+
+const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
+
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-lg border bg-card p-3 shadow-md">
+      <p className="text-sm font-medium mb-1">{label}</p>
+      {payload.map((entry, i) => (
+        <p key={i} className="text-xs" style={{ color: entry.color }}>
+          {entry.name}: {yen(entry.value)}
+        </p>
+      ))}
+    </div>
+  )
+}
 
 export default function FinanceDashboardPage() {
   const { couple } = useAuth()
@@ -18,6 +38,7 @@ export default function FinanceDashboardPage() {
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
   const { data: incomes } = useIncomes(couple?.id, selectedMonth)
   const { data: budget } = useBudget(couple?.id, selectedMonth)
+  const { currentYear } = usePlanVsActual(couple?.id)
 
   const totalIncome = incomes?.reduce((sum, i) => sum + Number(i.amount), 0) || 0
   const balance = totalIncome - (summary?.total || 0)
@@ -30,6 +51,22 @@ export default function FinanceDashboardPage() {
 
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
+
+  // Plan vs Actual for this month
+  const currentMonthIdx = month - 1
+  const planMonth = currentYear?.months[currentMonthIdx]
+
+  // Mini chart data: last few months of plan vs actual expenses
+  const miniChartData = useMemo(() => {
+    if (!currentYear) return []
+    const now = new Date()
+    const endMonth = now.getMonth() // 0-indexed
+    return currentYear.months.slice(0, endMonth + 1).slice(-6).map((m) => ({
+      name: m.label,
+      計画: m.plannedExpense,
+      実績: m.actualExpense,
+    }))
+  }, [currentYear])
 
   return (
     <div className="space-y-6">
@@ -53,12 +90,17 @@ export default function FinanceDashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">収入</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
+            <TrendingUp className="h-4 w-4 text-[#85B59B]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              ¥{totalIncome.toLocaleString()}
+            <div className="text-2xl font-bold text-[#1E5945]">
+              {yen(totalIncome)}
             </div>
+            {planMonth && (
+              <p className="text-xs text-muted-foreground mt-1">
+                計画: {yen(planMonth.plannedIncome)}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -69,11 +111,18 @@ export default function FinanceDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">
-              ¥{(summary?.total || 0).toLocaleString()}
+              {yen(summary?.total || 0)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {summary?.count || 0}件
-            </p>
+            {planMonth && (
+              <p className="text-xs text-muted-foreground mt-1">
+                計画: {yen(planMonth.plannedExpense)}
+                {(summary?.total || 0) > planMonth.plannedExpense && (
+                  <span className="text-destructive ml-1">
+                    (+{yen((summary?.total || 0) - planMonth.plannedExpense)})
+                  </span>
+                )}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -83,9 +132,14 @@ export default function FinanceDashboardPage() {
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-              ¥{balance.toLocaleString()}
+            <div className={`text-2xl font-bold ${balance >= 0 ? 'text-[#1E5945]' : 'text-destructive'}`}>
+              {yen(balance)}
             </div>
+            {planMonth && (
+              <p className="text-xs text-muted-foreground mt-1">
+                計画: {yen(planMonth.plannedIncome - planMonth.plannedExpense)}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -98,7 +152,7 @@ export default function FinanceDashboardPage() {
             {budget?.total_limit ? (
               <>
                 <div className="text-2xl font-bold">
-                  ¥{(Number(budget.total_limit) - (summary?.total || 0)).toLocaleString()}
+                  {yen(Number(budget.total_limit) - (summary?.total || 0))}
                 </div>
                 <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
                   <div
@@ -116,7 +170,34 @@ export default function FinanceDashboardPage() {
         </Card>
       </div>
 
-      {/* Fixed vs Variable */}
+      {/* Plan vs Actual Mini Chart + Link */}
+      {miniChartData.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">支出 計画 vs 実績</CardTitle>
+            <Link href="/finance/analysis">
+              <Button variant="ghost" size="sm" className="text-xs gap-1">
+                詳細分析 <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={miniChartData} barGap={2}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#D9D9D9" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tickFormatter={(v) => `${Math.round(v / 10000)}万`} tick={{ fontSize: 11 }} />
+                <Tooltip content={<ChartTooltip />} />
+                <Legend />
+                <Bar dataKey="計画" fill="#D9D9D9" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="実績" fill="#1E5945" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Fixed vs Variable + Category */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -126,11 +207,11 @@ export default function FinanceDashboardPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm">固定費</span>
-                <span className="font-medium">¥{(summary?.fixed || 0).toLocaleString()}</span>
+                <span className="font-medium">{yen(summary?.fixed || 0)}</span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-blue-500"
+                  className="h-full rounded-full bg-[#1E5945]"
                   style={{
                     width: summary?.total ? `${(summary.fixed / summary.total) * 100}%` : '0%',
                   }}
@@ -138,7 +219,7 @@ export default function FinanceDashboardPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">変動費</span>
-                <span className="font-medium">¥{(summary?.variable || 0).toLocaleString()}</span>
+                <span className="font-medium">{yen(summary?.variable || 0)}</span>
               </div>
             </div>
           </CardContent>
@@ -160,7 +241,7 @@ export default function FinanceDashboardPage() {
                         <span>{cat.icon || ''}</span>
                         <span className="text-sm">{cat.name}</span>
                       </div>
-                      <span className="text-sm font-medium">¥{cat.total.toLocaleString()}</span>
+                      <span className="text-sm font-medium">{yen(cat.total)}</span>
                     </div>
                   ))}
               </div>
@@ -180,11 +261,11 @@ export default function FinanceDashboardPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center p-4 rounded-md bg-muted/50">
               <p className="text-sm text-muted-foreground">共有支出</p>
-              <p className="text-xl font-bold mt-1">¥{(summary?.shared || 0).toLocaleString()}</p>
+              <p className="text-xl font-bold mt-1">{yen(summary?.shared || 0)}</p>
             </div>
             <div className="text-center p-4 rounded-md bg-muted/50">
               <p className="text-sm text-muted-foreground">個人支出</p>
-              <p className="text-xl font-bold mt-1">¥{(summary?.personal || 0).toLocaleString()}</p>
+              <p className="text-xl font-bold mt-1">{yen(summary?.personal || 0)}</p>
             </div>
           </div>
         </CardContent>

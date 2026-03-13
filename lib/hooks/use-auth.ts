@@ -10,7 +10,7 @@ import type { User, Couple } from '@/types'
 export function useAuth() {
   const supabase = createClient()
   const router = useRouter()
-  const { user, couple, partner, setUser, setCouple, setPartner, reset } = useAuthStore()
+  const { setUser, setCouple, setPartner, reset } = useAuthStore()
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['auth-profile'],
@@ -56,6 +56,7 @@ export function useAuth() {
     enabled: !!profile?.couple_id,
   })
 
+  // Sync to store for components that read from store directly
   useEffect(() => {
     if (profile) setUser(profile)
     if (coupleData) setCouple(coupleData)
@@ -68,5 +69,12 @@ export function useAuth() {
     router.push('/login')
   }
 
-  return { user, couple, partner, isLoading, signOut }
+  // Return query data directly (not store) to avoid useEffect sync lag
+  return {
+    user: profile ?? null,
+    couple: coupleData ?? null,
+    partner: partnerData ?? null,
+    isLoading,
+    signOut,
+  }
 }

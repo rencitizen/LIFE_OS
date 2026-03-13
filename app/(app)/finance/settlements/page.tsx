@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useSettlements, useUnsettledBalance, useUpdateSettlement } from '@/lib/hooks/use-settlements'
+import { toast } from 'sonner'
 
 const statusLabels: Record<string, string> = {
   requested: 'リクエスト中',
@@ -15,9 +16,9 @@ const statusLabels: Record<string, string> = {
 }
 
 const statusColors: Record<string, string> = {
-  requested: 'bg-yellow-100 text-yellow-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  done: 'bg-green-100 text-green-700',
+  requested: 'bg-[#85B59B]/20 text-[#1E5945]',
+  confirmed: 'bg-[#85B59B]/15 text-[#1E5945]',
+  done: 'bg-[#1E5945]/10 text-[#1E5945]',
 }
 
 export default function SettlementsPage() {
@@ -27,18 +28,28 @@ export default function SettlementsPage() {
   const updateSettlement = useUpdateSettlement()
 
   const handleConfirm = async (id: string) => {
-    await updateSettlement.mutateAsync({
-      id,
-      status: 'confirmed',
-    })
+    try {
+      await updateSettlement.mutateAsync({
+        id,
+        status: 'confirmed',
+      })
+      toast.success('確認しました')
+    } catch {
+      toast.error('確認に失敗しました')
+    }
   }
 
   const handleComplete = async (id: string) => {
-    await updateSettlement.mutateAsync({
-      id,
-      status: 'done',
-      settled_at: format(new Date(), 'yyyy-MM-dd'),
-    })
+    try {
+      await updateSettlement.mutateAsync({
+        id,
+        status: 'done',
+        settled_at: format(new Date(), 'yyyy-MM-dd'),
+      })
+      toast.success('精算を完了しました')
+    } catch {
+      toast.error('完了処理に失敗しました')
+    }
   }
 
   return (
@@ -55,7 +66,7 @@ export default function SettlementsPage() {
             </div>
             <div className="flex flex-col items-center">
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
-              <p className={`text-xl font-bold mt-1 ${(balance || 0) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+              <p className={`text-xl font-bold mt-1 ${(balance || 0) >= 0 ? 'text-primary' : 'text-destructive'}`}>
                 ¥{Math.abs(balance || 0).toLocaleString()}
               </p>
               <p className="text-xs text-muted-foreground">

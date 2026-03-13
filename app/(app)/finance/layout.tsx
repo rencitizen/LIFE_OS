@@ -9,7 +9,7 @@ const tabs = [
   { name: '支出', href: '/finance/expenses' },
   { name: '立替・精算', href: '/finance/settlements' },
   { name: '予算', href: '/finance/budgets' },
-  { name: '積立', href: '/finance/savings' },
+  { name: 'ライフプラン', href: '/finance/life-plan' },
 ]
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {

@@ -19,7 +19,7 @@ CREATE TABLE users (
   display_name  TEXT NOT NULL,
   avatar_url    TEXT,
   email         TEXT,
-  color         TEXT DEFAULT '#4F46E5',
+  color         TEXT DEFAULT '#85A392',
   role          TEXT DEFAULT 'partner' CHECK (role IN ('partner', 'child', 'extended')),
   created_at    TIMESTAMPTZ DEFAULT now()
 );
@@ -269,22 +269,22 @@ ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE incomes ENABLE ROW LEVEL SECURITY;
 
 -- Helper function: get current user's couple_id
-CREATE OR REPLACE FUNCTION auth.couple_id()
+CREATE OR REPLACE FUNCTION public.get_couple_id()
 RETURNS UUID AS $$
   SELECT couple_id FROM public.users WHERE id = auth.uid()
 $$ LANGUAGE SQL SECURITY DEFINER STABLE;
 
 -- COUPLES
 CREATE POLICY "Users can view own couple" ON couples
-  FOR SELECT USING (id = auth.couple_id());
+  FOR SELECT USING (id = public.get_couple_id());
 CREATE POLICY "Users can update own couple" ON couples
-  FOR UPDATE USING (id = auth.couple_id());
+  FOR UPDATE USING (id = public.get_couple_id());
 CREATE POLICY "Anyone can create couple" ON couples
   FOR INSERT WITH CHECK (true);
 
 -- USERS
 CREATE POLICY "Users can view couple members" ON users
-  FOR SELECT USING (couple_id = auth.couple_id() OR id = auth.uid());
+  FOR SELECT USING (couple_id = public.get_couple_id() OR id = auth.uid());
 CREATE POLICY "Users can insert self" ON users
   FOR INSERT WITH CHECK (id = auth.uid());
 CREATE POLICY "Users can update self" ON users
@@ -292,91 +292,91 @@ CREATE POLICY "Users can update self" ON users
 
 -- EXPENSE CATEGORIES
 CREATE POLICY "Couple access" ON expense_categories
-  FOR ALL USING (couple_id = auth.couple_id());
+  FOR ALL USING (couple_id = public.get_couple_id());
 
 -- CALENDAR EVENTS
 CREATE POLICY "Calendar select" ON calendar_events
   FOR SELECT USING (
-    couple_id = auth.couple_id()
+    couple_id = public.get_couple_id()
     AND (visibility = 'shared' OR created_by = auth.uid())
   );
 CREATE POLICY "Calendar insert" ON calendar_events
-  FOR INSERT WITH CHECK (couple_id = auth.couple_id());
+  FOR INSERT WITH CHECK (couple_id = public.get_couple_id());
 CREATE POLICY "Calendar update" ON calendar_events
-  FOR UPDATE USING (couple_id = auth.couple_id());
+  FOR UPDATE USING (couple_id = public.get_couple_id());
 CREATE POLICY "Calendar delete" ON calendar_events
-  FOR DELETE USING (couple_id = auth.couple_id() AND created_by = auth.uid());
+  FOR DELETE USING (couple_id = public.get_couple_id() AND created_by = auth.uid());
 
 -- EVENT REMINDERS
 CREATE POLICY "Reminder access" ON event_reminders
   FOR ALL USING (
-    event_id IN (SELECT id FROM calendar_events WHERE couple_id = auth.couple_id())
+    event_id IN (SELECT id FROM calendar_events WHERE couple_id = public.get_couple_id())
   );
 
 -- SHOPPING LISTS
 CREATE POLICY "Couple access" ON shopping_lists
-  FOR ALL USING (couple_id = auth.couple_id());
+  FOR ALL USING (couple_id = public.get_couple_id());
 
 -- SHOPPING ITEMS
 CREATE POLICY "Couple access" ON shopping_items
   FOR ALL USING (
-    list_id IN (SELECT id FROM shopping_lists WHERE couple_id = auth.couple_id())
+    list_id IN (SELECT id FROM shopping_lists WHERE couple_id = public.get_couple_id())
   );
 
 -- TODOS
 CREATE POLICY "Todo select" ON todos
   FOR SELECT USING (
-    couple_id = auth.couple_id()
+    couple_id = public.get_couple_id()
     AND (visibility = 'shared' OR created_by = auth.uid() OR assigned_to = auth.uid())
   );
 CREATE POLICY "Todo insert" ON todos
-  FOR INSERT WITH CHECK (couple_id = auth.couple_id());
+  FOR INSERT WITH CHECK (couple_id = public.get_couple_id());
 CREATE POLICY "Todo update" ON todos
-  FOR UPDATE USING (couple_id = auth.couple_id());
+  FOR UPDATE USING (couple_id = public.get_couple_id());
 CREATE POLICY "Todo delete" ON todos
-  FOR DELETE USING (couple_id = auth.couple_id() AND created_by = auth.uid());
+  FOR DELETE USING (couple_id = public.get_couple_id() AND created_by = auth.uid());
 
 -- EXPENSES
 CREATE POLICY "Couple access" ON expenses
-  FOR ALL USING (couple_id = auth.couple_id());
+  FOR ALL USING (couple_id = public.get_couple_id());
 
 -- EXPENSE SPLITS
 CREATE POLICY "Couple access" ON expense_splits
   FOR ALL USING (
-    expense_id IN (SELECT id FROM expenses WHERE couple_id = auth.couple_id())
+    expense_id IN (SELECT id FROM expenses WHERE couple_id = public.get_couple_id())
   );
 
 -- SETTLEMENTS
 CREATE POLICY "Couple access" ON settlements
-  FOR ALL USING (couple_id = auth.couple_id());
+  FOR ALL USING (couple_id = public.get_couple_id());
 
 -- BUDGETS
 CREATE POLICY "Couple access" ON budgets
-  FOR ALL USING (couple_id = auth.couple_id());
+  FOR ALL USING (couple_id = public.get_couple_id());
 
 -- BUDGET CATEGORIES
 CREATE POLICY "Couple access" ON budget_categories
   FOR ALL USING (
-    budget_id IN (SELECT id FROM budgets WHERE couple_id = auth.couple_id())
+    budget_id IN (SELECT id FROM budgets WHERE couple_id = public.get_couple_id())
   );
 
 -- SAVINGS GOALS
 CREATE POLICY "Couple access" ON savings_goals
-  FOR ALL USING (couple_id = auth.couple_id());
+  FOR ALL USING (couple_id = public.get_couple_id());
 
 -- SAVINGS CONTRIBUTIONS
 CREATE POLICY "Couple access" ON savings_contributions
   FOR ALL USING (
-    goal_id IN (SELECT id FROM savings_goals WHERE couple_id = auth.couple_id())
+    goal_id IN (SELECT id FROM savings_goals WHERE couple_id = public.get_couple_id())
   );
 
 -- ACCOUNTS
 CREATE POLICY "Couple access" ON accounts
-  FOR ALL USING (couple_id = auth.couple_id());
+  FOR ALL USING (couple_id = public.get_couple_id());
 
 -- INCOMES
 CREATE POLICY "Couple access" ON incomes
-  FOR ALL USING (couple_id = auth.couple_id());
+  FOR ALL USING (couple_id = public.get_couple_id());
 
 -- ============================================
 -- TRIGGERS & FUNCTIONS

@@ -48,7 +48,7 @@ export function AppHeader() {
             <Avatar className="h-8 w-8">
               <AvatarImage src={user?.avatar_url || undefined} />
               <AvatarFallback
-                style={{ backgroundColor: (user?.color || '#4F46E5') + '20', color: user?.color || '#4F46E5' }}
+                style={{ backgroundColor: (user?.color || '#85B59B') + '20', color: user?.color || '#85B59B' }}
               >
                 {user?.display_name?.[0] || '?'}
               </AvatarFallback>

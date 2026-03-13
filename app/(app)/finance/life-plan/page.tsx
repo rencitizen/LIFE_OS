@@ -1,0 +1,798 @@
+'use client'
+
+import { useState, useCallback } from 'react'
+import { TrendingUp, Wallet, Calendar, Settings2, Home, Users, Download, Save, Plus, X, Pencil } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useAuth } from '@/lib/hooks/use-auth'
+import { useLifePlan, useLifePlanConfig, useSimulation, useSaveLifePlan, useInitLifePlan } from '@/lib/hooks/use-life-plan'
+import type { LifePlanConfig, LifeEvent } from '@/types/life-plan'
+import { summarizeLivingCosts } from '@/lib/life-plan/engine'
+import { toast } from 'sonner'
+
+/*
+  Color Palette:
+  #1E5945  dark forest green  → headers, emphasis, strong borders
+  #133929  deepest green      → bold text, total rows
+  #85B59B  sage green         → editable cell bg, accents
+  #F7F7F7  near white         → computed cell bg
+  #D9D9D9  light gray         → borders, muted elements
+*/
+
+const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
+const pct = (n: number) => `${(n * 100).toFixed(1)}%`
+
+/** Read-only computed value — gray text on near-white bg */
+function Computed({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <span className={`tabular-nums text-muted-foreground ${className}`}>{children}</span>
+}
+
+/** Strong computed value — for totals and key metrics */
+function ComputedBold({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <span className={`tabular-nums font-bold text-[#133929] ${className}`}>{children}</span>
+}
+
+/** Editable number input — sage green bg with green border */
+function NumInput({
+  value,
+  onChange,
+  className = '',
+  step,
+}: {
+  value: number
+  onChange: (v: number) => void
+  className?: string
+  step?: string
+}) {
+  return (
+    <Input
+      type="number"
+      step={step}
+      className={`h-7 text-right text-sm bg-[#85B59B]/10 border-[#85B59B]/40 text-[#133929] focus:border-[#1E5945] focus:ring-[#1E5945]/20 ${className}`}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+    />
+  )
+}
+
+/** Editable text input — sage green bg */
+function TextInput({
+  value,
+  onChange,
+  className = '',
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  className?: string
+  placeholder?: string
+}) {
+  return (
+    <Input
+      className={`h-7 text-sm bg-[#85B59B]/10 border-[#85B59B]/40 text-[#133929] focus:border-[#1E5945] focus:ring-[#1E5945]/20 ${className}`}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  )
+}
+
+/** Section header badge for editable/computed distinction */
+function EditableBadge() {
+  return <Badge className="text-[10px] ml-2 bg-[#85B59B]/20 text-[#1E5945] border-[#85B59B]/40"><Pencil className="h-2.5 w-2.5 mr-0.5" />編集可能</Badge>
+}
+function ComputedBadge() {
+  return <Badge className="text-[10px] ml-2 bg-[#F7F7F7] text-muted-foreground border-[#D9D9D9]">自動計算</Badge>
+}
+
+export default function LifePlanPage() {
+  const { couple } = useAuth()
+  const { data: lifePlan, isLoading } = useLifePlan(couple?.id)
+  const defaultConfig = useLifePlanConfig(couple?.id)
+  const [localConfig, setLocalConfig] = useState<LifePlanConfig | null>(null)
+  const config = localConfig ?? defaultConfig
+  const sim = useSimulation(config)
+  const savePlan = useSaveLifePlan()
+  const initPlan = useInitLifePlan()
+
+  const updateConfig = useCallback((updater: (prev: LifePlanConfig) => LifePlanConfig) => {
+    setLocalConfig((prev) => updater(prev ?? defaultConfig))
+  }, [defaultConfig])
+
+  const handleInit = async () => {
+    if (!couple?.id) return
+    try {
+      await initPlan.mutateAsync(couple.id)
+      setLocalConfig(null)
+      toast.success('Excelデータをインポートしました')
+    } catch {
+      toast.error('インポートに失敗しました')
+    }
+  }
+
+  const handleSave = async () => {
+    if (!couple?.id) return
+    try {
+      await savePlan.mutateAsync({ coupleId: couple.id, config })
+      setLocalConfig(null)
+      toast.success('ライフプランを保存しました')
+    } catch {
+      toast.error('保存に失敗しました')
+    }
+  }
+
+  if (isLoading) {
+    return <div className="text-sm text-muted-foreground p-8 text-center">読み込み中...</div>
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h2 className="text-lg font-bold text-[#133929]">人生キャッシュフロー</h2>
+          <div className="flex items-center gap-3 text-[11px] mt-1">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-4 h-3 rounded-sm bg-[#85B59B]/15 border border-[#85B59B]/50" />
+              <span className="text-[#1E5945]">編集可能</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-4 h-3 rounded-sm bg-[#F7F7F7] border border-[#D9D9D9]" />
+              <span className="text-muted-foreground">自動計算</span>
+            </span>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {!lifePlan && (
+            <Button size="sm" variant="outline" onClick={handleInit} disabled={initPlan.isPending}
+              className="border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10">
+              <Download className="h-4 w-4 mr-1" />
+              Excelデータ反映
+            </Button>
+          )}
+          {localConfig && (
+            <Button size="sm" onClick={handleSave} disabled={savePlan.isPending}
+              className="bg-[#1E5945] hover:bg-[#133929] text-white">
+              <Save className="h-4 w-4 mr-1" />
+              保存
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Tabs defaultValue="dashboard">
+        <TabsList className="flex-wrap h-auto bg-[#F7F7F7] border border-[#D9D9D9]">
+          <TabsTrigger value="dashboard" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><TrendingUp className="h-3 w-3 mr-1" />総合</TabsTrigger>
+          <TabsTrigger value="assets" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Users className="h-3 w-3 mr-1" />資産推移</TabsTrigger>
+          <TabsTrigger value="income" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Wallet className="h-3 w-3 mr-1" />収入</TabsTrigger>
+          <TabsTrigger value="living" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Home className="h-3 w-3 mr-1" />生活費</TabsTrigger>
+          <TabsTrigger value="events" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Calendar className="h-3 w-3 mr-1" />イベント</TabsTrigger>
+          <TabsTrigger value="assumptions" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Settings2 className="h-3 w-3 mr-1" />前提条件</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard">
+          <DashboardTab sim={sim} />
+        </TabsContent>
+        <TabsContent value="assets">
+          <AssetsTab sim={sim} />
+        </TabsContent>
+        <TabsContent value="income">
+          <IncomeTab config={config} updateConfig={updateConfig} sim={sim} />
+        </TabsContent>
+        <TabsContent value="living">
+          <LivingCostTab config={config} updateConfig={updateConfig} />
+        </TabsContent>
+        <TabsContent value="events">
+          <EventsTab config={config} updateConfig={updateConfig} />
+        </TabsContent>
+        <TabsContent value="assumptions">
+          <AssumptionsTab config={config} updateConfig={updateConfig} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+// ============================================
+// Dashboard Tab (ALL computed)
+// ============================================
+function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
+  return (
+    <div className="space-y-4">
+      {sim.household.length > 0 && (() => {
+        const latest = sim.household[sim.household.length - 1]
+        const first = sim.household[0]
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: `世帯手取り (${latest.year})`, value: yen(latest.householdNet), sub: `${yen(latest.householdNetMonthly)}/月` },
+              { label: `世帯総資産 (${latest.year})`, value: yen(latest.householdTotalAssets) },
+              { label: '資産年収倍率', value: `${latest.assetIncomeRatio.toFixed(2)}倍` },
+              { label: `資産成長 (${first.year}→${latest.year})`, value: yen(latest.householdTotalAssets - first.householdTotalAssets) },
+            ].map((card) => (
+              <Card key={card.label} className="border-[#D9D9D9]">
+                <CardContent className="p-4">
+                  <p className="text-[11px] text-muted-foreground">{card.label}</p>
+                  <p className="text-lg font-bold text-[#133929]">{card.value}</p>
+                  {card.sub && <p className="text-[11px] text-muted-foreground">{card.sub}</p>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )
+      })()}
+
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-[#133929]">年度別ダッシュボード <ComputedBadge /></CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-[#1E5945] text-white">
+                <th className="text-left p-2 whitespace-nowrap font-medium">年度</th>
+                <th className="text-left p-2 font-medium">年齢</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">Ren手取</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">Hikaru手取</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">世帯手取</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">キャッシュ</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">NISA</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">課税資産</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">総資産</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">Cash比率</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">年収倍率</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sim.household.map((row, i) => (
+                <tr key={row.year} className={`border-b border-[#D9D9D9] ${i % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'}`}>
+                  <td className="p-2 font-bold text-[#133929]">{row.year}</td>
+                  <td className="p-2 text-muted-foreground">{row.age}</td>
+                  <td className="p-2 text-right"><Computed>{yen(row.renNet)}</Computed></td>
+                  <td className="p-2 text-right"><Computed>{yen(row.hikaruNet)}</Computed></td>
+                  <td className="p-2 text-right font-medium text-[#1E5945]">{yen(row.householdNet)}</td>
+                  <td className="p-2 text-right"><Computed>{yen(row.householdCash)}</Computed></td>
+                  <td className="p-2 text-right"><Computed>{yen(row.householdNisa)}</Computed></td>
+                  <td className="p-2 text-right"><Computed>{yen(row.householdTaxable)}</Computed></td>
+                  <td className="p-2 text-right"><ComputedBold>{yen(row.householdTotalAssets)}</ComputedBold></td>
+                  <td className="p-2 text-right"><Computed>{pct(row.cashRatio)}</Computed></td>
+                  <td className="p-2 text-right"><Computed>{row.assetIncomeRatio.toFixed(2)}</Computed></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      {/* Asset composition bar chart */}
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-[#133929]">資産構成推移</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2.5">
+          {sim.household.map((row) => {
+            const max = Math.max(...sim.household.map((h) => h.householdTotalAssets))
+            const cashW = max > 0 ? (row.householdCash / max) * 100 : 0
+            const nisaW = max > 0 ? (row.householdNisa / max) * 100 : 0
+            const taxW = max > 0 ? (row.householdTaxable / max) * 100 : 0
+            return (
+              <div key={row.year} className="flex items-center gap-2">
+                <span className="text-xs w-10 shrink-0 font-medium text-[#133929]">{row.year}</span>
+                <div className="flex-1 flex h-6 rounded-md overflow-hidden bg-[#F7F7F7] border border-[#D9D9D9]">
+                  <div className="bg-[#85B59B] h-full transition-all" style={{ width: `${cashW}%` }} title={`Cash: ${yen(row.householdCash)}`} />
+                  <div className="bg-[#1E5945] h-full transition-all" style={{ width: `${nisaW}%` }} title={`NISA: ${yen(row.householdNisa)}`} />
+                  <div className="bg-[#133929] h-full transition-all" style={{ width: `${taxW}%` }} title={`課税: ${yen(row.householdTaxable)}`} />
+                </div>
+                <span className="text-xs w-28 text-right shrink-0 font-bold text-[#133929]">{yen(row.householdTotalAssets)}</span>
+              </div>
+            )
+          })}
+          <div className="flex gap-4 text-xs pt-2">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#85B59B]" /><span className="text-muted-foreground">キャッシュ</span></span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#1E5945]" /><span className="text-muted-foreground">NISA</span></span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#133929]" /><span className="text-muted-foreground">課税資産</span></span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================
+// Assets Tab (ALL computed)
+// ============================================
+function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
+  const [person, setPerson] = useState<'ren' | 'hikaru'>('ren')
+  const data = person === 'ren' ? sim.ren : sim.hikaru
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1">
+        <Button size="sm" onClick={() => setPerson('ren')}
+          className={person === 'ren' ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'bg-white text-[#1E5945] border-[#85B59B] hover:bg-[#85B59B]/10'}>
+          Ren
+        </Button>
+        <Button size="sm" onClick={() => setPerson('hikaru')}
+          className={person === 'hikaru' ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'bg-white text-[#1E5945] border-[#85B59B] hover:bg-[#85B59B]/10'}>
+          Hikaru
+        </Button>
+      </div>
+
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-[#133929]">
+            {person === 'ren' ? 'Ren' : 'Hikaru'} 資産推移
+            <ComputedBadge />
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-[#1E5945] text-white">
+                <th className="text-left p-2 font-medium">年度</th>
+                <th className="text-right p-2 font-medium">手取り</th>
+                <th className="text-right p-2 font-medium">生活費</th>
+                <th className="text-right p-2 font-medium">可処分</th>
+                <th className="text-right p-2 font-medium">イベント</th>
+                <th className="text-right p-2 font-medium">Cash積立</th>
+                <th className="text-right p-2 font-medium">Cash残高</th>
+                <th className="text-right p-2 font-medium">投資可能</th>
+                <th className="text-right p-2 font-medium">NISA投資</th>
+                <th className="text-right p-2 font-medium">NISA残高</th>
+                <th className="text-right p-2 font-medium">課税投資</th>
+                <th className="text-right p-2 font-medium">課税残高</th>
+                <th className="text-right p-2 font-medium">総資産</th>
+                <th className="text-right p-2 font-medium">成長率</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, i) => (
+                <tr key={row.year} className={`border-b border-[#D9D9D9] ${i % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'}`}>
+                  <td className="p-2 font-bold text-[#133929]">{row.year}</td>
+                  <td className="p-2 text-right"><Computed>{yen(row.net)}</Computed></td>
+                  <td className="p-2 text-right"><Computed>{yen(row.livingCost)}</Computed></td>
+                  <td className="p-2 text-right"><Computed>{yen(row.disposable)}</Computed></td>
+                  <td className="p-2 text-right">{row.eventCost > 0 ? <span className="text-[#d94f4f] font-medium">{yen(row.eventCost)}</span> : <Computed>-</Computed>}</td>
+                  <td className="p-2 text-right"><Computed>{yen(row.cashReserve)}</Computed></td>
+                  <td className="p-2 text-right font-medium text-[#1E5945]">{yen(row.cashBalance)}</td>
+                  <td className="p-2 text-right"><Computed>{yen(row.investable)}</Computed></td>
+                  <td className="p-2 text-right"><Computed>{yen(row.nisaInvestment)}</Computed></td>
+                  <td className="p-2 text-right font-medium text-[#1E5945]">{yen(row.nisaBalance)}</td>
+                  <td className="p-2 text-right"><Computed>{yen(row.nonNisaInvestment)}</Computed></td>
+                  <td className="p-2 text-right font-medium text-[#1E5945]">{yen(row.taxableBalance)}</td>
+                  <td className="p-2 text-right"><ComputedBold>{yen(row.totalAssets)}</ComputedBold></td>
+                  <td className="p-2 text-right"><Computed>{row.assetGrowthRate ? pct(row.assetGrowthRate) : '-'}</Computed></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-[#133929]">{person === 'ren' ? 'Ren' : 'Hikaru'} 資産構成</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2.5">
+          {data.map((row) => {
+            const max = Math.max(...data.map((d) => d.totalAssets))
+            const cashW = max > 0 ? (row.cashBalance / max) * 100 : 0
+            const nisaW = max > 0 ? (row.nisaBalance / max) * 100 : 0
+            const taxW = max > 0 ? (row.taxableBalance / max) * 100 : 0
+            return (
+              <div key={row.year} className="flex items-center gap-2">
+                <span className="text-xs w-10 shrink-0 font-medium text-[#133929]">{row.year}</span>
+                <div className="flex-1 flex h-6 rounded-md overflow-hidden bg-[#F7F7F7] border border-[#D9D9D9]">
+                  <div className="bg-[#85B59B] h-full" style={{ width: `${cashW}%` }} />
+                  <div className="bg-[#1E5945] h-full" style={{ width: `${nisaW}%` }} />
+                  <div className="bg-[#133929] h-full" style={{ width: `${taxW}%` }} />
+                </div>
+                <span className="text-xs w-28 text-right shrink-0 font-bold text-[#133929]">{yen(row.totalAssets)}</span>
+              </div>
+            )
+          })}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================
+// Income Tab (editable + computed)
+// ============================================
+function IncomeTab({
+  config,
+  updateConfig,
+  sim,
+}: {
+  config: LifePlanConfig
+  updateConfig: (fn: (c: LifePlanConfig) => LifePlanConfig) => void
+  sim: ReturnType<typeof useSimulation>
+}) {
+  const updateIncome = (yearIdx: number, path: string, value: number) => {
+    updateConfig((c) => {
+      const incomeData = [...c.incomeData]
+      const entry = { ...incomeData[yearIdx] }
+      const [person, field] = path.split('.') as ['ren' | 'hikaru', 'gross' | 'net']
+      entry[person] = { ...entry[person], [field]: value }
+      incomeData[yearIdx] = entry
+      return { ...c, incomeData }
+    })
+  }
+
+  const addYear = () => {
+    updateConfig((c) => {
+      const lastYear = c.incomeData.length > 0 ? c.incomeData[c.incomeData.length - 1] : null
+      const newYear = lastYear ? lastYear.year + 1 : new Date().getFullYear()
+      return {
+        ...c,
+        incomeData: [...c.incomeData, {
+          year: newYear,
+          ren: lastYear ? { ...lastYear.ren } : { gross: 0, net: 0 },
+          hikaru: lastYear ? { ...lastYear.hikaru } : { gross: 0, net: 0 },
+        }],
+      }
+    })
+  }
+
+  const removeYear = (idx: number) => {
+    updateConfig((c) => ({
+      ...c,
+      incomeData: c.incomeData.filter((_, i) => i !== idx),
+    }))
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base text-[#133929]">年度別収入 <EditableBadge /></CardTitle>
+          <Button size="sm" variant="outline" onClick={addYear}
+            className="border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10">
+            <Plus className="h-3 w-3 mr-1" />年度追加
+          </Button>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#1E5945] text-white text-xs">
+                <th className="text-left p-2 font-medium">年度</th>
+                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Ren額面</th>
+                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Ren手取</th>
+                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Hikaru額面</th>
+                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Hikaru手取</th>
+                <th className="text-right p-2 font-medium">世帯額面</th>
+                <th className="text-right p-2 font-medium">世帯手取</th>
+                <th className="text-right p-2 font-medium">世帯可処分</th>
+                <th className="p-2 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {config.incomeData.map((entry, i) => {
+                const renResult = sim.ren[i]
+                const hikaruResult = sim.hikaru[i]
+                return (
+                  <tr key={entry.year} className={`border-b border-[#D9D9D9] ${i % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'}`}>
+                    <td className="p-2 font-bold text-[#133929]">{entry.year}</td>
+                    <td className="p-2 bg-[#85B59B]/8">
+                      <NumInput value={entry.ren.gross} onChange={(v) => updateIncome(i, 'ren.gross', v)} className="w-28" />
+                    </td>
+                    <td className="p-2 bg-[#85B59B]/8">
+                      <NumInput value={entry.ren.net} onChange={(v) => updateIncome(i, 'ren.net', v)} className="w-28" />
+                    </td>
+                    <td className="p-2 bg-[#85B59B]/8">
+                      <NumInput value={entry.hikaru.gross} onChange={(v) => updateIncome(i, 'hikaru.gross', v)} className="w-28" />
+                    </td>
+                    <td className="p-2 bg-[#85B59B]/8">
+                      <NumInput value={entry.hikaru.net} onChange={(v) => updateIncome(i, 'hikaru.net', v)} className="w-28" />
+                    </td>
+                    <td className="p-2 text-right"><Computed>{yen(entry.ren.gross + entry.hikaru.gross)}</Computed></td>
+                    <td className="p-2 text-right font-medium text-[#1E5945]">{yen(entry.ren.net + entry.hikaru.net)}</td>
+                    <td className="p-2 text-right">
+                      <Computed>{renResult && hikaruResult ? yen(renResult.disposable + hikaruResult.disposable) : '-'}</Computed>
+                    </td>
+                    <td className="p-2">
+                      {config.incomeData.length > 1 && (
+                        <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-red-50" onClick={() => removeYear(i)}>
+                          <X className="h-3 w-3 text-[#d94f4f]" />
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================
+// Living Cost Tab (editable amounts + computed totals)
+// ============================================
+function LivingCostTab({
+  config,
+  updateConfig,
+}: {
+  config: LifePlanConfig
+  updateConfig: (fn: (c: LifePlanConfig) => LifePlanConfig) => void
+}) {
+  const [template, setTemplate] = useState<'beforeRen' | 'beforeHikaru' | 'afterCohabitation'>('afterCohabitation')
+  const items = config.livingCosts[template]
+  const summary = summarizeLivingCosts(items)
+
+  const updateItem = (idx: number, monthly: number) => {
+    updateConfig((c) => {
+      const costs = { ...c.livingCosts }
+      const arr = [...costs[template]]
+      arr[idx] = { ...arr[idx], monthly }
+      costs[template] = arr
+      return { ...c, livingCosts: costs }
+    })
+  }
+
+  const templateLabels = {
+    beforeRen: 'Ren同棲前',
+    beforeHikaru: 'Hikaru同棲前',
+    afterCohabitation: '同棲後',
+  }
+
+  const ownerLabels: Record<string, string> = { shared: '共有', ren: 'Ren', hikaru: 'Hikaru' }
+  const ownerStyles: Record<string, string> = {
+    shared: 'bg-[#1E5945] text-white',
+    ren: 'bg-[#85B59B]/20 text-[#133929] border border-[#85B59B]/40',
+    hikaru: 'bg-[#F7F7F7] text-[#133929] border border-[#D9D9D9]',
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1">
+        {(Object.keys(templateLabels) as (keyof typeof templateLabels)[]).map((key) => (
+          <Button key={key} size="sm" onClick={() => setTemplate(key)} className={`text-xs ${
+            template === key
+              ? 'bg-[#1E5945] text-white hover:bg-[#133929]'
+              : 'bg-white text-[#1E5945] border-[#85B59B] hover:bg-[#85B59B]/10'
+          }`}>
+            {templateLabels[key]}
+          </Button>
+        ))}
+      </div>
+
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-[#133929]">{templateLabels[template]}の生活費 <EditableBadge /></CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {items.map((item, i) => (
+              <div key={`${item.item}-${item.owner}-${i}`} className="grid grid-cols-[auto_1fr_auto_auto] gap-2 items-center">
+                <Badge className={`text-[10px] ${ownerStyles[item.owner]}`}>{ownerLabels[item.owner]}</Badge>
+                <span className="text-sm truncate text-[#133929]">{item.category} / {item.item}</span>
+                <NumInput value={item.monthly} onChange={(v) => updateItem(i, v)} className="w-24" />
+                <span className="text-[11px] text-muted-foreground w-8">/月</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-[#D9D9D9] mt-4 pt-3 space-y-1.5 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">共有合計</span><Computed className="font-medium">{yen(summary.shared)}/月</Computed></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Ren個人</span><Computed className="font-medium">{yen(summary.ren)}/月</Computed></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Hikaru個人</span><Computed className="font-medium">{yen(summary.hikaru)}/月</Computed></div>
+            <div className="flex justify-between border-t border-[#1E5945]/20 pt-2">
+              <span className="font-bold text-[#133929]">合計</span>
+              <ComputedBold>{yen(summary.total)}/月（年間 {yen(summary.total * 12)}）</ComputedBold>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================
+// Events Tab (editable + computed burden)
+// ============================================
+function EventsTab({
+  config,
+  updateConfig,
+}: {
+  config: LifePlanConfig
+  updateConfig: (fn: (c: LifePlanConfig) => LifePlanConfig) => void
+}) {
+  const updateEvent = (idx: number, field: keyof LifeEvent, value: string | number) => {
+    updateConfig((c) => {
+      const events = [...c.lifeEvents]
+      events[idx] = { ...events[idx], [field]: value }
+      if (field === 'renRatio') events[idx].hikaruRatio = Math.round((1 - Number(value)) * 10000) / 10000
+      if (field === 'hikaruRatio') events[idx].renRatio = Math.round((1 - Number(value)) * 10000) / 10000
+      return { ...c, lifeEvents: events }
+    })
+  }
+
+  const addEvent = () => {
+    updateConfig((c) => ({
+      ...c,
+      lifeEvents: [...c.lifeEvents, {
+        year: new Date().getFullYear() + 1,
+        title: '', category: '', amount: 0,
+        renRatio: 0.5, hikaruRatio: 0.5,
+        paymentType: 'lump_sum' as const, memo: '',
+      }],
+    }))
+  }
+
+  const removeEvent = (idx: number) => {
+    updateConfig((c) => ({ ...c, lifeEvents: c.lifeEvents.filter((_, i) => i !== idx) }))
+  }
+
+  const totalCost = config.lifeEvents.reduce((s, e) => s + e.amount, 0)
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base text-[#133929]">ライフイベント <EditableBadge /></CardTitle>
+          <Button size="sm" variant="outline" onClick={addEvent}
+            className="border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10">
+            <Plus className="h-3 w-3 mr-1" />追加
+          </Button>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#1E5945] text-white text-xs">
+                <th className="text-left p-2 font-medium bg-[#85B59B]/30">年度</th>
+                <th className="text-left p-2 font-medium bg-[#85B59B]/30">イベント</th>
+                <th className="text-left p-2 font-medium bg-[#85B59B]/30">カテゴリ</th>
+                <th className="text-right p-2 font-medium bg-[#85B59B]/30">支出額</th>
+                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Ren比率</th>
+                <th className="text-right p-2 font-medium">Ren負担</th>
+                <th className="text-right p-2 font-medium">Hikaru負担</th>
+                <th className="text-left p-2 font-medium bg-[#85B59B]/30">メモ</th>
+                <th className="p-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {config.lifeEvents.map((event, i) => (
+                <tr key={i} className={`border-b border-[#D9D9D9] ${i % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'}`}>
+                  <td className="p-2 bg-[#85B59B]/8">
+                    <NumInput value={event.year} onChange={(v) => updateEvent(i, 'year', v)} className="w-16" />
+                  </td>
+                  <td className="p-2 bg-[#85B59B]/8">
+                    <TextInput value={event.title} onChange={(v) => updateEvent(i, 'title', v)} className="w-24" placeholder="名前" />
+                  </td>
+                  <td className="p-2 bg-[#85B59B]/8">
+                    <TextInput value={event.category} onChange={(v) => updateEvent(i, 'category', v)} className="w-16" />
+                  </td>
+                  <td className="p-2 bg-[#85B59B]/8">
+                    <NumInput value={event.amount} onChange={(v) => updateEvent(i, 'amount', v)} className="w-28" />
+                  </td>
+                  <td className="p-2 bg-[#85B59B]/8">
+                    <NumInput value={event.renRatio} onChange={(v) => updateEvent(i, 'renRatio', v)} className="w-16" step="0.01" />
+                  </td>
+                  <td className="p-2 text-right"><Computed>{yen(event.amount * event.renRatio)}</Computed></td>
+                  <td className="p-2 text-right"><Computed>{yen(event.amount * event.hikaruRatio)}</Computed></td>
+                  <td className="p-2 bg-[#85B59B]/8">
+                    <TextInput value={event.memo} onChange={(v) => updateEvent(i, 'memo', v)} className="w-28" />
+                  </td>
+                  <td className="p-2">
+                    <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-red-50" onClick={() => removeEvent(i)}>
+                      <X className="h-3 w-3 text-[#d94f4f]" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="border-t border-[#1E5945]/20 mt-2 pt-2 text-sm text-right">
+            <span className="text-muted-foreground">合計: </span>
+            <ComputedBold>{yen(totalCost)}</ComputedBold>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================
+// Assumptions Tab (editable)
+// ============================================
+function AssumptionsTab({
+  config,
+  updateConfig,
+}: {
+  config: LifePlanConfig
+  updateConfig: (fn: (c: LifePlanConfig) => LifePlanConfig) => void
+}) {
+  const updateAssumption = (field: string, value: number) => {
+    updateConfig((c) => ({ ...c, assumptions: { ...c.assumptions, [field]: value } }))
+  }
+
+  const updateInitialAssets = (person: 'ren' | 'hikaru', field: string, value: number) => {
+    updateConfig((c) => ({
+      ...c,
+      initialAssets: { ...c.initialAssets, [person]: { ...c.initialAssets[person], [field]: value } },
+    }))
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-[#133929]">前提条件 <EditableBadge /></CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[#133929] font-medium">キャッシュ確保率</Label>
+              <div className="flex items-center gap-2">
+                <NumInput value={config.assumptions.cashReserveRatio} onChange={(v) => updateAssumption('cashReserveRatio', v)} className="w-24" step="0.01" />
+                <Computed>= {pct(config.assumptions.cashReserveRatio)}</Computed>
+              </div>
+              <p className="text-[11px] text-muted-foreground">手取りの何割をキャッシュとして確保するか</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#133929] font-medium">目標防衛資金（月数）</Label>
+              <div className="flex items-center gap-2">
+                <NumInput value={config.assumptions.defenseMonths} onChange={(v) => updateAssumption('defenseMonths', v)} className="w-24" />
+                <span className="text-sm text-muted-foreground">ヶ月分の生活費</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#133929] font-medium">想定投資利回り</Label>
+              <div className="flex items-center gap-2">
+                <NumInput value={config.assumptions.returnRate} onChange={(v) => updateAssumption('returnRate', v)} className="w-24" step="0.01" />
+                <Computed>= 年{pct(config.assumptions.returnRate)}</Computed>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#133929] font-medium">NISA年間投入枠</Label>
+              <div className="flex items-center gap-2">
+                <NumInput value={config.assumptions.nisaAnnualLimit} onChange={(v) => updateAssumption('nisaAnnualLimit', v)} className="w-32" />
+                <span className="text-sm text-muted-foreground">円/年</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-[#133929]">初期資産 <EditableBadge /></CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {(['ren', 'hikaru'] as const).map((person) => (
+              <div key={person} className="space-y-3 p-3 rounded-lg bg-[#F7F7F7] border border-[#D9D9D9]">
+                <h4 className="font-bold text-[#133929]">{person === 'ren' ? 'Ren' : 'Hikaru'}</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="w-20 text-xs text-muted-foreground">キャッシュ</Label>
+                    <NumInput value={config.initialAssets[person].cash} onChange={(v) => updateInitialAssets(person, 'cash', v)} className="w-32" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="w-20 text-xs text-muted-foreground">NISA</Label>
+                    <NumInput value={config.initialAssets[person].nisa} onChange={(v) => updateInitialAssets(person, 'nisa', v)} className="w-32" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="w-20 text-xs text-muted-foreground">課税資産</Label>
+                    <NumInput value={config.initialAssets[person].taxable} onChange={(v) => updateInitialAssets(person, 'taxable', v)} className="w-32" />
+                  </div>
+                  <div className="border-t border-[#D9D9D9] pt-2">
+                    <span className="text-xs text-muted-foreground">合計: </span>
+                    <ComputedBold className="text-sm">{yen(config.initialAssets[person].cash + config.initialAssets[person].nisa + config.initialAssets[person].taxable)}</ComputedBold>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

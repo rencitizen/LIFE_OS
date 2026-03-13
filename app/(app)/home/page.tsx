@@ -134,7 +134,7 @@ export default function HomePage() {
                   <div key={event.id} className="flex items-center gap-3">
                     <div
                       className="w-1 h-8 rounded-full"
-                      style={{ backgroundColor: event.color || '#4F46E5' }}
+                      style={{ backgroundColor: event.color || '#85B59B' }}
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{event.title}</p>
@@ -171,7 +171,7 @@ export default function HomePage() {
                         todo.priority === 'high'
                           ? 'bg-destructive'
                           : todo.priority === 'medium'
-                          ? 'bg-yellow-500'
+                          ? 'bg-[#85B59B]'
                           : 'bg-muted-foreground'
                       }`}
                     />
