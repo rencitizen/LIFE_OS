@@ -47,7 +47,8 @@ export default function ExpensesPage() {
 
   const handleCreate = async () => {
     if (!amount) { toast.error('金額を入力してください'); return }
-    if (!couple?.id || !user?.id) { toast.error('ログインが必要です'); return }
+    if (!user?.id) { toast.error('ログインが必要です'); return }
+    if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
     try {
       await createExpense.mutateAsync({
         couple_id: couple.id,

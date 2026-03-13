@@ -43,7 +43,8 @@ export default function TodosPage() {
 
   const handleCreate = async () => {
     if (!newTitle) { toast.error('タイトルを入力してください'); return }
-    if (!couple?.id || !user?.id) { toast.error('ログインが必要です'); return }
+    if (!user?.id) { toast.error('ログインが必要です'); return }
+    if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
     try {
       await createTodo.mutateAsync({
         couple_id: couple.id,

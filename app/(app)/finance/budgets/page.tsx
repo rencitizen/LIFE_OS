@@ -45,7 +45,7 @@ export default function BudgetsPage() {
 
   const handleCreate = async () => {
     if (!totalLimit) { toast.error('予算額を入力してください'); return }
-    if (!couple?.id) { toast.error('ログインが必要です'); return }
+    if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
     try {
       await createBudget.mutateAsync({
         couple_id: couple.id,

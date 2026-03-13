@@ -96,7 +96,8 @@ export default function CalendarPage() {
   const handleCreate = async () => {
     if (!newTitle) { toast.error('タイトルを入力してください'); return }
     if (!newDate) { toast.error('日付を選択してください'); return }
-    if (!couple?.id || !user?.id) { toast.error('ログインが必要です'); return }
+    if (!user?.id) { toast.error('ログインが必要です'); return }
+    if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
     try {
       const startAt = newAllDay
         ? new Date(`${newDate}T00:00:00`).toISOString()

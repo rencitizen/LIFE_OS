@@ -6,18 +6,43 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import { useQuery } from '@tanstack/react-query'
 import type { User, Couple } from '@/types'
+import type { User as AuthUser } from '@supabase/supabase-js'
+
+function toFallbackProfile(authUser: AuthUser): User {
+  return {
+    id: authUser.id,
+    couple_id: null,
+    display_name:
+      (typeof authUser.user_metadata?.display_name === 'string' && authUser.user_metadata.display_name) ||
+      (typeof authUser.user_metadata?.full_name === 'string' && authUser.user_metadata.full_name) ||
+      authUser.email?.split('@')[0] ||
+      'User',
+    avatar_url:
+      typeof authUser.user_metadata?.avatar_url === 'string' ? authUser.user_metadata.avatar_url : null,
+    email: authUser.email ?? null,
+    color: '#85A392',
+    role: 'partner',
+    created_at: new Date().toISOString(),
+  }
+}
 
 export function useAuth() {
   const supabase = createClient()
   const router = useRouter()
   const { setUser, setCouple, setPartner, reset } = useAuthStore()
 
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ['auth-profile'],
+  const { data: authUser, isLoading: isAuthLoading } = useQuery({
+    queryKey: ['auth-user'],
     queryFn: async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (!authUser) return null
+      return authUser
+    },
+  })
 
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ['auth-profile', authUser?.id],
+    queryFn: async () => {
+      if (!authUser) return null
       const { data } = await supabase
         .from('users')
         .select('*')
@@ -25,43 +50,47 @@ export function useAuth() {
         .single()
       return data as unknown as User | null
     },
+    enabled: !!authUser,
   })
 
+  const resolvedUser = profile ?? (authUser ? toFallbackProfile(authUser) : null)
+  const isLoading = isAuthLoading || isProfileLoading
+
   const { data: coupleData } = useQuery({
-    queryKey: ['auth-couple', profile?.couple_id],
+    queryKey: ['auth-couple', resolvedUser?.couple_id],
     queryFn: async () => {
-      if (!profile?.couple_id) return null
+      if (!resolvedUser?.couple_id) return null
       const { data } = await supabase
         .from('couples')
         .select('*')
-        .eq('id', profile.couple_id)
+        .eq('id', resolvedUser.couple_id)
         .single()
       return data as unknown as Couple | null
     },
-    enabled: !!profile?.couple_id,
+    enabled: !!resolvedUser?.couple_id,
   })
 
   const { data: partnerData } = useQuery({
-    queryKey: ['auth-partner', profile?.couple_id, profile?.id],
+    queryKey: ['auth-partner', resolvedUser?.couple_id, resolvedUser?.id],
     queryFn: async () => {
-      if (!profile?.couple_id) return null
+      if (!resolvedUser?.couple_id) return null
       const { data } = await supabase
         .from('users')
         .select('*')
-        .eq('couple_id', profile.couple_id)
-        .neq('id', profile.id)
+        .eq('couple_id', resolvedUser.couple_id)
+        .neq('id', resolvedUser.id)
         .single()
       return (data as unknown as User) || null
     },
-    enabled: !!profile?.couple_id,
+    enabled: !!resolvedUser?.couple_id,
   })
 
   // Sync to store for components that read from store directly
   useEffect(() => {
-    if (profile) setUser(profile)
+    if (resolvedUser) setUser(resolvedUser)
     if (coupleData) setCouple(coupleData)
     if (partnerData) setPartner(partnerData)
-  }, [profile, coupleData, partnerData, setUser, setCouple, setPartner])
+  }, [resolvedUser, coupleData, partnerData, setUser, setCouple, setPartner])
 
   const signOut = async () => {
     await supabase.auth.signOut()
@@ -71,7 +100,7 @@ export function useAuth() {
 
   // Return query data directly (not store) to avoid useEffect sync lag
   return {
-    user: profile ?? null,
+    user: resolvedUser,
     couple: coupleData ?? null,
     partner: partnerData ?? null,
     isLoading,
