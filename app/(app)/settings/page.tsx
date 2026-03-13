@@ -79,24 +79,13 @@ export default function SettingsPage() {
     if (!coupleName.trim()) { toast.error('カップル名を入力してください'); return }
     setCreatingCouple(true)
     try {
-      // Generate a random 8-char invite code
-      const code = Math.random().toString(36).slice(2, 10).toUpperCase()
       const { data: newCouple, error: coupleErr } = await supabase
-        .from('couples')
-        .insert({ name: coupleName.trim(), invite_code: code })
-        .select()
-        .single()
+        .rpc('create_couple_for_current_user', { p_name: coupleName.trim() })
       if (coupleErr) throw coupleErr
 
-      // Link user to the new couple
-      const { error: userErr } = await supabase
-        .from('users')
-        .update({ couple_id: newCouple.id })
-        .eq('id', user.id)
-      if (userErr) throw userErr
-
       await queryClient.invalidateQueries({ queryKey: ['auth-profile'] })
-      await queryClient.invalidateQueries({ queryKey: ['auth-couple'] })
+      await queryClient.invalidateQueries({ queryKey: ['auth-couple', newCouple?.id] })
+      await queryClient.invalidateQueries({ queryKey: ['auth-partner'] })
       setCreateDialogOpen(false)
       setCoupleName('')
       toast.success('カップルを作成しました')
@@ -113,26 +102,15 @@ export default function SettingsPage() {
     if (!inviteCode.trim()) { toast.error('招待コードを入力してください'); return }
     setJoiningCouple(true)
     try {
-      // Find couple by invite code
       const { data: foundCouple, error: findErr } = await supabase
-        .from('couples')
-        .select('id')
-        .eq('invite_code', inviteCode.trim().toUpperCase())
-        .single()
+        .rpc('join_couple_for_current_user', { p_invite_code: inviteCode.trim().toUpperCase() })
       if (findErr || !foundCouple) {
         toast.error('招待コードが見つかりません')
         return
       }
 
-      // Link user to the couple
-      const { error: userErr } = await supabase
-        .from('users')
-        .update({ couple_id: foundCouple.id })
-        .eq('id', user.id)
-      if (userErr) throw userErr
-
       await queryClient.invalidateQueries({ queryKey: ['auth-profile'] })
-      await queryClient.invalidateQueries({ queryKey: ['auth-couple'] })
+      await queryClient.invalidateQueries({ queryKey: ['auth-couple', foundCouple?.id] })
       await queryClient.invalidateQueries({ queryKey: ['auth-partner'] })
       setJoinDialogOpen(false)
       setInviteCode('')
