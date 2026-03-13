@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
@@ -22,7 +22,7 @@ function toFallbackProfile(authUser: AuthUser): User {
     email: authUser.email ?? null,
     color: '#85A392',
     role: 'partner',
-    created_at: new Date().toISOString(),
+    created_at: authUser.created_at ?? '',
   }
 }
 
@@ -53,7 +53,11 @@ export function useAuth() {
     enabled: !!authUser,
   })
 
-  const resolvedUser = profile ?? (authUser ? toFallbackProfile(authUser) : null)
+  const fallbackUser = useMemo(
+    () => (authUser ? toFallbackProfile(authUser) : null),
+    [authUser]
+  )
+  const resolvedUser = profile ?? fallbackUser
   const isLoading = isAuthLoading || isProfileLoading
 
   const { data: coupleData } = useQuery({
@@ -87,9 +91,9 @@ export function useAuth() {
 
   // Sync to store for components that read from store directly
   useEffect(() => {
-    if (resolvedUser) setUser(resolvedUser)
-    if (coupleData) setCouple(coupleData)
-    if (partnerData) setPartner(partnerData)
+    setUser(resolvedUser)
+    setCouple(coupleData ?? null)
+    setPartner(partnerData ?? null)
   }, [resolvedUser, coupleData, partnerData, setUser, setCouple, setPartner])
 
   const signOut = async () => {
