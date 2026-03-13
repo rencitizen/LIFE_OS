@@ -39,21 +39,11 @@ export default function RegisterPage() {
     }
 
     if (data.user) {
-      // Create user profile
-      const { error: profileError } = await supabase.from('users').insert({
-        id: data.user.id,
-        display_name: displayName,
-        email,
-      })
-
-      if (profileError) {
-        setError(profileError.message)
-        setLoading(false)
-        return
-      }
-
       router.push('/home')
+      return
     }
+
+    setLoading(false)
   }
 
   const handleGoogleRegister = async () => {
