@@ -8,14 +8,14 @@ const MONTHLY_BUDGET_TOTAL = 321500
 // Category name → monthly budget amount mapping from Excel
 // Maps to default expense_categories seeded by the DB trigger
 const CATEGORY_BUDGETS: Record<string, number> = {
-  '家賃': 160000,    // 家賃150,000 + 管理費10,000
+  '住宅': 160000,    // 家賃150,000 + 管理費10,000
   '食費': 50000,     // 共有食費
-  '光熱費': 10000,   // 電気ガス水道
+  '水道・光熱費': 10000,   // 電気ガス水道
   '日用品': 5000,    // 共有日用品
   '通信費': 6000,    // REN 携帯+インターネット
   '交通費': 10000,   // REN 5,000 + HIKARU 5,000
-  '娯楽': 50000,     // REN 外食娯楽
-  '医療費': 5500,    // REN コンタクト
+  '趣味・娯楽': 50000,     // REN 外食娯楽
+  '健康・医療': 5500,    // REN コンタクト
 }
 
 // Life events from Excel EVENT sheet
