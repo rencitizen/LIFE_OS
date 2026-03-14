@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
@@ -185,12 +184,24 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">カレンダー</h1>
         <div className="flex items-center gap-2">
-          <Tabs value={view} onValueChange={(v) => setView(v as 'month' | 'week')}>
-            <TabsList>
-              <TabsTrigger value="month">月</TabsTrigger>
-              <TabsTrigger value="week">週</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="inline-flex rounded-lg bg-muted p-[3px]">
+            <Button
+              size="sm"
+              variant={view === 'month' ? 'default' : 'ghost'}
+              className="h-7"
+              onClick={() => setView('month')}
+            >
+              月
+            </Button>
+            <Button
+              size="sm"
+              variant={view === 'week' ? 'default' : 'ghost'}
+              className="h-7"
+              onClick={() => setView('week')}
+            >
+              週
+            </Button>
+          </div>
           <Button size="sm" onClick={() => openCreateDialog()}>
             <Plus className="h-4 w-4 mr-1" />
             予定追加
