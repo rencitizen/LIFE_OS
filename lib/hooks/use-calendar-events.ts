@@ -14,8 +14,8 @@ export function useCalendarEvents(coupleId: string | undefined, startDate: strin
         .from('calendar_events')
         .select('*')
         .eq('couple_id', coupleId!)
-        .gte('start_at', startDate)
         .lte('start_at', endDate)
+        .or(`end_at.gte.${startDate},end_at.is.null`)
         .order('start_at')
       if (error) throw error
       return data as unknown as CalendarEvent[]

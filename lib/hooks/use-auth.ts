@@ -4,6 +4,7 @@ import { useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
+import { useFinanceStore } from '@/stores/finance-store'
 import { useQuery } from '@tanstack/react-query'
 import type { User, Couple } from '@/types'
 import type { User as AuthUser } from '@supabase/supabase-js'
@@ -30,6 +31,7 @@ export function useAuth() {
   const supabase = createClient()
   const router = useRouter()
   const { setUser, setCouple, setPartner, reset } = useAuthStore()
+  const setLivingMode = useFinanceStore((state) => state.setLivingMode)
 
   const { data: authUser, isLoading: isAuthLoading } = useQuery({
     queryKey: ['auth-user'],
@@ -97,7 +99,10 @@ export function useAuth() {
     setUser(resolvedUser)
     setCouple(coupleData ?? null)
     setPartner(partnerData ?? null)
-  }, [resolvedUser, coupleData, partnerData, setUser, setCouple, setPartner])
+    if (coupleData?.living_mode === 'before_cohabiting' || coupleData?.living_mode === 'after_cohabiting') {
+      setLivingMode(coupleData.living_mode)
+    }
+  }, [resolvedUser, coupleData, partnerData, setUser, setCouple, setPartner, setLivingMode])
 
   const signOut = async () => {
     await supabase.auth.signOut()

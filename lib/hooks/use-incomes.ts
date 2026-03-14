@@ -57,6 +57,26 @@ export function useIncomeHistory(coupleId: string | undefined, months = 12) {
   })
 }
 
+export function useYearIncomeHistory(coupleId: string | undefined, year: number) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['income-history-year', coupleId, year],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('incomes')
+        .select('amount, income_date, income_type')
+        .eq('couple_id', coupleId!)
+        .gte('income_date', `${year}-01-01`)
+        .lt('income_date', `${year + 1}-01-01`)
+      if (error) throw error
+
+      return data as unknown as Pick<Income, 'amount' | 'income_date' | 'income_type'>[]
+    },
+    enabled: !!coupleId,
+  })
+}
+
 export function useCreateIncome() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -74,6 +94,7 @@ export function useCreateIncome() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incomes'] })
       queryClient.invalidateQueries({ queryKey: ['income-history'] })
+      queryClient.invalidateQueries({ queryKey: ['income-history-year'] })
     },
   })
 }
@@ -96,6 +117,7 @@ export function useUpdateIncome() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incomes'] })
       queryClient.invalidateQueries({ queryKey: ['income-history'] })
+      queryClient.invalidateQueries({ queryKey: ['income-history-year'] })
     },
   })
 }
@@ -115,6 +137,7 @@ export function useDeleteIncome() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incomes'] })
       queryClient.invalidateQueries({ queryKey: ['income-history'] })
+      queryClient.invalidateQueries({ queryKey: ['income-history-year'] })
     },
   })
 }

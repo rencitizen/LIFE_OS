@@ -47,49 +47,45 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/*
-  Couple OS Color Palette
-  Primary:    #1E5945 (dark forest green)
-  Deep:       #133929 (deepest green)
-  Sage:       #85B59B (sage green)
-  Light:      #F7F7F7 (near white)
-  Gray:       #D9D9D9 (light gray)
-  Base:       #ffffff (white)
-*/
-
 :root {
   --background: #ffffff;
-  --foreground: #133929;
+  --foreground: #163128;
   --card: #ffffff;
-  --card-foreground: #133929;
+  --card-foreground: #163128;
   --popover: #ffffff;
-  --popover-foreground: #133929;
-  --primary: #1E5945;
+  --popover-foreground: #163128;
+  --primary: #1F5C4D;
   --primary-foreground: #ffffff;
-  --secondary: #F7F7F7;
-  --secondary-foreground: #1E5945;
-  --muted: #F7F7F7;
-  --muted-foreground: #6b7c74;
-  --accent: #85B59B;
-  --accent-foreground: #133929;
+  --secondary: #f5f8f6;
+  --secondary-foreground: #1F5C4D;
+  --muted: #f4f7f5;
+  --muted-foreground: #6B7280;
+  --accent: #e8f6ee;
+  --accent-foreground: #1F5C4D;
   --destructive: #d94f4f;
-  --border: #D9D9D9;
-  --input: #D9D9D9;
-  --ring: #85B59B;
-  --chart-1: #85B59B;
-  --chart-2: #1E5945;
-  --chart-3: #133929;
-  --chart-4: #D9D9D9;
-  --chart-5: #6b7c74;
+  --border: #d7e4dd;
+  --input: #d7e4dd;
+  --ring: #22C55E;
+  --chart-1: #1F5C4D;
+  --chart-2: #22C55E;
+  --chart-3: #3B82F6;
+  --chart-4: #F59E0B;
+  --chart-5: #6B7280;
   --radius: 0.625rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #133929;
-  --sidebar-primary: #1E5945;
+  --sidebar-foreground: #163128;
+  --sidebar-primary: #1F5C4D;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #F7F7F7;
-  --sidebar-accent-foreground: #1E5945;
-  --sidebar-border: #D9D9D9;
-  --sidebar-ring: #85B59B;
+  --sidebar-accent: #f4f7f5;
+  --sidebar-accent-foreground: #1F5C4D;
+  --sidebar-border: #d7e4dd;
+  --sidebar-ring: #22C55E;
+  --color-income: #22C55E;
+  --color-expense: #F59E0B;
+  --color-info: #3B82F6;
+  --color-success-soft: #e7f7ec;
+  --color-expense-soft: #fff5e6;
+  --color-info-soft: #eaf2ff;
 }
 
 .dark {

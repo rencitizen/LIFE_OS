@@ -17,6 +17,8 @@ export function useTodos(coupleId: string | undefined, filters?: {
         .from('todos')
         .select('*')
         .eq('couple_id', coupleId!)
+        .order('start_date', { ascending: true, nullsFirst: false })
+        .order('due_date', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
 
       if (filters?.status) {

@@ -107,6 +107,30 @@ export function useExpenseHistory(coupleId: string | undefined, months = 12) {
   })
 }
 
+export function useYearExpenseHistory(coupleId: string | undefined, year: number) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['expense-history-year', coupleId, year],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('amount, expense_date, category_id, expense_categories(name, icon, color)')
+        .eq('couple_id', coupleId!)
+        .gte('expense_date', `${year}-01-01`)
+        .lt('expense_date', `${year + 1}-01-01`)
+      if (error) throw error
+
+      return data as unknown as Array<
+        Pick<Expense, 'amount' | 'expense_date' | 'category_id'> & {
+          expense_categories: { name: string; icon: string | null; color: string | null } | null
+        }
+      >
+    },
+    enabled: !!coupleId,
+  })
+}
+
 export function useCreateExpense() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -124,6 +148,8 @@ export function useCreateExpense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['expense-history'] })
+      queryClient.invalidateQueries({ queryKey: ['expense-history-year'] })
     },
   })
 }
@@ -146,6 +172,8 @@ export function useUpdateExpense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['expense-history'] })
+      queryClient.invalidateQueries({ queryKey: ['expense-history-year'] })
     },
   })
 }
@@ -162,6 +190,8 @@ export function useDeleteExpense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['expense-history'] })
+      queryClient.invalidateQueries({ queryKey: ['expense-history-year'] })
     },
   })
 }

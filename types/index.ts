@@ -24,6 +24,7 @@ export type Settlement = Tables<'settlements'>
 export type Budget = Tables<'budgets'>
 export type BudgetMemberLimit = Tables<'budget_member_limits'>
 export type BudgetCategory = Tables<'budget_categories'>
+export type BudgetIncomeCategory = Tables<'budget_income_categories'>
 export type SavingsGoal = Tables<'savings_goals'>
 export type SavingsContribution = Tables<'savings_contributions'>
 export type Account = Tables<'accounts'>
@@ -40,3 +41,22 @@ export type SettlementStatus = 'requested' | 'confirmed' | 'done'
 export type AccountType = 'bank' | 'credit' | 'investment' | 'cash'
 export type IncomeType = 'salary' | 'bonus' | 'freelance' | 'other'
 export type ShoppingCategory = 'food' | 'daily' | 'other' | 'general'
+export type LivingMode = 'before_cohabiting' | 'after_cohabiting'
+export type TransactionType = 'income' | 'expense'
+export type TransactionSource = 'manual' | 'imported' | 'ai'
+
+export interface UnifiedTransaction {
+  id: string
+  transactionType: TransactionType
+  date: string
+  type: string
+  category: string
+  categoryId: string | null
+  amount: number
+  memo: string
+  ownerId: string
+  ownerLabel: string
+  source: TransactionSource
+  rawExpense?: Expense
+  rawIncome?: Income
+}

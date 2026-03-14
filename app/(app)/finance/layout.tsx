@@ -6,8 +6,7 @@ import { cn } from '@/lib/utils'
 
 const tabs = [
   { name: 'ダッシュボード', href: '/finance/dashboard' },
-  { name: '支出', href: '/finance/expenses' },
-  { name: '立替・精算', href: '/finance/settlements' },
+  { name: '収入・支出', href: '/finance/expenses' },
   { name: '予算', href: '/finance/budgets' },
   { name: 'ライフプラン', href: '/finance/life-plan' },
 ]
@@ -23,7 +22,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
             key={tab.href}
             href={tab.href}
             className={cn(
-              'px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+              'whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors',
               pathname === tab.href
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'

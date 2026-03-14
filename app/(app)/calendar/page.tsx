@@ -1,19 +1,31 @@
 'use client'
 
-import { useState } from 'react'
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, subMonths, eachDayOfInterval, isSameMonth, isSameDay, isToday } from 'date-fns'
+import { useMemo, useState } from 'react'
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { enumerateDateKeys, eventOverlapsDateRange, getJstDateKey } from '@/lib/date-utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCalendarEvents, useCreateCalendarEvent, useDeleteCalendarEvent, useUpdateCalendarEvent } from '@/lib/hooks/use-calendar-events'
 import { useCalendarStore } from '@/stores/calendar-store'
@@ -24,8 +36,8 @@ type FilterMode = 'all' | 'mine' | 'partner'
 type VisibilityMode = 'shared' | 'private'
 
 const visibilityLabels: Record<VisibilityMode, string> = {
-  shared: '共有予定',
-  private: '個人予定',
+  shared: '共有',
+  private: '個人',
 }
 
 const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, index) => {
@@ -34,6 +46,22 @@ const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, index) => {
   return `${hour}:${minute}`
 })
 
+function toStartIso(date: string, time?: string) {
+  return new Date(`${date}T${time || '00:00'}:00+09:00`).toISOString()
+}
+
+function toEndIso(date: string, time?: string, allDay = false) {
+  if (allDay) return new Date(`${date}T23:59:59.999+09:00`).toISOString()
+  return new Date(`${date}T${time || '23:59'}:00+09:00`).toISOString()
+}
+
+function formatEventTime(event: CalendarEvent) {
+  if (event.all_day) return '終日'
+  const start = format(new Date(event.start_at), 'M/d HH:mm')
+  if (!event.end_at) return start
+  return `${start} - ${format(new Date(event.end_at), 'M/d HH:mm')}`
+}
+
 export default function CalendarPage() {
   const { user, couple, partner } = useAuth()
   const { selectedDate, view, setSelectedDate, setView } = useCalendarStore()
@@ -41,10 +69,10 @@ export default function CalendarPage() {
   const [filter, setFilter] = useState<FilterMode>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  // Form state
   const [newTitle, setNewTitle] = useState('')
   const [newDescription, setNewDescription] = useState('')
-  const [newDate, setNewDate] = useState('')
+  const [newStartDate, setNewStartDate] = useState('')
+  const [newEndDate, setNewEndDate] = useState('')
   const [newTime, setNewTime] = useState('')
   const [newEndTime, setNewEndTime] = useState('')
   const [newAllDay, setNewAllDay] = useState(true)
@@ -57,6 +85,7 @@ export default function CalendarPage() {
   const calendarStart = startOfWeek(monthStart)
   const calendarEnd = endOfWeek(monthEnd)
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
+
   const weekStart = startOfWeek(selectedDate)
   const weekEnd = endOfWeek(selectedDate)
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd })
@@ -70,48 +99,59 @@ export default function CalendarPage() {
   const updateEvent = useUpdateCalendarEvent()
   const deleteEvent = useDeleteCalendarEvent()
 
-  // Filter events by creator
-  const filteredEvents = events?.filter((e) => {
-    if (filter === 'mine') return e.created_by === user?.id
-    if (filter === 'partner') return e.created_by === partner?.id
-    return true
-  })
+  const filteredEvents = useMemo(() => {
+    return (events || []).filter((event) => {
+      if (filter === 'mine') return event.created_by === user?.id
+      if (filter === 'partner') return event.created_by === partner?.id
+      return true
+    })
+  }, [events, filter, user?.id, partner?.id])
 
-  const getEventsForDay = (day: Date) =>
-    filteredEvents?.filter((e) => isSameDay(new Date(e.start_at), day)) || []
+  const getEventsForDay = (day: Date) => {
+    const dateKey = getJstDateKey(day)
+    return filteredEvents.filter((event) => eventOverlapsDateRange(event.start_at, event.end_at, dateKey))
+  }
 
   const selectedDayEvents = getEventsForDay(selectedDate)
+
   const getEventColor = (event: CalendarEvent) => {
-    if (event.created_by === user?.id) return user?.color || '#85A392'
-    if (event.created_by === partner?.id) return partner?.color || '#3A6EA5'
-    return event.color || '#85A392'
+    if (event.created_by === user?.id) return user?.color || '#1F5C4D'
+    if (event.created_by === partner?.id) return partner?.color || '#3B82F6'
+    return event.color || '#1F5C4D'
+  }
+
+  const resetForm = (date = selectedDate) => {
+    const dateKey = format(date, 'yyyy-MM-dd')
+    setNewTitle('')
+    setNewDescription('')
+    setNewStartDate(dateKey)
+    setNewEndDate(dateKey)
+    setNewTime('09:00')
+    setNewEndTime('10:00')
+    setNewAllDay(true)
+    setNewLocation('')
+    setNewVisibility('shared')
   }
 
   const openCreateDialog = (date = selectedDate) => {
     setSelectedDate(date)
     setEditingEventId(null)
-    setNewDate(format(date, 'yyyy-MM-dd'))
-    setNewTitle('')
-    setNewDescription('')
-    setNewTime('')
-    setNewEndTime('')
-    setNewAllDay(true)
-    setNewLocation('')
-    setNewVisibility('shared')
+    resetForm(date)
     setDialogOpen(true)
   }
 
   const openEditDialog = (event: CalendarEvent) => {
     const startDate = new Date(event.start_at)
-    const endDate = event.end_at ? new Date(event.end_at) : null
+    const endDate = event.end_at ? new Date(event.end_at) : startDate
 
     setSelectedDate(startDate)
     setEditingEventId(event.id)
-    setNewDate(format(startDate, 'yyyy-MM-dd'))
     setNewTitle(event.title)
     setNewDescription(event.description || '')
-    setNewTime(event.all_day ? '' : format(startDate, 'HH:mm'))
-    setNewEndTime(!event.all_day && endDate ? format(endDate, 'HH:mm') : '')
+    setNewStartDate(format(startDate, 'yyyy-MM-dd'))
+    setNewEndDate(format(endDate, 'yyyy-MM-dd'))
+    setNewTime(event.all_day ? '09:00' : format(startDate, 'HH:mm'))
+    setNewEndTime(event.all_day ? '10:00' : format(endDate, 'HH:mm'))
     setNewAllDay(event.all_day)
     setNewLocation(event.location || '')
     setNewVisibility((event.visibility as VisibilityMode) || 'shared')
@@ -119,44 +159,35 @@ export default function CalendarPage() {
   }
 
   const handleSubmit = async () => {
-    if (!newTitle) { toast.error('タイトルを入力してください'); return }
-    if (!newDate) { toast.error('日付を選択してください'); return }
-    if (!user?.id) { toast.error('ログインが必要です'); return }
-    if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
+    if (!newTitle.trim()) return toast.error('タイトルを入力してください')
+    if (!newStartDate) return toast.error('開始日を入力してください')
+    if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
+
+    const safeEndDate = newEndDate && newEndDate >= newStartDate ? newEndDate : newStartDate
+
     try {
-      const startAt = newAllDay
-        ? new Date(`${newDate}T00:00:00`).toISOString()
-        : new Date(`${newDate}T${newTime || '09:00'}`).toISOString()
-      const endAt = !newAllDay && newEndTime
-        ? new Date(`${newDate}T${newEndTime}`).toISOString()
-        : undefined
+      const payload = {
+        title: newTitle.trim(),
+        description: newDescription || undefined,
+        start_at: toStartIso(newStartDate, newAllDay ? '00:00' : newTime || '09:00'),
+        end_at: toEndIso(safeEndDate, newAllDay ? '23:59' : newEndTime || newTime || '10:00', newAllDay),
+        all_day: newAllDay,
+        location: newLocation || undefined,
+        visibility: newVisibility,
+        color: user.color || '#1F5C4D',
+      }
 
       if (editingEventId) {
-        await updateEvent.mutateAsync({
-          id: editingEventId,
-          title: newTitle,
-          description: newDescription || undefined,
-          start_at: startAt,
-          end_at: endAt,
-          all_day: newAllDay,
-          location: newLocation || undefined,
-          visibility: newVisibility,
-          color: user?.color || '#85A392',
-        })
+        await updateEvent.mutateAsync({ id: editingEventId, ...payload })
       } else {
         await createEvent.mutateAsync({
           couple_id: couple.id,
           created_by: user.id,
-          title: newTitle,
-          description: newDescription || undefined,
-          start_at: startAt,
-          end_at: endAt,
-          all_day: newAllDay,
-          location: newLocation || undefined,
-          visibility: newVisibility,
-          color: user?.color || '#85A392',
+          event_type: 'life',
+          ...payload,
         })
       }
+
       setDialogOpen(false)
       setEditingEventId(null)
       toast.success(editingEventId ? '予定を更新しました' : '予定を追加しました')
@@ -170,13 +201,26 @@ export default function CalendarPage() {
       await deleteEvent.mutateAsync(id)
       toast.success('予定を削除しました')
     } catch {
-      toast.error('削除に失敗しました')
+      toast.error('予定の削除に失敗しました')
     }
   }
 
-  const formatEventChipLabel = (event: CalendarEvent) => {
-    if (event.all_day) return event.title
-    return `${format(new Date(event.start_at), 'HH:mm')} ${event.title}`
+  const formatEventChipLabel = (event: CalendarEvent, day: Date) => {
+    const dayKey = getJstDateKey(day)
+    const spansMultipleDays = enumerateDateKeys(
+      format(new Date(event.start_at), 'yyyy-MM-dd'),
+      event.end_at ? format(new Date(event.end_at), 'yyyy-MM-dd') : undefined
+    ).length > 1
+
+    if (event.all_day) {
+      return spansMultipleDays ? `期間 ${event.title}` : event.title
+    }
+
+    if (getJstDateKey(event.start_at) === dayKey) {
+      return `${format(new Date(event.start_at), 'HH:mm')} ${event.title}`
+    }
+
+    return spansMultipleDays ? `継続 ${event.title}` : event.title
   }
 
   return (
@@ -185,89 +229,68 @@ export default function CalendarPage() {
         <h1 className="text-2xl font-bold">カレンダー</h1>
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-lg bg-muted p-[3px]">
-            <Button
-              size="sm"
-              variant={view === 'month' ? 'default' : 'ghost'}
-              className="h-7"
-              onClick={() => setView('month')}
-            >
+            <Button size="sm" variant={view === 'month' ? 'default' : 'ghost'} className="h-7" onClick={() => setView('month')}>
               月
             </Button>
-            <Button
-              size="sm"
-              variant={view === 'week' ? 'default' : 'ghost'}
-              className="h-7"
-              onClick={() => setView('week')}
-            >
+            <Button size="sm" variant={view === 'week' ? 'default' : 'ghost'} className="h-7" onClick={() => setView('week')}>
               週
             </Button>
           </div>
           <Button size="sm" onClick={() => openCreateDialog()}>
-            <Plus className="h-4 w-4 mr-1" />
-            予定追加
+            <Plus className="mr-1 h-4 w-4" />
+            予定を追加
           </Button>
         </div>
       </div>
 
-      {/* Filter tabs */}
       <div className="flex gap-1">
         {([
           ['all', 'すべて'],
           ['mine', user?.display_name || '自分'],
           ['partner', partner?.display_name || 'パートナー'],
         ] as [FilterMode, string][]).map(([key, label]) => (
-          <Button
-            key={key}
-            size="sm"
-            variant={filter === key ? 'default' : 'outline'}
-            onClick={() => setFilter(key)}
-            className="text-xs"
-          >
+          <Button key={key} size="sm" variant={filter === key ? 'default' : 'outline'} onClick={() => setFilter(key)} className="text-xs">
             {label}
           </Button>
         ))}
       </div>
 
-      {/* Create Event Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingEventId ? '予定を編集' : '予定を追加'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
             <div className="space-y-2">
               <Label>タイトル</Label>
-              <Input
-                placeholder="予定のタイトル"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-              />
+              <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="例: 引っ越し見積もり" />
             </div>
-            <div className="space-y-2">
-              <Label>日付</Label>
-              <Input
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-              />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>開始日</Label>
+                <Input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>終了日</Label>
+                <Input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} />
+              </div>
             </div>
+
             <div className="flex items-center gap-2">
               <Switch checked={newAllDay} onCheckedChange={setNewAllDay} />
               <Label>終日</Label>
             </div>
+
             {!newAllDay && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>開始時刻</Label>
                   <Select value={newTime} onValueChange={(value) => setNewTime(value ?? '')}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="09:00" />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {TIME_OPTIONS.map((time) => (
-                        <SelectItem key={time} value={time}>
-                          {time}
-                        </SelectItem>
+                        <SelectItem key={time} value={time}>{time}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -275,40 +298,40 @@ export default function CalendarPage() {
                 <div className="space-y-2">
                   <Label>終了時刻</Label>
                   <Select value={newEndTime} onValueChange={(value) => setNewEndTime(value ?? '')}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="10:00" />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {TIME_OPTIONS.map((time) => (
-                        <SelectItem key={time} value={time}>
-                          {time}
-                        </SelectItem>
+                        <SelectItem key={time} value={time}>{time}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
             )}
+
             <div className="space-y-2">
               <Label>公開範囲</Label>
-              <Select value={newVisibility} onValueChange={(v) => v && setNewVisibility(v as VisibilityMode)}>
+              <Select value={newVisibility} onValueChange={(value) => setNewVisibility(value as VisibilityMode)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="shared">共有予定</SelectItem>
-                  <SelectItem value="private">個人予定</SelectItem>
+                  <SelectItem value="shared">共有</SelectItem>
+                  <SelectItem value="private">個人</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <Label>場所</Label>
-              <Input placeholder="場所（任意）" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} />
+              <Input value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="任意" />
             </div>
+
             <div className="space-y-2">
               <Label>メモ</Label>
-              <Textarea placeholder="メモ（任意）" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={2} />
+              <Textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={3} />
             </div>
+
             <Button onClick={handleSubmit} className="w-full" disabled={createEvent.isPending || updateEvent.isPending}>
-              {editingEventId ? '更新' : '追加'}
+              {editingEventId ? '更新する' : '追加する'}
             </Button>
           </div>
         </DialogContent>
@@ -345,12 +368,9 @@ export default function CalendarPage() {
             <>
               <div className="grid grid-cols-7 border-b">
                 {['日', '月', '火', '水', '木', '金', '土'].map((day) => (
-                  <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">
-                    {day}
-                  </div>
+                  <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">{day}</div>
                 ))}
               </div>
-
               <div className="grid grid-cols-7">
                 {days.map((day) => {
                   const dayEvents = getEventsForDay(day)
@@ -358,10 +378,13 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={day.toISOString()}
-                      onClick={() => openCreateDialog(day)}
+                      onClick={() => {
+                        setSelectedDate(day)
+                        openCreateDialog(day)
+                      }}
                       className={cn(
-                        'min-h-[60px] cursor-pointer sm:min-h-[80px] p-1 border-b border-r text-left transition-colors hover:bg-muted/50',
-                        !isSameMonth(day, currentMonth) && 'text-muted-foreground/50',
+                        'min-h-[88px] cursor-pointer border-b border-r p-1 text-left transition-colors hover:bg-muted/40',
+                        !isSameMonth(day, currentMonth) && 'text-muted-foreground/40',
                         isSelected && 'bg-primary/5 ring-1 ring-primary'
                       )}
                     >
@@ -369,24 +392,17 @@ export default function CalendarPage() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          openCreateDialog(day)
+                          setSelectedDate(day)
                         }}
                         className={cn(
-                          'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs transition-colors hover:bg-primary/10',
-                          isToday(day) && 'bg-primary text-primary-foreground font-bold'
+                          'inline-flex h-7 w-7 items-center justify-center rounded-full text-xs',
+                          getJstDateKey(day) === getJstDateKey(new Date()) && 'bg-primary text-primary-foreground'
                         )}
                       >
                         {format(day, 'd')}
                       </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedDate(day)
-                        }}
-                        className="mt-0.5 block w-full space-y-0.5 text-left"
-                      >
-                        {dayEvents.slice(0, 2).map((event) => (
+                      <div className="mt-1 space-y-1">
+                        {dayEvents.slice(0, 3).map((event) => (
                           <button
                             key={event.id}
                             type="button"
@@ -394,18 +410,16 @@ export default function CalendarPage() {
                               e.stopPropagation()
                               openEditDialog(event)
                             }}
-                            className="block w-full truncate rounded px-1 text-left text-[10px] leading-tight text-white"
+                            className="block w-full truncate rounded px-1.5 py-1 text-left text-[10px] font-medium text-white"
                             style={{ backgroundColor: getEventColor(event) }}
                           >
-                            {formatEventChipLabel(event)}
+                            {formatEventChipLabel(event, day)}
                           </button>
                         ))}
-                        {dayEvents.length > 2 && (
-                          <div className="text-[10px] text-muted-foreground px-1">
-                            +{dayEvents.length - 2}件
-                          </div>
+                        {dayEvents.length > 3 && (
+                          <div className="px-1 text-[10px] text-muted-foreground">+{dayEvents.length - 3}件</div>
                         )}
-                      </button>
+                      </div>
                     </div>
                   )
                 })}
@@ -419,38 +433,17 @@ export default function CalendarPage() {
                 return (
                   <div
                     key={day.toISOString()}
-                    onClick={() => {
-                      setSelectedDate(day)
-                      openCreateDialog(day)
-                    }}
+                    onClick={() => setSelectedDate(day)}
                     className={cn(
-                      'min-h-[180px] cursor-pointer border-b border-r p-3 transition-colors hover:bg-muted/50',
+                      'min-h-[220px] border-b border-r p-3 transition-colors hover:bg-muted/40',
                       isSelected && 'bg-primary/5 ring-1 ring-primary'
                     )}
                   >
                     <div className="mb-3 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openCreateDialog(day)
-                        }}
-                        className={cn(
-                          'inline-flex rounded-full px-3 py-1 text-sm font-medium transition-colors hover:bg-primary/10',
-                          isToday(day) && 'bg-primary text-primary-foreground'
-                        )}
-                      >
-                        {format(day, 'M/d（E）', { locale: ja })}
+                      <button type="button" onClick={() => setSelectedDate(day)} className="text-left">
+                        <div className="text-sm font-medium">{format(day, 'M/d (E)', { locale: ja })}</div>
                       </button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openCreateDialog(day)
-                        }}
-                      >
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openCreateDialog(day)}>
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
@@ -460,19 +453,12 @@ export default function CalendarPage() {
                         <button
                           key={event.id}
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            openEditDialog(event)
-                          }}
+                          onClick={() => openEditDialog(event)}
                           className="block w-full rounded-md px-2 py-2 text-left text-xs text-white"
                           style={{ backgroundColor: getEventColor(event) }}
                         >
                           <div className="font-medium">{event.title}</div>
-                          <div className="mt-1 opacity-90">
-                            {event.all_day
-                              ? '終日'
-                              : `${format(new Date(event.start_at), 'HH:mm')}${event.end_at ? ` - ${format(new Date(event.end_at), 'HH:mm')}` : ''}`}
-                          </div>
+                          <div className="mt-1 opacity-90">{formatEventChipLabel(event, day)}</div>
                         </button>
                       )) : (
                         <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
@@ -488,13 +474,10 @@ export default function CalendarPage() {
         </CardContent>
       </Card>
 
-      {/* Selected day events */}
       <Card>
-        <CardHeader className="py-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">
-            {format(selectedDate, 'M月d日（E）', { locale: ja })}の予定
-          </CardTitle>
-          <Button size="sm" variant="ghost" onClick={() => openCreateDialog()}>
+        <CardHeader className="flex flex-row items-center justify-between py-3">
+          <CardTitle className="text-base">{format(selectedDate, 'M月d日 (E)', { locale: ja })} の予定</CardTitle>
+          <Button size="sm" variant="ghost" onClick={() => openCreateDialog(selectedDate)}>
             <Plus className="h-4 w-4" />
           </Button>
         </CardHeader>
@@ -502,39 +485,21 @@ export default function CalendarPage() {
           {selectedDayEvents.length > 0 ? (
             <div className="space-y-3">
               {selectedDayEvents.map((event) => (
-                <div key={event.id} className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 group">
-                  <div className="w-1 h-full min-h-[40px] rounded-full" style={{ backgroundColor: getEventColor(event) }} />
-                  <button
-                    type="button"
-                    className="flex-1 text-left"
-                    onClick={() => openEditDialog(event)}
-                  >
-                    <p className="font-medium text-sm">{event.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {event.all_day ? '終日' : `${format(new Date(event.start_at), 'HH:mm')}${event.end_at ? ` - ${format(new Date(event.end_at), 'HH:mm')}` : ''}`}
-                    </p>
-                    {event.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
-                    )}
-                    {event.location && (
-                      <p className="text-xs text-muted-foreground mt-0.5">📍 {event.location}</p>
-                    )}
+                <div key={event.id} className="group flex items-start gap-3 rounded-lg border p-3">
+                  <div className="min-h-[52px] w-1 rounded-full" style={{ backgroundColor: getEventColor(event) }} />
+                  <button type="button" className="flex-1 text-left" onClick={() => openEditDialog(event)}>
+                    <p className="text-sm font-medium">{event.title}</p>
+                    <p className="text-xs text-muted-foreground">{formatEventTime(event)}</p>
+                    {event.description && <p className="mt-1 text-xs text-muted-foreground">{event.description}</p>}
+                    {event.location && <p className="mt-1 text-xs text-muted-foreground">{event.location}</p>}
                   </button>
-                  <div className="flex items-center gap-1">
-                    <Badge variant={event.visibility === 'shared' ? 'secondary' : 'outline'} className="text-xs shrink-0">
-                      {visibilityLabels[(event.visibility as VisibilityMode) || 'shared'] || event.visibility}
+                  <div className="flex items-center gap-2">
+                    <Badge variant={event.visibility === 'shared' ? 'secondary' : 'outline'} className="text-xs">
+                      {visibilityLabels[(event.visibility as VisibilityMode) || 'shared']}
                     </Badge>
                     {event.created_by === user?.id && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDelete(event.id)
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3 text-destructive" />
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDelete(event.id)}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>
                     )}
                   </div>
@@ -542,7 +507,7 @@ export default function CalendarPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">この日の予定はありません</p>
+            <p className="text-sm text-muted-foreground">この日に重なる予定はありません</p>
           )}
         </CardContent>
       </Card>

@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Budget, BudgetCategory, BudgetMemberLimit, InsertTables } from '@/types'
+import type { Budget, BudgetCategory, BudgetIncomeCategory, BudgetMemberLimit, InsertTables } from '@/types'
 
 export function useBudget(coupleId: string | undefined, yearMonth: string) {
   const supabase = createClient()
@@ -29,6 +29,10 @@ export interface BudgetCategoryWithDetail extends BudgetCategory {
 
 export interface BudgetMemberLimitWithUser extends BudgetMemberLimit {
   users: { id: string; display_name: string } | null
+}
+
+export interface BudgetIncomeCategoryWithDetail extends BudgetIncomeCategory {
+  label?: string
 }
 
 export function useBudgetCategories(budgetId: string | undefined) {
@@ -61,6 +65,25 @@ export function useBudgetMemberLimits(budgetId: string | undefined) {
         .order('created_at', { ascending: true })
       if (error) throw error
       return data as unknown as BudgetMemberLimitWithUser[]
+    },
+    enabled: !!budgetId,
+  })
+}
+
+export function useBudgetIncomeCategories(budgetId: string | undefined, scenario = 'base') {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['budget-income-categories', budgetId, scenario],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('budget_income_categories')
+        .select('*')
+        .eq('budget_id', budgetId!)
+        .eq('scenario', scenario)
+        .order('income_type', { ascending: true })
+      if (error) throw error
+      return data as unknown as BudgetIncomeCategoryWithDetail[]
     },
     enabled: !!budgetId,
   })
@@ -128,6 +151,27 @@ export function useUpsertBudgetMemberLimit() {
   })
 }
 
+export function useUpsertBudgetIncomeCategory() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (category: InsertTables<'budget_income_categories'>) => {
+      const { data, error } = await supabase
+        .from('budget_income_categories')
+        .upsert(category, { onConflict: 'budget_id,income_type,scenario' })
+        .select()
+        .single()
+      if (error) throw error
+      return data as unknown as BudgetIncomeCategory
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['budget-income-categories'] })
+      queryClient.invalidateQueries({ queryKey: ['budget'] })
+    },
+  })
+}
+
 export function useSeedBudget() {
   const queryClient = useQueryClient()
 
@@ -143,6 +187,7 @@ export function useSeedBudget() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['budget'] })
       queryClient.invalidateQueries({ queryKey: ['budget-categories'] })
+      queryClient.invalidateQueries({ queryKey: ['budget-income-categories'] })
       queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
     },

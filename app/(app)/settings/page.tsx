@@ -1,70 +1,76 @@
 'use client'
 
-import { useState } from 'react'
-import { Copy, Check, UserPlus, Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, Copy, Loader2, UserPlus } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { LIVING_MODE_LABELS, LIVING_MODES } from '@/lib/finance/constants'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { createClient } from '@/lib/supabase/client'
-import { useQueryClient } from '@tanstack/react-query'
+import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
+import type { LivingMode } from '@/types'
 
 const PROFILE_COLORS = [
-  { value: '#85A392', label: 'Sage' },
-  { value: '#1E5945', label: 'Forest' },
-  { value: '#3A6EA5', label: 'Ocean' },
-  { value: '#D17B49', label: 'Amber' },
+  { value: '#1F5C4D', label: 'Forest' },
+  { value: '#22C55E', label: 'Green' },
+  { value: '#3B82F6', label: 'Blue' },
+  { value: '#F59E0B', label: 'Amber' },
   { value: '#B95C74', label: 'Rose' },
-  { value: '#6B5CA5', label: 'Indigo' },
+  { value: '#6B7280', label: 'Slate' },
 ] as const
 
 export default function SettingsPage() {
   const { user, couple, partner, signOut } = useAuth()
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const { livingMode, setLivingMode } = useFinanceStore()
 
-  // Profile editing
   const [editName, setEditName] = useState('')
-  const [editColor, setEditColor] = useState('')
+  const [editColor, setEditColor] = useState('#1F5C4D')
   const [editingProfile, setEditingProfile] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
 
-  // Couple creation
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [coupleName, setCoupleName] = useState('')
   const [creatingCouple, setCreatingCouple] = useState(false)
 
-  // Join by code
   const [joinDialogOpen, setJoinDialogOpen] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
   const [joiningCouple, setJoiningCouple] = useState(false)
 
-  // Copy invite code
   const [copied, setCopied] = useState(false)
-  const copyInviteCode = () => {
-    if (couple?.invite_code) {
-      navigator.clipboard.writeText(couple.invite_code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+  const [savingMode, setSavingMode] = useState(false)
+
+  useEffect(() => {
+    if (couple?.living_mode) {
+      setLivingMode(couple.living_mode as LivingMode)
     }
+  }, [couple?.living_mode, setLivingMode])
+
+  const copyInviteCode = () => {
+    if (!couple?.invite_code) return
+    navigator.clipboard.writeText(couple.invite_code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
-  // Start editing profile
   const startEditProfile = () => {
     setEditName(user?.display_name ?? '')
-    setEditColor(user?.color ?? '#85B59B')
+    setEditColor(user?.color ?? '#1F5C4D')
     setEditingProfile(true)
   }
 
-  // Save profile
   const handleSaveProfile = async () => {
-    if (!user?.id) { toast.error('ログインが必要です'); return }
-    if (!editName.trim()) { toast.error('表示名を入力してください'); return }
+    if (!user?.id) return toast.error('ログインが必要です')
+    if (!editName.trim()) return toast.error('表示名を入力してください')
+
     setSavingProfile(true)
     try {
       const { error } = await supabase
@@ -72,6 +78,7 @@ export default function SettingsPage() {
         .update({ display_name: editName.trim(), color: editColor })
         .eq('id', user.id)
       if (error) throw error
+
       await queryClient.invalidateQueries({ queryKey: ['auth-profile'] })
       setEditingProfile(false)
       toast.success('プロフィールを更新しました')
@@ -82,60 +89,81 @@ export default function SettingsPage() {
     }
   }
 
-  // Create couple
+  const handleLivingModeChange = async (mode: LivingMode) => {
+    setLivingMode(mode)
+
+    if (!couple?.id) return
+
+    setSavingMode(true)
+    try {
+      const { error } = await supabase
+        .from('couples')
+        .update({ living_mode: mode })
+        .eq('id', couple.id)
+      if (error) throw error
+
+      await queryClient.invalidateQueries({ queryKey: ['auth-couple', couple.id] })
+      toast.success('生活モードを更新しました')
+    } catch {
+      toast.error('生活モードの更新に失敗しました')
+    } finally {
+      setSavingMode(false)
+    }
+  }
+
   const handleCreateCouple = async () => {
-    if (!user?.id) { toast.error('ログインが必要です'); return }
-    if (!coupleName.trim()) { toast.error('カップル名を入力してください'); return }
+    if (!user?.id) return toast.error('ログインが必要です')
+    if (!coupleName.trim()) return toast.error('ペア名を入力してください')
+
     setCreatingCouple(true)
     try {
-      const { data: newCouple, error: coupleErr } = await supabase
+      const { data: newCouple, error } = await supabase
         .rpc('create_couple_for_current_user', { p_name: coupleName.trim() })
-      if (coupleErr) throw coupleErr
+      if (error) throw error
 
       await queryClient.invalidateQueries({ queryKey: ['auth-profile'] })
       await queryClient.invalidateQueries({ queryKey: ['auth-couple', newCouple?.id] })
       await queryClient.invalidateQueries({ queryKey: ['auth-partner'] })
       setCreateDialogOpen(false)
       setCoupleName('')
-      toast.success('カップルを作成しました')
+      toast.success('ペアを作成しました')
     } catch {
-      toast.error('カップルの作成に失敗しました')
+      toast.error('ペア作成に失敗しました')
     } finally {
       setCreatingCouple(false)
     }
   }
 
-  // Join couple by invite code
   const handleJoinCouple = async () => {
-    if (!user?.id) { toast.error('ログインが必要です'); return }
-    if (!inviteCode.trim()) { toast.error('招待コードを入力してください'); return }
+    if (!user?.id) return toast.error('ログインが必要です')
+    if (!inviteCode.trim()) return toast.error('招待コードを入力してください')
+
     setJoiningCouple(true)
     try {
-      const { data: foundCouple, error: findErr } = await supabase
+      const { data: foundCouple, error } = await supabase
         .rpc('join_couple_for_current_user', { p_invite_code: inviteCode.trim().toUpperCase() })
-      if (findErr || !foundCouple) {
+      if (error || !foundCouple) {
         toast.error('招待コードが見つかりません')
         return
       }
 
       await queryClient.invalidateQueries({ queryKey: ['auth-profile'] })
-      await queryClient.invalidateQueries({ queryKey: ['auth-couple', foundCouple?.id] })
+      await queryClient.invalidateQueries({ queryKey: ['auth-couple', foundCouple.id] })
       await queryClient.invalidateQueries({ queryKey: ['auth-partner'] })
       setJoinDialogOpen(false)
       setInviteCode('')
-      toast.success('カップルに参加しました')
+      toast.success('ペアに参加しました')
     } catch {
-      toast.error('参加に失敗しました')
+      toast.error('参加処理に失敗しました')
     } finally {
       setJoiningCouple(false)
     }
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">設定</h1>
 
-      {/* Profile */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">プロフィール</CardTitle>
@@ -147,8 +175,8 @@ export default function SettingsPage() {
               <AvatarFallback
                 className="text-lg"
                 style={{
-                  backgroundColor: (editingProfile ? editColor : user?.color || '#85B59B') + '20',
-                  color: editingProfile ? editColor : user?.color || '#85B59B',
+                  backgroundColor: `${editingProfile ? editColor : user?.color || '#1F5C4D'}20`,
+                  color: editingProfile ? editColor : user?.color || '#1F5C4D',
                 }}
               >
                 {(editingProfile ? editName : user?.display_name)?.[0] || '?'}
@@ -164,11 +192,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label>表示名</Label>
               {editingProfile ? (
-                <Input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder="表示名"
-                />
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
               ) : (
                 <Input value={user?.display_name ?? ''} readOnly />
               )}
@@ -182,25 +206,19 @@ export default function SettingsPage() {
                       key={color.value}
                       type="button"
                       onClick={() => setEditColor(color.value)}
-                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
-                        editColor === color.value ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
+                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                        editColor === color.value ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
                       }`}
                     >
-                      <span
-                        className="h-4 w-4 rounded-full border border-black/10"
-                        style={{ backgroundColor: color.value }}
-                      />
+                      <span className="h-4 w-4 rounded-full border" style={{ backgroundColor: color.value }} />
                       <span>{color.label}</span>
                     </button>
                   ))}
                 </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-md border px-3 py-2">
-                  <span
-                    className="h-4 w-4 rounded-full border border-black/10"
-                    style={{ backgroundColor: user?.color ?? '#85B59B' }}
-                  />
-                  <span className="text-sm">{PROFILE_COLORS.find((color) => color.value === (user?.color ?? '#85B59B'))?.label || 'Custom'}</span>
+                  <span className="h-4 w-4 rounded-full border" style={{ backgroundColor: user?.color ?? '#1F5C4D' }} />
+                  <span className="text-sm">{PROFILE_COLORS.find((color) => color.value === (user?.color ?? '#1F5C4D'))?.label || 'Custom'}</span>
                 </div>
               )}
             </div>
@@ -208,7 +226,7 @@ export default function SettingsPage() {
           {editingProfile ? (
             <div className="flex gap-2">
               <Button onClick={handleSaveProfile} disabled={savingProfile}>
-                {savingProfile && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                {savingProfile && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 保存
               </Button>
               <Button variant="outline" onClick={() => setEditingProfile(false)}>
@@ -223,18 +241,44 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Pair Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">生活モード</CardTitle>
+          <CardDescription>家計表示と生活前提を切り替えます</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {LIVING_MODES.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => handleLivingModeChange(mode)}
+                className={`rounded-xl border p-4 text-left transition-colors ${
+                  livingMode === mode ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                }`}
+                disabled={savingMode}
+              >
+                <p className="font-medium">{LIVING_MODE_LABELS[mode]}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {mode === 'before_cohabiting' ? '個別支出や移行前の家計を前提に表示' : '共通家計を前提に予算と集計を表示'}
+                </p>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">ペア設定</CardTitle>
-          <CardDescription>パートナーとの接続を管理</CardDescription>
+          <CardDescription>パートナーとの接続状態を管理します</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {couple ? (
             <>
               <div className="space-y-2">
-                <Label>カップル名</Label>
-                <Input value={couple.name ?? ''} readOnly placeholder="田中家" />
+                <Label>ペア名</Label>
+                <Input value={couple.name ?? ''} readOnly />
               </div>
               <div className="space-y-2">
                 <Label>招待コード</Label>
@@ -244,20 +288,12 @@ export default function SettingsPage() {
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  このコードをパートナーに送ってペアリングしてください
-                </p>
               </div>
               {partner ? (
-                <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
+                <div className="flex items-center gap-3 rounded-md bg-muted/50 p-3">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={partner.avatar_url || undefined} />
-                    <AvatarFallback
-                      style={{
-                        backgroundColor: partner.color + '20',
-                        color: partner.color,
-                      }}
-                    >
+                    <AvatarFallback style={{ backgroundColor: `${partner.color}20`, color: partner.color }}>
                       {partner.display_name[0]}
                     </AvatarFallback>
                   </Avatar>
@@ -267,19 +303,17 @@ export default function SettingsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 p-3 rounded-md border border-dashed">
+                <div className="flex items-center gap-3 rounded-md border border-dashed p-3">
                   <UserPlus className="h-5 w-5 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">パートナー未参加 — 招待コードを共有してください</p>
+                  <p className="text-sm text-muted-foreground">招待コードを共有するとパートナーが参加できます</p>
                 </div>
               )}
             </>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                カップルを作成するか、招待コードで参加してください
-              </p>
+              <p className="text-sm text-muted-foreground">まだペアがありません。新規作成するか、招待コードで参加してください。</p>
               <div className="grid gap-2 sm:grid-cols-2">
-                <Button onClick={() => setCreateDialogOpen(true)}>カップル作成</Button>
+                <Button onClick={() => setCreateDialogOpen(true)}>ペアを作成</Button>
                 <Button variant="outline" onClick={() => setJoinDialogOpen(true)}>コードで参加</Button>
               </div>
             </div>
@@ -287,76 +321,23 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Create Couple Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>カップルを作成</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>カップル名</Label>
-              <Input
-                placeholder="例: 田中家"
-                value={coupleName}
-                onChange={(e) => setCoupleName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateCouple()}
-              />
-            </div>
-            <Button onClick={handleCreateCouple} className="w-full" disabled={creatingCouple}>
-              {creatingCouple && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              作成
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Join Couple Dialog */}
-      <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>招待コードで参加</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>招待コード</Label>
-              <Input
-                placeholder="例: A1B2C3D4"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleJoinCouple()}
-                className="font-mono uppercase"
-              />
-            </div>
-            <Button onClick={handleJoinCouple} className="w-full" disabled={joiningCouple}>
-              {joiningCouple && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              参加
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* General Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">一般設定</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>通貨</Label>
-              <Input value={couple?.currency ?? 'JPY'} readOnly />
-            </div>
-            <div className="space-y-2">
-              <Label>タイムゾーン</Label>
-              <Input value={couple?.timezone ?? 'Asia/Tokyo'} readOnly />
-            </div>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>通貨</Label>
+            <Input value={couple?.currency ?? 'JPY'} readOnly />
+          </div>
+          <div className="space-y-2">
+            <Label>タイムゾーン</Label>
+            <Input value={couple?.timezone ?? 'Asia/Tokyo'} readOnly />
           </div>
         </CardContent>
       </Card>
 
-      {/* Logout */}
-      <Card className="border-destructive/50">
+      <Card className="border-destructive/40">
         <CardHeader>
           <CardTitle className="text-base text-destructive">ログアウト</CardTitle>
         </CardHeader>
@@ -366,6 +347,46 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ペアを作成</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>ペア名</Label>
+              <Input value={coupleName} onChange={(e) => setCoupleName(e.target.value)} />
+            </div>
+            <Button onClick={handleCreateCouple} className="w-full" disabled={creatingCouple}>
+              {creatingCouple && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              作成
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>招待コードで参加</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>招待コード</Label>
+              <Input
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                className="font-mono uppercase"
+              />
+            </div>
+            <Button onClick={handleJoinCouple} className="w-full" disabled={joiningCouple}>
+              {joiningCouple && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              参加
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

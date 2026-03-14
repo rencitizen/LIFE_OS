@@ -10,6 +10,7 @@ export type Database = {
           invite_code: string
           currency: string
           timezone: string
+          living_mode: string
           created_at: string
         }
         Insert: {
@@ -18,6 +19,7 @@ export type Database = {
           invite_code: string
           currency?: string
           timezone?: string
+          living_mode?: string
           created_at?: string
         }
         Update: {
@@ -26,6 +28,7 @@ export type Database = {
           invite_code?: string
           currency?: string
           timezone?: string
+          living_mode?: string
           created_at?: string
         }
       }
@@ -260,6 +263,8 @@ export type Database = {
           title: string
           description: string | null
           due_date: string | null
+          start_date: string | null
+          end_date: string | null
           priority: string
           status: string
           visibility: string
@@ -277,6 +282,8 @@ export type Database = {
           title: string
           description?: string | null
           due_date?: string | null
+          start_date?: string | null
+          end_date?: string | null
           priority?: string
           status?: string
           visibility?: string
@@ -294,6 +301,8 @@ export type Database = {
           title?: string
           description?: string | null
           due_date?: string | null
+          start_date?: string | null
+          end_date?: string | null
           priority?: string
           status?: string
           visibility?: string
@@ -485,6 +494,32 @@ export type Database = {
           category_id?: string
           limit_amount?: number | null
           alert_ratio?: number
+        }
+      }
+      budget_income_categories: {
+        Row: {
+          id: string
+          budget_id: string
+          income_type: string
+          scenario: string
+          planned_amount: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          budget_id: string
+          income_type: string
+          scenario?: string
+          planned_amount?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          budget_id?: string
+          income_type?: string
+          scenario?: string
+          planned_amount?: number
+          created_at?: string
         }
       }
       savings_goals: {

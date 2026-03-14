@@ -2,28 +2,39 @@
 
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Calendar, CheckSquare, TrendingUp, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, CheckSquare, ShoppingCart, Wallet, TrendingUp } from 'lucide-react'
-import { useAuth } from '@/lib/hooks/use-auth'
-import { useCalendarEvents } from '@/lib/hooks/use-calendar-events'
-import { useTodos } from '@/lib/hooks/use-todos'
-import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
-import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
+import { getTodayJstRange } from '@/lib/date-utils'
+import { LIVING_MODE_LABELS } from '@/lib/finance/constants'
+import { formatYen } from '@/lib/finance/utils'
+import { useAuth } from '@/lib/hooks/use-auth'
+import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
+import { useCalendarEvents } from '@/lib/hooks/use-calendar-events'
+import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
+import { useTodos } from '@/lib/hooks/use-todos'
+
+function formatTodoPeriod(startDate?: string | null, endDate?: string | null, dueDate?: string | null) {
+  const from = startDate ?? dueDate
+  const to = endDate ?? from
+  if (!from) return '日付未設定'
+  if (from === to) return from
+  return `${from} - ${to}`
+}
 
 export default function HomePage() {
   const { user, couple, partner } = useAuth()
   const today = new Date()
-  const todayStr = format(today, 'yyyy-MM-dd')
   const monthStr = format(today, 'yyyy-MM')
   const lifePlanConfig = useLifePlanConfig(couple?.id)
+  const todayRange = getTodayJstRange()
 
   const { data: events } = useCalendarEvents(
     couple?.id,
-    `${todayStr}T00:00:00`,
-    `${todayStr}T23:59:59`
+    todayRange.start.toISOString(),
+    todayRange.end.toISOString()
   )
   const { data: todos } = useTodos(couple?.id, { status: 'pending' })
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, monthStr)
@@ -32,103 +43,82 @@ export default function HomePage() {
   const lifePlanBudget = getLifePlanMonthlyBudget(lifePlanConfig, monthStr)
   const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits) || lifePlanBudget.total
 
-  const remainingBudget = budgetLimit > 0
-    ? budgetLimit - (summary?.total || 0)
-    : null
+  const remainingBudget = budgetLimit > 0 ? budgetLimit - (summary?.total || 0) : null
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">
-          おかえり、{user?.display_name || 'ユーザー'}さん
-        </h1>
-        <p className="text-muted-foreground">
-          {format(today, 'yyyy年M月d日（E）', { locale: ja })}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{user?.display_name || 'User'}さん、おかえりなさい</h1>
+          <p className="text-muted-foreground">{format(today, 'yyyy年M月d日 EEEE', { locale: ja })}</p>
+        </div>
+        {couple?.living_mode && (
+          <Badge className="border border-[var(--color-info)]/20 bg-[var(--color-info-soft)] text-[var(--color-info)]">
+            {LIVING_MODE_LABELS[couple.living_mode as keyof typeof LIVING_MODE_LABELS] ?? '同棲前'}
+          </Badge>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Today's Events */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">今日の予定</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-[var(--color-info)]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{events?.length || 0}件</div>
-            {events && events.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-1 truncate">
-                {events[0].title}
-              </p>
-            )}
+            {events?.[0] && <p className="mt-1 truncate text-xs text-muted-foreground">{events[0].title}</p>}
           </CardContent>
         </Card>
 
-        {/* Pending TODOs */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">未完了のTODO</CardTitle>
-            <CheckSquare className="h-4 w-4 text-muted-foreground" />
+            <CheckSquare className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{todos?.length || 0}件</div>
-            {todos && todos.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-1 truncate">
-                {todos[0].title}
-              </p>
-            )}
+            {todos?.[0] && <p className="mt-1 truncate text-xs text-muted-foreground">{todos[0].title}</p>}
           </CardContent>
         </Card>
 
-        {/* Monthly Expenses */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">今月の支出</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {summary ? `¥${summary.total.toLocaleString()}` : '¥0'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {summary?.count || 0}件の支出
-            </p>
+            <div className="text-2xl font-bold">{formatYen(summary?.total || 0)}</div>
+            <p className="mt-1 text-xs text-muted-foreground">{summary?.count || 0}件の支出</p>
           </CardContent>
         </Card>
 
-        {/* Remaining Budget */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">残予算</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">予算残り</CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             {remainingBudget !== null ? (
               <>
-                <div className={`text-2xl font-bold ${remainingBudget < 0 ? 'text-destructive' : ''}`}>
-                  ¥{remainingBudget.toLocaleString()}
+                <div className={`text-2xl font-bold ${remainingBudget < 0 ? 'text-destructive' : 'text-primary'}`}>
+                  {formatYen(remainingBudget)}
                 </div>
-                <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
                   <div
-                      className="h-full rounded-full bg-primary transition-all"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, ((summary?.total || 0) / budgetLimit) * 100))}%`,
-                    }}
+                    className="h-full rounded-full bg-[var(--color-expense)] transition-all"
+                    style={{ width: `${Math.min(100, Math.max(0, ((summary?.total || 0) / budgetLimit) * 100))}%` }}
                   />
                 </div>
               </>
             ) : (
-              <>
-                <div className="text-2xl font-bold text-muted-foreground">未設定</div>
-                <p className="text-xs text-muted-foreground mt-1">予算を設定しましょう</p>
-              </>
+              <p className="text-sm text-muted-foreground">予算未設定</p>
             )}
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Today's Schedule */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">今日のスケジュール</CardTitle>
@@ -137,29 +127,26 @@ export default function HomePage() {
             {events && events.length > 0 ? (
               <div className="space-y-3">
                 {events.map((event) => (
-                  <div key={event.id} className="flex items-center gap-3">
-                    <div
-                      className="w-1 h-8 rounded-full"
-                      style={{ backgroundColor: event.color || '#85B59B' }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{event.title}</p>
+                  <div key={event.id} className="flex items-start gap-3 rounded-lg border p-3">
+                    <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: event.color || '#3B82F6' }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{event.title}</p>
                       <p className="text-xs text-muted-foreground">
                         {event.all_day
                           ? '終日'
-                          : format(new Date(event.start_at), 'HH:mm')}
+                          : `${format(new Date(event.start_at), 'HH:mm')}${event.end_at ? ` - ${format(new Date(event.end_at), 'HH:mm')}` : ''}`}
                       </p>
+                      {event.location && <p className="mt-1 text-xs text-muted-foreground">{event.location}</p>}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">予定はありません</p>
+              <p className="text-sm text-muted-foreground">今日の予定はありません</p>
             )}
           </CardContent>
         </Card>
 
-        {/* Pending TODOs */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">やることリスト</CardTitle>
@@ -168,21 +155,24 @@ export default function HomePage() {
             {todos && todos.length > 0 ? (
               <div className="space-y-3">
                 {todos.slice(0, 5).map((todo) => (
-                  <div key={todo.id} className="flex items-center gap-3">
+                  <div key={todo.id} className="flex items-start gap-3 rounded-lg border p-3">
                     <div
-                      className={`w-2 h-2 rounded-full ${
+                      className={`mt-1 h-2.5 w-2.5 rounded-full ${
                         todo.priority === 'high'
                           ? 'bg-destructive'
                           : todo.priority === 'medium'
-                          ? 'bg-[#85B59B]'
-                          : 'bg-muted-foreground'
+                            ? 'bg-[var(--color-expense)]'
+                            : 'bg-[var(--color-info)]'
                       }`}
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{todo.title}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{todo.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatTodoPeriod(todo.start_date, todo.end_date, todo.due_date)}
+                      </p>
                     </div>
                     {todo.assigned_to && (
-                      <Badge variant="secondary" className="text-xs shrink-0">
+                      <Badge variant="secondary" className="shrink-0 text-xs">
                         {todo.assigned_to === user?.id ? '自分' : partner?.display_name || 'パートナー'}
                       </Badge>
                     )}
@@ -190,7 +180,7 @@ export default function HomePage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">未完了のタスクはありません</p>
+              <p className="text-sm text-muted-foreground">未完了のTODOはありません</p>
             )}
           </CardContent>
         </Card>
