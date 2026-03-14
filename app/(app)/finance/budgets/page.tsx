@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { AlertTriangle, CheckCircle2, Pencil, Save } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Pencil, Plus, Save, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
@@ -23,7 +24,7 @@ import {
   useUpsertBudgetMemberLimit,
 } from '@/lib/hooks/use-budgets'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
-import { useIncomes } from '@/lib/hooks/use-incomes'
+import { useCreateIncome, useDeleteIncome, useIncomes, useUpdateIncome } from '@/lib/hooks/use-incomes'
 import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useFinanceStore } from '@/stores/finance-store'
@@ -33,7 +34,7 @@ const INCOME_BUDGET_TYPES = ['salary', 'bonus', 'freelance', 'other'] as const
 
 export default function BudgetsPage() {
   const { user, couple, partner } = useAuth()
-  const { selectedMonth, livingMode } = useFinanceStore()
+  const { selectedMonth, setSelectedMonth, livingMode } = useFinanceStore()
   const lifePlanConfig = useLifePlanConfig(couple?.id)
   const { data: budget, refetch: refetchBudget } = useBudget(couple?.id, selectedMonth)
   const { data: budgetCategories } = useBudgetCategories(budget?.id)
@@ -42,12 +43,20 @@ export default function BudgetsPage() {
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
   const { data: allCategories } = useExpenseCategories(couple?.id)
   const { data: incomes } = useIncomes(couple?.id, selectedMonth)
+  const createIncome = useCreateIncome()
+  const updateIncome = useUpdateIncome()
+  const deleteIncome = useDeleteIncome()
   const createBudget = useCreateBudget()
   const upsertBudgetCategory = useUpsertBudgetCategory()
   const upsertBudgetIncomeCategory = useUpsertBudgetIncomeCategory()
   const upsertBudgetMemberLimit = useUpsertBudgetMemberLimit()
 
   const [editing, setEditing] = useState(false)
+  const [incomeDialogOpen, setIncomeDialogOpen] = useState(false)
+  const [editingIncomeId, setEditingIncomeId] = useState<string | null>(null)
+  const [incomeAmount, setIncomeAmount] = useState('')
+  const [incomeType, setIncomeType] = useState<string>('salary')
+  const [incomeDescription, setIncomeDescription] = useState('')
   const [editAmounts, setEditAmounts] = useState<Record<string, string>>({})
   const [editMemberAmounts, setEditMemberAmounts] = useState<Record<string, string>>({})
   const [editIncomeAmounts, setEditIncomeAmounts] = useState<Record<string, string>>({})
@@ -97,6 +106,70 @@ export default function BudgetsPage() {
       Object.fromEntries(INCOME_BUDGET_TYPES.map((type) => [type, '0']))
     )
   }, [budgetIncomeCategories])
+
+  const openCreateIncomeDialog = (incomeTypeValue?: string) => {
+    setEditingIncomeId(null)
+    setIncomeAmount('')
+    setIncomeType(incomeTypeValue || 'salary')
+    setIncomeDescription('')
+    setIncomeDialogOpen(true)
+  }
+
+  const openEditIncomeDialog = (income: NonNullable<typeof incomes>[number]) => {
+    setEditingIncomeId(income.id)
+    setIncomeAmount(String(Number(income.amount) || 0))
+    setIncomeType(income.income_type)
+    setIncomeDescription(income.description || '')
+    setIncomeDialogOpen(true)
+  }
+
+  const handleSaveIncome = async () => {
+    if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
+    if (!incomeAmount || Number(incomeAmount) <= 0) return toast.error('収入金額を入力してください')
+
+    try {
+      if (editingIncomeId) {
+        await updateIncome.mutateAsync({
+          id: editingIncomeId,
+          amount: Number(incomeAmount),
+          income_type: incomeType,
+          description: incomeDescription || null,
+          income_date: `${selectedMonth}-01`,
+        })
+      } else {
+        await createIncome.mutateAsync({
+          couple_id: couple.id,
+          user_id: user.id,
+          amount: Number(incomeAmount),
+          income_type: incomeType,
+          description: incomeDescription || null,
+          income_date: `${selectedMonth}-01`,
+        })
+      }
+
+      setIncomeDialogOpen(false)
+      setEditingIncomeId(null)
+      setIncomeAmount('')
+      setIncomeDescription('')
+      toast.success(editingIncomeId ? '収入実績を更新しました' : '収入実績を登録しました')
+    } catch {
+      toast.error(editingIncomeId ? '収入実績の更新に失敗しました' : '収入実績の登録に失敗しました')
+    }
+  }
+
+  const handleDeleteIncome = async () => {
+    if (!editingIncomeId) return
+    try {
+      await deleteIncome.mutateAsync(editingIncomeId)
+      setIncomeDialogOpen(false)
+      setEditingIncomeId(null)
+      setIncomeAmount('')
+      setIncomeDescription('')
+      toast.success('収入実績を削除しました')
+    } catch {
+      toast.error('収入実績の削除に失敗しました')
+    }
+  }
 
   const handleSaveAll = useCallback(async () => {
     if (!couple?.id) return toast.error('ペア情報を確認してください')
@@ -173,6 +246,11 @@ export default function BudgetsPage() {
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
 
+  const navigateMonth = (direction: number) => {
+    const nextDate = new Date(year, month - 1 + direction, 1)
+    setSelectedMonth(format(nextDate, 'yyyy-MM'))
+  }
+
   const actualIncomeByType = useMemo(() => {
     const map: Record<string, number> = {}
     for (const income of incomes || []) {
@@ -238,17 +316,28 @@ export default function BudgetsPage() {
             暦年ベースで管理中 / 現在モード: {LIVING_MODE_LABELS[livingMode]}
           </p>
         </div>
-        {!editing ? (
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-            <Pencil className="mr-1 h-4 w-4" />
-            編集
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)}>
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-        ) : (
-          <Button size="sm" onClick={handleSaveAll} disabled={createBudget.isPending || upsertBudgetCategory.isPending || upsertBudgetIncomeCategory.isPending || upsertBudgetMemberLimit.isPending}>
-            <Save className="mr-1 h-4 w-4" />
-            保存
+          <span className="min-w-[110px] text-center text-sm font-medium">
+            {format(displayDate, 'yyyy年M月', { locale: ja })}
+          </span>
+          <Button variant="ghost" size="icon" onClick={() => navigateMonth(1)}>
+            <ChevronRight className="h-4 w-4" />
           </Button>
-        )}
+          {!editing ? (
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+              <Pencil className="mr-1 h-4 w-4" />
+              編集
+            </Button>
+          ) : (
+            <Button size="sm" onClick={handleSaveAll} disabled={createBudget.isPending || upsertBudgetCategory.isPending || upsertBudgetIncomeCategory.isPending || upsertBudgetMemberLimit.isPending}>
+              <Save className="mr-1 h-4 w-4" />
+              保存
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -371,7 +460,13 @@ export default function BudgetsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">収入予算</CardTitle>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base">収入予算</CardTitle>
+            <Button size="sm" variant="outline" onClick={() => openCreateIncomeDialog()}>
+              <Plus className="mr-1 h-4 w-4" />
+              実績を登録
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b pb-2 text-xs text-muted-foreground">
@@ -399,6 +494,32 @@ export default function BudgetsPage() {
               </span>
             </div>
           ))}
+
+          <div className="border-t pt-4">
+            <p className="mb-3 text-sm font-medium">この月の収入実績</p>
+            {incomes && incomes.length > 0 ? (
+              <div className="space-y-2">
+                {incomes.map((income) => (
+                  <button
+                    key={income.id}
+                    type="button"
+                    onClick={() => openEditIncomeDialog(income)}
+                    className="flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted/40"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{INCOME_TYPE_LABELS[income.income_type] || income.income_type}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {income.description || '実績入力'}
+                      </p>
+                    </div>
+                    <span className="font-semibold text-[var(--color-income)]">{formatYen(Number(income.amount))}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">まだ収入実績は登録されていません</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -432,6 +553,51 @@ export default function BudgetsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={incomeDialogOpen} onOpenChange={setIncomeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingIncomeId ? '収入実績を編集' : '収入実績を登録'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>対象月</Label>
+              <Input value={selectedMonth} readOnly />
+            </div>
+            <div className="space-y-2">
+              <Label>収入項目</Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                value={incomeType}
+                onChange={(e) => setIncomeType(e.target.value)}
+              >
+                {Object.entries(INCOME_TYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>金額</Label>
+              <Input type="number" value={incomeAmount} onChange={(e) => setIncomeAmount(e.target.value)} placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label>メモ</Label>
+              <Input value={incomeDescription} onChange={(e) => setIncomeDescription(e.target.value)} placeholder="任意" />
+            </div>
+            <div className="flex gap-2">
+              {editingIncomeId && (
+                <Button type="button" variant="outline" className="flex-1" onClick={handleDeleteIncome}>
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  削除
+                </Button>
+              )}
+              <Button className="flex-1" onClick={handleSaveIncome} disabled={createIncome.isPending || updateIncome.isPending || deleteIncome.isPending}>
+                {editingIncomeId ? '更新' : '登録'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
