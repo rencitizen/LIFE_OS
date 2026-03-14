@@ -29,6 +29,12 @@ const visibilityLabels: Record<VisibilityMode, string> = {
   private: '個人予定',
 }
 
+const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, index) => {
+  const hour = String(Math.floor(index / 4)).padStart(2, '0')
+  const minute = String((index % 4) * 15).padStart(2, '0')
+  return `${hour}:${minute}`
+})
+
 export default function CalendarPage() {
   const { user, couple, partner } = useAuth()
   const { selectedDate, view, setSelectedDate, setView } = useCalendarStore()
@@ -239,11 +245,33 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-2">
                   <Label>開始時刻</Label>
-                  <Input type="time" step={900} value={newTime} onChange={(e) => setNewTime(e.target.value)} />
+                  <Select value={newTime} onValueChange={(value) => setNewTime(value ?? '')}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="09:00" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIME_OPTIONS.map((time) => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>終了時刻</Label>
-                  <Input type="time" step={900} value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)} />
+                  <Select value={newEndTime} onValueChange={(value) => setNewEndTime(value ?? '')}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="10:00" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIME_OPTIONS.map((time) => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}
