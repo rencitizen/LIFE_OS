@@ -144,9 +144,6 @@ export default function HomePage() {
                           : format(new Date(event.start_at), 'HH:mm')}
                       </p>
                     </div>
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      {event.event_type}
-                    </Badge>
                   </div>
                 ))}
               </div>

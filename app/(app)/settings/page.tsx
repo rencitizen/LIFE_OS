@@ -14,6 +14,15 @@ import { createClient } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
+const PROFILE_COLORS = [
+  { value: '#85A392', label: 'Sage' },
+  { value: '#1E5945', label: 'Forest' },
+  { value: '#3A6EA5', label: 'Ocean' },
+  { value: '#D17B49', label: 'Amber' },
+  { value: '#B95C74', label: 'Rose' },
+  { value: '#6B5CA5', label: 'Indigo' },
+] as const
+
 export default function SettingsPage() {
   const { user, couple, partner, signOut } = useAuth()
   const supabase = createClient()
@@ -167,14 +176,32 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label>テーマカラー</Label>
               {editingProfile ? (
-                <Input
-                  type="color"
-                  value={editColor}
-                  onChange={(e) => setEditColor(e.target.value)}
-                  className="h-10"
-                />
+                <div className="grid grid-cols-3 gap-2">
+                  {PROFILE_COLORS.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => setEditColor(color.value)}
+                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
+                        editColor === color.value ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <span
+                        className="h-4 w-4 rounded-full border border-black/10"
+                        style={{ backgroundColor: color.value }}
+                      />
+                      <span>{color.label}</span>
+                    </button>
+                  ))}
+                </div>
               ) : (
-                <Input type="color" value={user?.color ?? '#85B59B'} readOnly className="h-10" />
+                <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+                  <span
+                    className="h-4 w-4 rounded-full border border-black/10"
+                    style={{ backgroundColor: user?.color ?? '#85B59B' }}
+                  />
+                  <span className="text-sm">{PROFILE_COLORS.find((color) => color.value === (user?.color ?? '#85B59B'))?.label || 'Custom'}</span>
+                </div>
               )}
             </div>
           </div>

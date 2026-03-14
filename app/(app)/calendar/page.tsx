@@ -13,29 +13,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCalendarEvents, useCreateCalendarEvent, useDeleteCalendarEvent, useUpdateCalendarEvent } from '@/lib/hooks/use-calendar-events'
 import { useCalendarStore } from '@/stores/calendar-store'
 import { toast } from 'sonner'
 import type { CalendarEvent } from '@/types'
-
-const eventTypeColors: Record<string, string> = {
-  life: 'bg-[#85B59B]',
-  financial: 'bg-[#1E5945]',
-  anniversary: 'bg-[#133929]',
-  medical: 'bg-destructive',
-  travel: 'bg-[#1E5945]/70',
-}
-
-const eventTypeLabels: Record<string, string> = {
-  life: '生活',
-  financial: '家計',
-  anniversary: '記念日',
-  medical: '医療',
-  travel: '旅行',
-}
 
 type FilterMode = 'all' | 'mine' | 'partner'
 type VisibilityMode = 'shared' | 'private'
@@ -59,7 +43,6 @@ export default function CalendarPage() {
   const [newTime, setNewTime] = useState('')
   const [newEndTime, setNewEndTime] = useState('')
   const [newAllDay, setNewAllDay] = useState(true)
-  const [newEventType, setNewEventType] = useState('life')
   const [newLocation, setNewLocation] = useState('')
   const [newVisibility, setNewVisibility] = useState<VisibilityMode>('shared')
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
@@ -90,6 +73,11 @@ export default function CalendarPage() {
     filteredEvents?.filter((e) => isSameDay(new Date(e.start_at), day)) || []
 
   const selectedDayEvents = getEventsForDay(selectedDate)
+  const getEventColor = (event: CalendarEvent) => {
+    if (event.created_by === user?.id) return user?.color || '#85A392'
+    if (event.created_by === partner?.id) return partner?.color || '#3A6EA5'
+    return event.color || '#85A392'
+  }
 
   const openCreateDialog = (date = selectedDate) => {
     setSelectedDate(date)
@@ -100,7 +88,6 @@ export default function CalendarPage() {
     setNewTime('')
     setNewEndTime('')
     setNewAllDay(true)
-    setNewEventType('life')
     setNewLocation('')
     setNewVisibility('shared')
     setDialogOpen(true)
@@ -118,7 +105,6 @@ export default function CalendarPage() {
     setNewTime(event.all_day ? '' : format(startDate, 'HH:mm'))
     setNewEndTime(!event.all_day && endDate ? format(endDate, 'HH:mm') : '')
     setNewAllDay(event.all_day)
-    setNewEventType(event.event_type)
     setNewLocation(event.location || '')
     setNewVisibility((event.visibility as VisibilityMode) || 'shared')
     setDialogOpen(true)
@@ -145,9 +131,9 @@ export default function CalendarPage() {
           start_at: startAt,
           end_at: endAt,
           all_day: newAllDay,
-          event_type: newEventType,
           location: newLocation || undefined,
           visibility: newVisibility,
+          color: user?.color || '#85A392',
         })
       } else {
         await createEvent.mutateAsync({
@@ -158,9 +144,9 @@ export default function CalendarPage() {
           start_at: startAt,
           end_at: endAt,
           all_day: newAllDay,
-          event_type: newEventType,
           location: newLocation || undefined,
           visibility: newVisibility,
+          color: user?.color || '#85A392',
         })
       }
       setDialogOpen(false)
@@ -257,17 +243,6 @@ export default function CalendarPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label>タイプ</Label>
-              <Select value={newEventType} onValueChange={(v) => v && setNewEventType(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(eventTypeLabels).map(([val, label]) => (
-                    <SelectItem key={val} value={val}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
               <Label>公開範囲</Label>
               <Select value={newVisibility} onValueChange={(v) => v && setNewVisibility(v as VisibilityMode)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -346,11 +321,8 @@ export default function CalendarPage() {
                     {dayEvents.slice(0, 2).map((event) => (
                       <div
                         key={event.id}
-                        className={cn(
-                          'text-[10px] leading-tight truncate rounded px-1',
-                          eventTypeColors[event.event_type] || 'bg-[#85B59B]',
-                          'text-white'
-                        )}
+                        className="text-[10px] leading-tight truncate rounded px-1 text-white"
+                        style={{ backgroundColor: getEventColor(event) }}
                       >
                         {event.title}
                       </div>
@@ -383,7 +355,7 @@ export default function CalendarPage() {
             <div className="space-y-3">
               {selectedDayEvents.map((event) => (
                 <div key={event.id} className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 group">
-                  <div className={cn('w-1 h-full min-h-[40px] rounded-full', eventTypeColors[event.event_type] || 'bg-[#85B59B]')} />
+                  <div className="w-1 h-full min-h-[40px] rounded-full" style={{ backgroundColor: getEventColor(event) }} />
                   <button
                     type="button"
                     className="flex-1 text-left"
@@ -401,9 +373,6 @@ export default function CalendarPage() {
                     )}
                   </button>
                   <div className="flex items-center gap-1">
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      {eventTypeLabels[event.event_type] || event.event_type}
-                    </Badge>
                     <Badge variant={event.visibility === 'shared' ? 'secondary' : 'outline'} className="text-xs shrink-0">
                       {visibilityLabels[(event.visibility as VisibilityMode) || 'shared'] || event.visibility}
                     </Badge>
