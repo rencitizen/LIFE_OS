@@ -330,15 +330,19 @@ export default function CalendarPage() {
               return (
                 <div
                   key={day.toISOString()}
+                  onClick={() => openCreateDialog(day)}
                   className={cn(
-                    'min-h-[60px] sm:min-h-[80px] p-1 border-b border-r text-left transition-colors hover:bg-muted/50',
+                    'min-h-[60px] cursor-pointer sm:min-h-[80px] p-1 border-b border-r text-left transition-colors hover:bg-muted/50',
                     !isSameMonth(day, currentMonth) && 'text-muted-foreground/50',
                     isSelected && 'bg-primary/5 ring-1 ring-primary'
                   )}
                 >
                   <button
                     type="button"
-                    onClick={() => openCreateDialog(day)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openCreateDialog(day)
+                    }}
                     className={cn(
                       'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs transition-colors hover:bg-primary/10',
                       isToday(day) && 'bg-primary text-primary-foreground font-bold'
@@ -348,7 +352,10 @@ export default function CalendarPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedDate(day)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedDate(day)
+                    }}
                     className="mt-0.5 block w-full space-y-0.5 text-left"
                   >
                     {dayEvents.slice(0, 2).map((event) => (
