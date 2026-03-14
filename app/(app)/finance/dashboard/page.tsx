@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { format, subMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet, PieChart, ArrowRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet, PieChart, ArrowRight, Plus, Pencil, Trash2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useExpenseHistory, useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
-import { useCreateIncome, useIncomeHistory, useIncomes } from '@/lib/hooks/use-incomes'
+import { useCreateIncome, useDeleteIncome, useIncomeHistory, useIncomes, useUpdateIncome } from '@/lib/hooks/use-incomes'
 import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
 import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
 import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
@@ -51,6 +51,8 @@ export default function FinanceDashboardPage() {
   const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
   const { currentYear } = usePlanVsActual(couple?.id)
   const createIncome = useCreateIncome()
+  const updateIncome = useUpdateIncome()
+  const deleteIncome = useDeleteIncome()
 
   const totalIncome = incomes?.reduce((sum, i) => sum + Number(i.amount), 0) || 0
   const balance = totalIncome - (summary?.total || 0)
@@ -70,6 +72,7 @@ export default function FinanceDashboardPage() {
   const [incomeDescription, setIncomeDescription] = useState('')
   const [incomeType, setIncomeType] = useState('salary')
   const [incomeMonth, setIncomeMonth] = useState(selectedMonth)
+  const [editingIncomeId, setEditingIncomeId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!incomeDialogOpen) {
@@ -84,22 +87,58 @@ export default function FinanceDashboardPage() {
     if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
 
     try {
-      await createIncome.mutateAsync({
-        couple_id: couple.id,
-        user_id: user.id,
-        amount: Number(incomeAmount),
-        income_type: incomeType,
-        description: incomeDescription || undefined,
-        income_date: `${incomeMonth}-01`,
-      })
+      if (editingIncomeId) {
+        await updateIncome.mutateAsync({
+          id: editingIncomeId,
+          amount: Number(incomeAmount),
+          income_type: incomeType,
+          description: incomeDescription || null,
+          income_date: `${incomeMonth}-01`,
+        })
+      } else {
+        await createIncome.mutateAsync({
+          couple_id: couple.id,
+          user_id: user.id,
+          amount: Number(incomeAmount),
+          income_type: incomeType,
+          description: incomeDescription || undefined,
+          income_date: `${incomeMonth}-01`,
+        })
+      }
       setSelectedMonth(incomeMonth)
       setIncomeAmount('')
       setIncomeDescription('')
       setIncomeType('salary')
+      setEditingIncomeId(null)
       setIncomeDialogOpen(false)
-      toast.success('収入を登録しました')
+      toast.success(editingIncomeId ? '収入を更新しました' : '収入を登録しました')
     } catch {
-      toast.error('収入の登録に失敗しました')
+      toast.error(editingIncomeId ? '収入の更新に失敗しました' : '収入の登録に失敗しました')
+    }
+  }
+
+  const openEditIncome = (income: NonNullable<typeof incomes>[number]) => {
+    setEditingIncomeId(income.id)
+    setIncomeAmount(String(Number(income.amount) || 0))
+    setIncomeDescription(income.description || '')
+    setIncomeType(income.income_type)
+    setIncomeMonth(income.income_date.slice(0, 7))
+    setIncomeDialogOpen(true)
+  }
+
+  const handleDeleteIncome = async () => {
+    if (!editingIncomeId) return
+
+    try {
+      await deleteIncome.mutateAsync(editingIncomeId)
+      setEditingIncomeId(null)
+      setIncomeAmount('')
+      setIncomeDescription('')
+      setIncomeType('salary')
+      setIncomeDialogOpen(false)
+      toast.success('収入を削除しました')
+    } catch {
+      toast.error('収入の削除に失敗しました')
     }
   }
 
@@ -164,7 +203,7 @@ export default function FinanceDashboardPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>収入を登録</DialogTitle>
+                <DialogTitle>{editingIncomeId ? '収入を編集' : '収入を登録'}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -191,9 +230,27 @@ export default function FinanceDashboardPage() {
                   <Label>説明</Label>
                   <Input placeholder="例: 3月給与" value={incomeDescription} onChange={(e) => setIncomeDescription(e.target.value)} />
                 </div>
-                <Button onClick={handleCreateIncome} className="w-full" disabled={createIncome.isPending}>
-                  登録
-                </Button>
+                <div className="flex gap-2">
+                  {editingIncomeId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={handleDeleteIncome}
+                      disabled={deleteIncome.isPending || updateIncome.isPending}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      削除
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleCreateIncome}
+                    className="flex-1"
+                    disabled={createIncome.isPending || updateIncome.isPending || deleteIncome.isPending}
+                  >
+                    {editingIncomeId ? '更新' : '登録'}
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -333,6 +390,42 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">今月の収入</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {incomes && incomes.length > 0 ? (
+            <div className="space-y-3">
+              {incomes.map((income) => (
+                <button
+                  key={income.id}
+                  type="button"
+                  onClick={() => openEditIncome(income)}
+                  className="w-full rounded-lg border p-3 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium flex items-center gap-1">
+                        <span>{income.description || '収入'}</span>
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(income.income_date), 'M月')}
+                        {` · ${income.income_type}`}
+                      </p>
+                    </div>
+                    <span className="font-semibold text-[#1E5945]">{yen(Number(income.amount))}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">今月の収入はまだありません</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Plan vs Actual Mini Chart + Link */}
       {miniChartData.length > 0 && (

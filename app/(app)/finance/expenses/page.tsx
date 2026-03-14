@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -32,6 +31,22 @@ const expenseTypeBadgeColors: Record<string, string> = {
   pending_settlement: 'bg-destructive/10 text-destructive',
 }
 
+type BulkExpenseRow = {
+  id: string
+  amount: string
+  description: string
+  categoryId: string
+}
+
+function createBulkExpenseRow(): BulkExpenseRow {
+  return {
+    id: crypto.randomUUID(),
+    amount: '',
+    description: '',
+    categoryId: '',
+  }
+}
+
 export default function ExpensesPage() {
   const { user, couple } = useAuth()
   const { selectedMonth, setSelectedMonth } = useFinanceStore()
@@ -48,7 +63,7 @@ export default function ExpensesPage() {
   const [expenseType, setExpenseType] = useState('shared')
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [expenseMonth, setExpenseMonth] = useState(defaultExpenseMonth)
-  const [bulkInput, setBulkInput] = useState('')
+  const [bulkRows, setBulkRows] = useState<BulkExpenseRow[]>([createBulkExpenseRow()])
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -91,42 +106,22 @@ export default function ExpensesPage() {
     if (!user?.id) { toast.error('ログインが必要です'); return }
     if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
 
-    const lines = bulkInput
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
+    const activeRows = bulkRows.filter((row) => row.amount || row.description || row.categoryId)
 
-    if (lines.length === 0) {
-      toast.error('一括入力欄にデータを入れてください')
+    if (activeRows.length === 0) {
+      toast.error('一括登録の行を入力してください')
       return
     }
 
-    const categoryMap = new Map(
-      (categories || []).map((category) => [category.name.trim().toLowerCase(), category.id])
-    )
-
     const payloads = []
-    for (const [index, line] of lines.entries()) {
-      const parts = line.split(',').map((part) => part.trim())
-      if (parts.length < 2) {
-        toast.error(`${index + 1}行目の形式が違います`)
-        return
-      }
-
-      const parsedAmount = Number(parts[0].replace(/,/g, ''))
+    for (const [index, row] of activeRows.entries()) {
+      const parsedAmount = Number(row.amount.replace(/,/g, ''))
       if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
         toast.error(`${index + 1}行目の金額が不正です`)
         return
       }
-
-      const descriptionValue = parts[1]
-      const categoryName = parts[2]?.toLowerCase()
-      const matchedCategoryId = categoryName
-        ? categoryMap.get(categoryName)
-        : categoryId || undefined
-
-      if (categoryName && !matchedCategoryId) {
-        toast.error(`${index + 1}行目のカテゴリが見つかりません`)
+      if (!row.description) {
+        toast.error(`${index + 1}行目の説明を入力してください`)
         return
       }
 
@@ -134,10 +129,10 @@ export default function ExpensesPage() {
         couple_id: couple.id,
         paid_by: user.id,
         amount: parsedAmount,
-        description: descriptionValue || undefined,
+        description: row.description || undefined,
         expense_date: `${expenseMonth}-01`,
         expense_type: expenseType,
-        category_id: matchedCategoryId,
+        category_id: row.categoryId || categoryId || undefined,
         payment_method: paymentMethod,
       })
     }
@@ -146,7 +141,7 @@ export default function ExpensesPage() {
       for (const payload of payloads) {
         await createExpense.mutateAsync(payload)
       }
-      setBulkInput('')
+      setBulkRows([createBulkExpenseRow()])
       setExpenseMonth(defaultExpenseMonth)
       setSelectedMonth(expenseMonth)
       setDialogOpen(false)
@@ -154,6 +149,22 @@ export default function ExpensesPage() {
     } catch {
       toast.error('一括登録に失敗しました')
     }
+  }
+
+  const updateBulkRow = (rowId: string, updates: Partial<BulkExpenseRow>) => {
+    setBulkRows((current) =>
+      current.map((row) => (row.id === rowId ? { ...row, ...updates } : row))
+    )
+  }
+
+  const addBulkRow = () => {
+    setBulkRows((current) => [...current, createBulkExpenseRow()])
+  }
+
+  const removeBulkRow = (rowId: string) => {
+    setBulkRows((current) => (
+      current.length === 1 ? [createBulkExpenseRow()] : current.filter((row) => row.id !== rowId)
+    ))
   }
 
   const filteredExpenses = expenses?.filter((e) =>
@@ -273,19 +284,55 @@ export default function ExpensesPage() {
                 </TabsContent>
 
                 <TabsContent value="bulk" className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label>一括入力</Label>
-                    <Textarea
-                      rows={8}
-                      placeholder={'1200, コーヒー\n8500, ドラッグストア\n15000, 電車代'}
-                      value={bulkInput}
-                      onChange={(e) => setBulkInput(e.target.value)}
-                    />
+                  <div className="space-y-3">
+                    {bulkRows.map((row, index) => (
+                      <div key={row.id} className="rounded-lg border p-3 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">{index + 1}件目</p>
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeBulkRow(row.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>金額</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={row.amount}
+                              onChange={(e) => updateBulkRow(row.id, { amount: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>カテゴリ</Label>
+                            <Select value={row.categoryId || undefined} onValueChange={(value) => updateBulkRow(row.id, { categoryId: value || '' })}>
+                              <SelectTrigger><SelectValue placeholder={categoryId ? '上のカテゴリを使う' : '選択...'} /></SelectTrigger>
+                              <SelectContent>
+                                {categories?.map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.id}>
+                                    {cat.icon} {cat.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>説明</Label>
+                          <Input
+                            placeholder="何に使った？"
+                            value={row.description}
+                            onChange={(e) => updateBulkRow(row.id, { description: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" className="w-full" onClick={addBulkRow}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      行を追加
+                    </Button>
                     <p className="text-xs text-muted-foreground">
-                      上でカテゴリを選べば、1行に `金額, 説明` だけでまとめて登録できます。
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      行ごとにカテゴリを変えたい場合は `金額, 説明, カテゴリ名` でも入力できます。
+                      各行でカテゴリをプルダウン選択できます。未選択なら上部のカテゴリを使います。
                     </p>
                   </div>
                   <Button onClick={handleBulkCreate} className="w-full" disabled={createExpense.isPending}>

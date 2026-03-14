@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Income, InsertTables } from '@/types'
+import type { Income, InsertTables, UpdateTables } from '@/types'
 
 export function useIncomes(coupleId: string | undefined, yearMonth?: string) {
   const supabase = createClient()
@@ -70,6 +70,47 @@ export function useCreateIncome() {
         .single()
       if (error) throw error
       return data as unknown as Income
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incomes'] })
+      queryClient.invalidateQueries({ queryKey: ['income-history'] })
+    },
+  })
+}
+
+export function useUpdateIncome() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: UpdateTables<'incomes'> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('incomes')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as unknown as Income
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incomes'] })
+      queryClient.invalidateQueries({ queryKey: ['income-history'] })
+    },
+  })
+}
+
+export function useDeleteIncome() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('incomes')
+        .delete()
+        .eq('id', id)
+      if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incomes'] })
