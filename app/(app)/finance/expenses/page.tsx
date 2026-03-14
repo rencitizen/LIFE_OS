@@ -33,6 +33,17 @@ type MoneyforwardImportItem = {
   amount: string
 }
 
+const IMPORT_ERROR_MESSAGES: Record<string, string> = {
+  missing_file: '画像ファイルを選択してください',
+  invalid_file_type: '画像ファイルを選択してください',
+  image_too_small: '画像サイズが不足しているため認識できませんでした',
+  no_categories_detected: 'カテゴリ金額を認識できませんでした',
+  missing_api_key: 'サーバーのAPI設定を確認してください',
+  openai_request_failed: 'AI解析でエラーが発生しました',
+  empty_model_output: 'AIの出力が空でした。別画像で再度お試しください',
+  unknown_import_error: 'カテゴリ金額を認識できませんでした',
+}
+
 function normalizeCategoryKey(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, '')
 }
@@ -250,7 +261,7 @@ export default function TransactionsPage() {
       const payload = await response.json()
 
       if (!response.ok || !Array.isArray(payload.items) || payload.items.length === 0) {
-        setImportError(payload.error || 'カテゴリ金額を認識できませんでした')
+        setImportError(IMPORT_ERROR_MESSAGES[payload.error_code] || payload.error || 'カテゴリ金額を認識できませんでした')
         return
       }
 
@@ -262,7 +273,7 @@ export default function TransactionsPage() {
         }))
       )
     } catch {
-      setImportError('カテゴリ金額を認識できませんでした')
+      setImportError('ネットワークまたはサーバーエラーで取り込みに失敗しました')
     } finally {
       setIsImporting(false)
     }
@@ -288,7 +299,7 @@ export default function TransactionsPage() {
       .filter((item) => item.category.trim() && Number.isFinite(item.amountNumber) && item.amountNumber > 0)
 
     if (validItems.length === 0) {
-      return toast.error('カテゴリ金額を認識できませんでした')
+      return toast.error('保存できるカテゴリ行がありません')
     }
 
     setIsSavingImport(true)
@@ -333,7 +344,7 @@ export default function TransactionsPage() {
       resetImportState()
       toast.success(`${validItems.length}件のカテゴリ支出を保存しました`)
     } catch {
-      toast.error('カテゴリ金額を認識できませんでした')
+      toast.error('保存処理に失敗しました')
     } finally {
       setIsSavingImport(false)
     }

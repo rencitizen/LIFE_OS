@@ -3,6 +3,18 @@ import { createClient } from '@/lib/supabase/server'
 import { MONEYFORWARD_IMPORT_PROMPT, normalizeMoneyforwardRows, parseOpenAIJsonPayload } from '@/lib/moneyforward-import'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses'
+const IS_PRODUCTION = process.env.NODE_ENV === 'production'
+
+class ImportRouteError extends Error {
+  code: string
+  status: number
+
+  constructor(code: string, message: string, status = 500) {
+    super(message)
+    this.code = code
+    this.status = status
+  }
+}
 
 function getMimeType(fileType: string) {
   if (fileType && fileType.startsWith('image/')) return fileType
@@ -57,7 +69,7 @@ function extractOutputText(payload: unknown) {
 async function requestMoneyforwardRows(imageDataUrl: string, model: 'gpt-4.1-mini' | 'gpt-4.1') {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not configured')
+    throw new ImportRouteError('missing_api_key', 'OPENAI_API_KEY is not configured', 500)
   }
 
   const response = await fetch(OPENAI_API_URL, {
@@ -109,11 +121,14 @@ async function requestMoneyforwardRows(imageDataUrl: string, model: 'gpt-4.1-min
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`OpenAI request failed: ${response.status} ${errorText}`)
+    throw new ImportRouteError('openai_request_failed', `OpenAI request failed: ${response.status} ${errorText}`, 502)
   }
 
   const payload = await response.json()
   const text = extractOutputText(payload)
+  if (!text) {
+    throw new ImportRouteError('empty_model_output', 'OpenAI returned empty output', 502)
+  }
   const rows = normalizeMoneyforwardRows(parseOpenAIJsonPayload(text))
   return rows
 }
@@ -122,22 +137,22 @@ export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
+    return NextResponse.json({ error: 'ログインが必要です', error_code: 'unauthorized' }, { status: 401 })
   }
 
   const formData = await request.formData()
   const file = formData.get('file')
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: '画像ファイルを選択してください' }, { status: 400 })
+    return NextResponse.json({ error: '画像ファイルを選択してください', error_code: 'missing_file' }, { status: 400 })
   }
 
   if (!file.type.startsWith('image/')) {
-    return NextResponse.json({ error: '画像ファイルを選択してください' }, { status: 400 })
+    return NextResponse.json({ error: '画像ファイルを選択してください', error_code: 'invalid_file_type' }, { status: 400 })
   }
 
   if (file.size < 30_000) {
-    return NextResponse.json({ error: 'カテゴリ金額を認識できませんでした' }, { status: 400 })
+    return NextResponse.json({ error: 'カテゴリ金額を認識できませんでした', error_code: 'image_too_small' }, { status: 400 })
   }
 
   try {
@@ -149,12 +164,27 @@ export async function POST(request: Request) {
     }
 
     if (!rows.length) {
-      return NextResponse.json({ error: 'カテゴリ金額を認識できませんでした' }, { status: 422 })
+      return NextResponse.json({ error: 'カテゴリ金額を認識できませんでした', error_code: 'no_categories_detected' }, { status: 422 })
     }
 
     return NextResponse.json({ items: rows })
   } catch (error) {
-    console.error('Moneyforward import failed:', error)
-    return NextResponse.json({ error: 'カテゴリ金額を認識できませんでした' }, { status: 500 })
+    const routeError = error instanceof ImportRouteError
+      ? error
+      : new ImportRouteError('unknown_import_error', error instanceof Error ? error.message : 'Unknown import error', 500)
+
+    console.error('Moneyforward import failed:', {
+      code: routeError.code,
+      message: routeError.message,
+      stack: routeError.stack,
+    })
+
+    return NextResponse.json(
+      {
+        error: IS_PRODUCTION ? 'カテゴリ金額を認識できませんでした' : routeError.message,
+        error_code: routeError.code,
+      },
+      { status: routeError.status }
+    )
   }
 }
