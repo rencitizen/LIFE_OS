@@ -33,6 +33,30 @@ export function useIncomes(coupleId: string | undefined, yearMonth?: string) {
   })
 }
 
+export function useIncomeHistory(coupleId: string | undefined, months = 12) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['income-history', coupleId, months],
+    queryFn: async () => {
+      const now = new Date()
+      const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1)
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+      const { data, error } = await supabase
+        .from('incomes')
+        .select('amount, income_date')
+        .eq('couple_id', coupleId!)
+        .gte('income_date', start.toISOString().slice(0, 10))
+        .lt('income_date', end.toISOString().slice(0, 10))
+      if (error) throw error
+
+      return data as Pick<Income, 'amount' | 'income_date'>[]
+    },
+    enabled: !!coupleId,
+  })
+}
+
 export function useCreateIncome() {
   const supabase = createClient()
   const queryClient = useQueryClient()

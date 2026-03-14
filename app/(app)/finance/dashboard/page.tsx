@@ -1,16 +1,16 @@
 'use client'
 
 import { useMemo } from 'react'
-import { format } from 'date-fns'
+import { format, subMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet, PieChart, LineChart, ArrowRight } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet, PieChart, ArrowRight } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
-import { useIncomes } from '@/lib/hooks/use-incomes'
+import { useExpenseHistory, useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
+import { useIncomeHistory, useIncomes } from '@/lib/hooks/use-incomes'
 import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
 import { getBudgetLimitTotal } from '@/lib/budget-utils'
 import { usePlanVsActual } from '@/lib/hooks/use-plan-vs-actual'
@@ -38,6 +38,8 @@ export default function FinanceDashboardPage() {
 
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
   const { data: incomes } = useIncomes(couple?.id, selectedMonth)
+  const { data: expenseHistory } = useExpenseHistory(couple?.id, 12)
+  const { data: incomeHistory } = useIncomeHistory(couple?.id, 12)
   const { data: budget } = useBudget(couple?.id, selectedMonth)
   const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
   const { currentYear } = usePlanVsActual(couple?.id)
@@ -71,6 +73,39 @@ export default function FinanceDashboardPage() {
     }))
   }, [currentYear])
 
+  const monthlyCashflow = useMemo(() => {
+    const months = Array.from({ length: 12 }, (_, index) => {
+      const date = subMonths(new Date(), 11 - index)
+      const key = format(date, 'yyyy-MM')
+      return {
+        key,
+        label: format(date, 'M月', { locale: ja }),
+        収入: 0,
+        支出: 0,
+        収支: 0,
+      }
+    })
+
+    const monthMap = new Map(months.map((row) => [row.key, row]))
+
+    for (const item of incomeHistory || []) {
+      const monthKey = item.income_date.slice(0, 7)
+      const row = monthMap.get(monthKey)
+      if (row) row.収入 += Number(item.amount) || 0
+    }
+
+    for (const item of expenseHistory || []) {
+      const monthKey = item.expense_date.slice(0, 7)
+      const row = monthMap.get(monthKey)
+      if (row) row.支出 += Number(item.amount) || 0
+    }
+
+    return months.map((row) => ({
+      ...row,
+      収支: row.収入 - row.支出,
+    }))
+  }, [expenseHistory, incomeHistory])
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -87,6 +122,46 @@ export default function FinanceDashboardPage() {
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">直近1年の月次収支</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={monthlyCashflow} barGap={8}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#D9D9D9" />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={(v) => `${Math.round(v / 10000)}万`} tick={{ fontSize: 11 }} />
+              <Tooltip content={<ChartTooltip />} />
+              <Legend />
+              <Bar dataKey="収入" fill="#1E5945" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="支出" fill="#D96C6C" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+
+          <div className="grid gap-2 md:grid-cols-3">
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">12ヶ月平均収入</p>
+              <p className="text-lg font-semibold text-[#1E5945]">
+                {yen(monthlyCashflow.reduce((sum, row) => sum + row.収入, 0) / 12)}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">12ヶ月平均支出</p>
+              <p className="text-lg font-semibold text-destructive">
+                {yen(monthlyCashflow.reduce((sum, row) => sum + row.支出, 0) / 12)}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">12ヶ月平均収支</p>
+              <p className={`text-lg font-semibold ${monthlyCashflow.reduce((sum, row) => sum + row.収支, 0) >= 0 ? 'text-[#1E5945]' : 'text-destructive'}`}>
+                {yen(monthlyCashflow.reduce((sum, row) => sum + row.収支, 0) / 12)}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -199,6 +274,30 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">直近1年の月次収支差</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={monthlyCashflow}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#D9D9D9" />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={(v) => `${Math.round(v / 10000)}万`} tick={{ fontSize: 11 }} />
+              <Tooltip content={<ChartTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="収支"
+                stroke="#133929"
+                strokeWidth={3}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       {/* Fixed vs Variable + Category */}
       <div className="grid gap-4 lg:grid-cols-2">

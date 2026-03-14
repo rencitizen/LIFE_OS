@@ -83,6 +83,30 @@ export function useMonthlyExpenseSummary(coupleId: string | undefined, yearMonth
   })
 }
 
+export function useExpenseHistory(coupleId: string | undefined, months = 12) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['expense-history', coupleId, months],
+    queryFn: async () => {
+      const now = new Date()
+      const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1)
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('amount, expense_date')
+        .eq('couple_id', coupleId!)
+        .gte('expense_date', start.toISOString().slice(0, 10))
+        .lt('expense_date', end.toISOString().slice(0, 10))
+      if (error) throw error
+
+      return data as Pick<Expense, 'amount' | 'expense_date'>[]
+    },
+    enabled: !!coupleId,
+  })
+}
+
 export function useCreateExpense() {
   const supabase = createClient()
   const queryClient = useQueryClient()
