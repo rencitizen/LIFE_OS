@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Budget, BudgetCategory, InsertTables } from '@/types'
+import type { Budget, BudgetCategory, BudgetMemberLimit, InsertTables } from '@/types'
 
 export function useBudget(coupleId: string | undefined, yearMonth: string) {
   const supabase = createClient()
@@ -27,6 +27,10 @@ export interface BudgetCategoryWithDetail extends BudgetCategory {
   expense_categories: { name: string; icon: string | null } | null
 }
 
+export interface BudgetMemberLimitWithUser extends BudgetMemberLimit {
+  users: { id: string; display_name: string } | null
+}
+
 export function useBudgetCategories(budgetId: string | undefined) {
   const supabase = createClient()
 
@@ -39,6 +43,24 @@ export function useBudgetCategories(budgetId: string | undefined) {
         .eq('budget_id', budgetId!)
       if (error) throw error
       return data as unknown as BudgetCategoryWithDetail[]
+    },
+    enabled: !!budgetId,
+  })
+}
+
+export function useBudgetMemberLimits(budgetId: string | undefined) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['budget-member-limits', budgetId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('budget_member_limits')
+        .select('*, users(id, display_name)')
+        .eq('budget_id', budgetId!)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return data as unknown as BudgetMemberLimitWithUser[]
     },
     enabled: !!budgetId,
   })
@@ -81,6 +103,27 @@ export function useUpsertBudgetCategory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['budget'] })
       queryClient.invalidateQueries({ queryKey: ['budget-categories'] })
+    },
+  })
+}
+
+export function useUpsertBudgetMemberLimit() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (memberLimit: InsertTables<'budget_member_limits'>) => {
+      const { data, error } = await supabase
+        .from('budget_member_limits')
+        .upsert(memberLimit, { onConflict: 'budget_id,user_id' })
+        .select()
+        .single()
+      if (error) throw error
+      return data as unknown as BudgetMemberLimit
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['budget'] })
+      queryClient.invalidateQueries({ queryKey: ['budget-member-limits'] })
     },
   })
 }

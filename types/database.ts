@@ -441,6 +441,29 @@ export type Database = {
           created_at?: string
         }
       }
+      budget_member_limits: {
+        Row: {
+          id: string
+          budget_id: string
+          user_id: string
+          limit_amount: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          budget_id: string
+          user_id: string
+          limit_amount?: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          budget_id?: string
+          user_id?: string
+          limit_amount?: number
+          created_at?: string | null
+        }
+      }
       budget_categories: {
         Row: {
           id: string

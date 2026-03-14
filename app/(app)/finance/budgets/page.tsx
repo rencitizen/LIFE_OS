@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { Plus, Download, AlertTriangle, CheckCircle2, Pencil, Save } from 'lucide-react'
@@ -10,27 +10,48 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useBudget, useBudgetCategories, useCreateBudget, useUpsertBudgetCategory, useSeedBudget, type BudgetCategoryWithDetail } from '@/lib/hooks/use-budgets'
+import { getBudgetLimitTotal, splitBudgetTotal } from '@/lib/budget-utils'
+import { useBudget, useBudgetCategories, useBudgetMemberLimits, useCreateBudget, useUpsertBudgetCategory, useUpsertBudgetMemberLimit, useSeedBudget } from '@/lib/hooks/use-budgets'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
 
 export default function BudgetsPage() {
-  const { couple } = useAuth()
+  const { user, couple, partner } = useAuth()
   const { selectedMonth } = useFinanceStore()
   const { data: budget, refetch: refetchBudget } = useBudget(couple?.id, selectedMonth)
   const { data: budgetCategories } = useBudgetCategories(budget?.id)
+  const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
   const { data: allCategories } = useExpenseCategories(couple?.id)
   const createBudget = useCreateBudget()
   const upsertBudgetCategory = useUpsertBudgetCategory()
+  const upsertBudgetMemberLimit = useUpsertBudgetMemberLimit()
   const seedBudget = useSeedBudget()
 
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [totalLimit, setTotalLimit] = useState('')
   const [editing, setEditing] = useState(false)
   const [editAmounts, setEditAmounts] = useState<Record<string, string>>({})
+  const [createMemberAmounts, setCreateMemberAmounts] = useState<Record<string, string>>({})
+  const [editMemberAmounts, setEditMemberAmounts] = useState<Record<string, string>>({})
+
+  const members = useMemo(() => {
+    const rows = []
+    if (user) rows.push({ id: user.id, label: user.display_name || '自分' })
+    if (partner) rows.push({ id: partner.id, label: partner.display_name || 'パートナー' })
+    return rows
+  }, [user, partner])
+
+  const initializeMemberAmounts = useCallback((total: number) => {
+    if (!user) return {}
+    if (!partner) return { [user.id]: String(total) }
+    const { primary, secondary } = splitBudgetTotal(total)
+    return {
+      [user.id]: String(primary),
+      [partner.id]: String(secondary),
+    }
+  }, [user, partner])
 
   // Initialize edit amounts from budget categories
   useEffect(() => {
@@ -43,16 +64,45 @@ export default function BudgetsPage() {
     }
   }, [budgetCategories])
 
+  useEffect(() => {
+    if (!dialogOpen) return
+    setCreateMemberAmounts(initializeMemberAmounts(321500))
+  }, [dialogOpen, initializeMemberAmounts])
+
+  useEffect(() => {
+    if (budgetMemberLimits && budgetMemberLimits.length > 0) {
+      const amounts: Record<string, string> = {}
+      for (const row of budgetMemberLimits) {
+        amounts[row.user_id] = String(Number(row.limit_amount) || 0)
+      }
+      setEditMemberAmounts(amounts)
+      return
+    }
+
+    if (budget?.total_limit && user) {
+      setEditMemberAmounts(initializeMemberAmounts(Number(budget.total_limit)))
+    }
+  }, [budgetMemberLimits, budget?.total_limit, initializeMemberAmounts, user])
+
   const handleCreate = async () => {
-    if (!totalLimit) { toast.error('予算額を入力してください'); return }
+    const memberTotal = Object.values(createMemberAmounts).reduce((sum, value) => sum + (Number(value) || 0), 0)
+    if (!memberTotal) { toast.error('個人予算を入力してください'); return }
     if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
     try {
-      await createBudget.mutateAsync({
+      const createdBudget = await createBudget.mutateAsync({
         couple_id: couple.id,
         year_month: selectedMonth,
-        total_limit: Number(totalLimit),
+        total_limit: memberTotal,
       })
-      setTotalLimit('')
+
+      for (const member of members) {
+        await upsertBudgetMemberLimit.mutateAsync({
+          budget_id: createdBudget.id,
+          user_id: member.id,
+          limit_amount: Number(createMemberAmounts[member.id]) || 0,
+        })
+      }
+
       setDialogOpen(false)
       toast.success('予算を設定しました')
     } catch {
@@ -94,11 +144,22 @@ export default function BudgetsPage() {
         })
       }
 
-      // Update total_limit to match sum of categories
+      for (const member of members) {
+        await upsertBudgetMemberLimit.mutateAsync({
+          budget_id: budget.id,
+          user_id: member.id,
+          limit_amount: Number(editMemberAmounts[member.id]) || 0,
+        })
+      }
+
+      const totalLimit = members.length > 0
+        ? members.reduce((sum, member) => sum + (Number(editMemberAmounts[member.id]) || 0), 0)
+        : editTotal
+
       const supabase = (await import('@/lib/supabase/client')).createClient()
       const { error: budgetUpdateError } = await supabase
         .from('budgets')
-        .update({ total_limit: editTotal })
+        .update({ total_limit: totalLimit })
         .eq('id', budget.id)
       if (budgetUpdateError) throw budgetUpdateError
 
@@ -108,12 +169,13 @@ export default function BudgetsPage() {
     } catch {
       toast.error('保存に失敗しました')
     }
-  }, [budget?.id, editAmounts, editTotal, upsertBudgetCategory, refetchBudget])
+  }, [budget?.id, editAmounts, editMemberAmounts, editTotal, members, upsertBudgetCategory, upsertBudgetMemberLimit, refetchBudget])
 
   const spent = summary?.total || 0
-  const limit = budget?.total_limit ? Number(budget.total_limit) : 0
+  const limit = getBudgetLimitTotal(budget, budgetMemberLimits)
   const remaining = limit - spent
   const percentage = limit > 0 ? (spent / limit) * 100 : 0
+  const editingMemberTotal = members.reduce((sum, member) => sum + (Number(editMemberAmounts[member.id]) || 0), 0)
 
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
@@ -159,6 +221,9 @@ export default function BudgetsPage() {
     (c) => !allRows.some((r) => r.categoryId === c.id)
   ) || []
 
+  const memberBudgetTotal = editing ? editingMemberTotal : limit
+  const categoryBudgetTotal = editing ? editTotal : allRows.reduce((sum, row) => sum + row.budgetAmount, 0)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -200,14 +265,22 @@ export default function BudgetsPage() {
             <DialogTitle>予算を設定</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>月の予算額（円）</Label>
-              <Input
-                type="number"
-                placeholder="321500"
-                value={totalLimit}
-                onChange={(e) => setTotalLimit(e.target.value)}
-              />
+            {members.map((member) => (
+              <div key={member.id} className="space-y-2">
+                <Label>{member.label}の月予算（円）</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={createMemberAmounts[member.id] || ''}
+                  onChange={(e) => setCreateMemberAmounts((prev) => ({ ...prev, [member.id]: e.target.value }))}
+                />
+              </div>
+            ))}
+            <div className="rounded-lg bg-muted/40 p-3 text-sm flex items-center justify-between">
+              <span className="text-muted-foreground">合計</span>
+              <span className="font-semibold">
+                ¥{Object.values(createMemberAmounts).reduce((sum, value) => sum + (Number(value) || 0), 0).toLocaleString()}
+              </span>
             </div>
             <Button onClick={handleCreate} className="w-full" disabled={createBudget.isPending}>
               設定
@@ -224,9 +297,28 @@ export default function BudgetsPage() {
               <CardTitle className="text-base">全体予算</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                {members.map((member) => (
+                  <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-muted-foreground">{member.label}</span>
+                    {editing ? (
+                      <Input
+                        type="number"
+                        className="w-32 h-8 text-right"
+                        value={editMemberAmounts[member.id] || '0'}
+                        onChange={(e) => setEditMemberAmounts((prev) => ({ ...prev, [member.id]: e.target.value }))}
+                      />
+                    ) : (
+                      <span className="font-medium">
+                        ¥{(Number(editMemberAmounts[member.id]) || Number(budgetMemberLimits?.find((row) => row.user_id === member.id)?.limit_amount) || 0).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
               <div className="flex justify-between text-sm">
                 <span>支出: ¥{spent.toLocaleString()}</span>
-                <span>予算: ¥{(editing ? editTotal : limit).toLocaleString()}</span>
+                <span>予算: ¥{memberBudgetTotal.toLocaleString()}</span>
               </div>
               <div className="h-4 rounded-full bg-muted overflow-hidden">
                 <div
@@ -237,15 +329,18 @@ export default function BudgetsPage() {
                 />
               </div>
               <div className="text-center">
-                <span className={`text-2xl font-bold ${remaining < 0 ? 'text-destructive' : ''}`}>
-                  ¥{(editing ? editTotal - spent : remaining).toLocaleString()}
+                <span className={`text-2xl font-bold ${(editing ? memberBudgetTotal - spent : remaining) < 0 ? 'text-destructive' : ''}`}>
+                  ¥{(editing ? memberBudgetTotal - spent : remaining).toLocaleString()}
                 </span>
                 <p className="text-xs text-muted-foreground">
-                  {(editing ? editTotal - spent : remaining) >= 0 ? '残り' : '超過'}
+                  {(editing ? memberBudgetTotal - spent : remaining) >= 0 ? '残り' : '超過'}
                   {!editing && `（${percentage.toFixed(0)}%使用）`}
-                  {editing && '（編集中 — 合計は自動計算）'}
+                  {editing && '（編集中）'}
                 </p>
               </div>
+              <p className="text-xs text-muted-foreground">
+                カテゴリ配分合計: ¥{categoryBudgetTotal.toLocaleString()}
+              </p>
             </CardContent>
           </Card>
 
@@ -330,7 +425,7 @@ export default function BudgetsPage() {
               <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-t mt-4 pt-3 text-sm font-bold">
                 <span>合計</span>
                 <span className="text-right w-24">
-                  ¥{(editing ? editTotal : allRows.reduce((s, r) => s + r.budgetAmount, 0)).toLocaleString()}
+                  ¥{categoryBudgetTotal.toLocaleString()}
                 </span>
                 <span className="text-right w-20">
                   ¥{allRows.reduce((s, r) => s + r.actualAmount, 0).toLocaleString()}

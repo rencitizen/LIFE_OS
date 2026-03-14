@@ -9,7 +9,8 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { useCalendarEvents } from '@/lib/hooks/use-calendar-events'
 import { useTodos } from '@/lib/hooks/use-todos'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
-import { useBudget } from '@/lib/hooks/use-budgets'
+import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
+import { getBudgetLimitTotal } from '@/lib/budget-utils'
 
 export default function HomePage() {
   const { user, couple, partner } = useAuth()
@@ -25,9 +26,11 @@ export default function HomePage() {
   const { data: todos } = useTodos(couple?.id, { status: 'pending' })
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, monthStr)
   const { data: budget } = useBudget(couple?.id, monthStr)
+  const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
+  const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits)
 
-  const remainingBudget = budget?.total_limit
-    ? Number(budget.total_limit) - (summary?.total || 0)
+  const remainingBudget = budgetLimit > 0
+    ? budgetLimit - (summary?.total || 0)
     : null
 
   return (
@@ -104,9 +107,9 @@ export default function HomePage() {
                 </div>
                 <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-primary transition-all"
+                      className="h-full rounded-full bg-primary transition-all"
                     style={{
-                      width: `${Math.min(100, Math.max(0, ((summary?.total || 0) / Number(budget!.total_limit)) * 100))}%`,
+                      width: `${Math.min(100, Math.max(0, ((summary?.total || 0) / budgetLimit) * 100))}%`,
                     }}
                   />
                 </div>

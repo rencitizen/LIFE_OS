@@ -22,6 +22,7 @@ export type ExpenseSplit = Tables<'expense_splits'>
 export type ExpenseCategory = Tables<'expense_categories'>
 export type Settlement = Tables<'settlements'>
 export type Budget = Tables<'budgets'>
+export type BudgetMemberLimit = Tables<'budget_member_limits'>
 export type BudgetCategory = Tables<'budget_categories'>
 export type SavingsGoal = Tables<'savings_goals'>
 export type SavingsContribution = Tables<'savings_contributions'>

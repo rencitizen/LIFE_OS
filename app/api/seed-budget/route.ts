@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { splitBudgetTotal } from '@/lib/budget-utils'
 
 // Excel data: LIVING_COST_AFTER_LT (同棲後の月額予算)
 const MONTHLY_BUDGET_TOTAL = 321500
@@ -47,6 +48,11 @@ export async function POST() {
   }
 
   const coupleId = profile.couple_id
+  const { data: members } = await supabase
+    .from('users')
+    .select('id, display_name, email, created_at')
+    .eq('couple_id', coupleId)
+    .order('created_at', { ascending: true })
 
   // Get expense categories for this couple
   const { data: categories } = await supabase
@@ -67,6 +73,8 @@ export async function POST() {
   // Seed budgets for current month + next 11 months (1 year)
   const now = new Date()
   const results = { budgets: 0, budgetCategories: 0, events: 0 }
+  const { primary, secondary } = splitBudgetTotal(MONTHLY_BUDGET_TOTAL)
+  const rankedMembers = (members || []).slice(0, 2)
 
   for (let i = 0; i < 12; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() + i, 1)
@@ -87,6 +95,22 @@ export async function POST() {
       continue
     }
     results.budgets++
+
+    if (rankedMembers.length > 0) {
+      const memberRows = rankedMembers.map((member, index) => ({
+        budget_id: budget.id,
+        user_id: member.id,
+        limit_amount: rankedMembers.length === 1 ? MONTHLY_BUDGET_TOTAL : index === 0 ? primary : secondary,
+      }))
+
+      const { error: memberLimitError } = await supabase
+        .from('budget_member_limits')
+        .upsert(memberRows, { onConflict: 'budget_id,user_id' })
+
+      if (memberLimitError) {
+        console.error('Budget member limit upsert error:', memberLimitError)
+      }
+    }
 
     // Upsert budget categories
     for (const [catName, amount] of Object.entries(CATEGORY_BUDGETS)) {

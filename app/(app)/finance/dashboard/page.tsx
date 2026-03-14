@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useIncomes } from '@/lib/hooks/use-incomes'
-import { useBudget } from '@/lib/hooks/use-budgets'
+import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
+import { getBudgetLimitTotal } from '@/lib/budget-utils'
 import { usePlanVsActual } from '@/lib/hooks/use-plan-vs-actual'
 import { useFinanceStore } from '@/stores/finance-store'
 
@@ -38,10 +39,12 @@ export default function FinanceDashboardPage() {
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
   const { data: incomes } = useIncomes(couple?.id, selectedMonth)
   const { data: budget } = useBudget(couple?.id, selectedMonth)
+  const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
   const { currentYear } = usePlanVsActual(couple?.id)
 
   const totalIncome = incomes?.reduce((sum, i) => sum + Number(i.amount), 0) || 0
   const balance = totalIncome - (summary?.total || 0)
+  const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits)
 
   const navigateMonth = (direction: number) => {
     const [y, m] = selectedMonth.split('-').map(Number)
@@ -149,16 +152,16 @@ export default function FinanceDashboardPage() {
             <PieChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {budget?.total_limit ? (
+            {budgetLimit > 0 ? (
               <>
                 <div className="text-2xl font-bold">
-                  {yen(Number(budget.total_limit) - (summary?.total || 0))}
+                  {yen(budgetLimit - (summary?.total || 0))}
                 </div>
                 <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full bg-primary"
                     style={{
-                      width: `${Math.min(100, ((summary?.total || 0) / Number(budget.total_limit)) * 100)}%`,
+                      width: `${Math.min(100, ((summary?.total || 0) / budgetLimit) * 100)}%`,
                     }}
                   />
                 </div>
