@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useExpenses, useCreateExpense } from '@/lib/hooks/use-expenses'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
@@ -46,6 +48,7 @@ export default function ExpensesPage() {
   const [expenseType, setExpenseType] = useState('shared')
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [expenseMonth, setExpenseMonth] = useState(defaultExpenseMonth)
+  const [bulkInput, setBulkInput] = useState('')
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -82,6 +85,73 @@ export default function ExpensesPage() {
     }
   }
 
+  const handleBulkCreate = async () => {
+    if (!expenseMonth) { toast.error('対象月を入力してください'); return }
+    if (!user?.id) { toast.error('ログインが必要です'); return }
+    if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
+
+    const lines = bulkInput
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    if (lines.length === 0) {
+      toast.error('一括入力欄にデータを入れてください')
+      return
+    }
+
+    const categoryMap = new Map(
+      (categories || []).map((category) => [category.name.trim().toLowerCase(), category.id])
+    )
+
+    const payloads = []
+    for (const [index, line] of lines.entries()) {
+      const parts = line.split(',').map((part) => part.trim())
+      if (parts.length < 2) {
+        toast.error(`${index + 1}行目の形式が違います`)
+        return
+      }
+
+      const parsedAmount = Number(parts[0].replace(/,/g, ''))
+      if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        toast.error(`${index + 1}行目の金額が不正です`)
+        return
+      }
+
+      const descriptionValue = parts[1]
+      const categoryName = parts[2]?.toLowerCase()
+      const matchedCategoryId = categoryName ? categoryMap.get(categoryName) : undefined
+
+      if (categoryName && !matchedCategoryId) {
+        toast.error(`${index + 1}行目のカテゴリが見つかりません`)
+        return
+      }
+
+      payloads.push({
+        couple_id: couple.id,
+        paid_by: user.id,
+        amount: parsedAmount,
+        description: descriptionValue || undefined,
+        expense_date: `${expenseMonth}-01`,
+        expense_type: expenseType,
+        category_id: matchedCategoryId,
+        payment_method: paymentMethod,
+      })
+    }
+
+    try {
+      for (const payload of payloads) {
+        await createExpense.mutateAsync(payload)
+      }
+      setBulkInput('')
+      setExpenseMonth(defaultExpenseMonth)
+      setDialogOpen(false)
+      toast.success(`${payloads.length}件の支出を登録しました`)
+    } catch {
+      toast.error('一括登録に失敗しました')
+    }
+  }
+
   const filteredExpenses = expenses?.filter((e) =>
     !searchQuery || e.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -110,23 +180,6 @@ export default function ExpensesPage() {
               <DialogTitle>支出を記録</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>金額</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>説明</Label>
-                <Input
-                  placeholder="何に使った？"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
               <div className="space-y-2">
                 <Label>対象月</Label>
                 <Input
@@ -172,9 +225,67 @@ export default function ExpensesPage() {
                   </Select>
                 </div>
               </div>
-              <Button onClick={handleCreate} className="w-full" disabled={createExpense.isPending}>
-                登録
-              </Button>
+
+              <Tabs defaultValue="single">
+                <TabsList className="grid grid-cols-2 w-full">
+                  <TabsTrigger value="single">1件ずつ</TabsTrigger>
+                  <TabsTrigger value="bulk">まとめて</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="single" className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label>金額</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>説明</Label>
+                    <Input
+                      placeholder="何に使った？"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>カテゴリ</Label>
+                    <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? '')}>
+                      <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                      <SelectContent>
+                        {categories?.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.icon} {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleCreate} className="w-full" disabled={createExpense.isPending}>
+                    登録
+                  </Button>
+                </TabsContent>
+
+                <TabsContent value="bulk" className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label>一括入力</Label>
+                    <Textarea
+                      rows={8}
+                      placeholder={'1200, コーヒー, 食費\n8500, ドラッグストア, 日用品\n15000, 電車代, 交通費'}
+                      value={bulkInput}
+                      onChange={(e) => setBulkInput(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      1行に `金額, 説明, カテゴリ名`。カテゴリ名は省略可です。
+                    </p>
+                  </div>
+                  <Button onClick={handleBulkCreate} className="w-full" disabled={createExpense.isPending}>
+                    まとめて登録
+                  </Button>
+                </TabsContent>
+              </Tabs>
             </div>
           </DialogContent>
         </Dialog>
