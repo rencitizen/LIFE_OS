@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { ShoppingList, ShoppingItem, InsertTables } from '@/types'
+import type { ShoppingList, ShoppingItem, InsertTables, UpdateTables } from '@/types'
 
 export function useShoppingLists(coupleId: string | undefined) {
   const supabase = createClient()
@@ -62,6 +62,27 @@ export function useCreateShoppingList() {
   })
 }
 
+export function useUpdateShoppingList() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: UpdateTables<'shopping_lists'> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('shopping_lists')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as unknown as ShoppingList
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+    },
+  })
+}
+
 export function useCreateShoppingItem() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -71,6 +92,28 @@ export function useCreateShoppingItem() {
       const { data, error } = await supabase
         .from('shopping_items')
         .insert(item)
+        .select()
+        .single()
+      if (error) throw error
+      return data as unknown as ShoppingItem
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shopping-items'] })
+      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+    },
+  })
+}
+
+export function useUpdateShoppingItem() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: UpdateTables<'shopping_items'> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('shopping_items')
+        .update(updates)
+        .eq('id', id)
         .select()
         .single()
       if (error) throw error

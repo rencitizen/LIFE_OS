@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 
 export default function RegisterPage() {
   const [displayName, setDisplayName] = useState('')
@@ -44,16 +43,6 @@ export default function RegisterPage() {
     }
 
     setLoading(false)
-  }
-
-  const handleGoogleRegister = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/callback`,
-      },
-    })
-    if (error) setError(error.message)
   }
 
   return (
@@ -105,16 +94,6 @@ export default function RegisterPage() {
           </Button>
         </form>
 
-        <div className="relative my-6">
-          <Separator />
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-            または
-          </span>
-        </div>
-
-        <Button variant="outline" className="w-full" onClick={handleGoogleRegister}>
-          Googleで登録
-        </Button>
       </CardContent>
       <CardFooter className="justify-center">
         <p className="text-sm text-muted-foreground">

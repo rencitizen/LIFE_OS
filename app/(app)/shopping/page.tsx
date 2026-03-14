@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, ShoppingCart, Check, Undo2 } from 'lucide-react'
+import { Plus, ShoppingCart, Check, Undo2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useShoppingLists, useShoppingItems, useCreateShoppingList, useCreateShoppingItem, useToggleShoppingItem } from '@/lib/hooks/use-shopping'
+import { useShoppingLists, useShoppingItems, useCreateShoppingList, useCreateShoppingItem, useToggleShoppingItem, useUpdateShoppingList, useUpdateShoppingItem } from '@/lib/hooks/use-shopping'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -36,11 +36,17 @@ export default function ShoppingPage() {
   const createList = useCreateShoppingList()
   const createItem = useCreateShoppingItem()
   const toggleItem = useToggleShoppingItem()
+  const updateList = useUpdateShoppingList()
+  const updateItem = useUpdateShoppingItem()
 
   const [newListName, setNewListName] = useState('')
   const [newListCategory, setNewListCategory] = useState('general')
   const [newItemName, setNewItemName] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingListId, setEditingListId] = useState<string | null>(null)
+  const [editingListName, setEditingListName] = useState('')
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editingItemName, setEditingItemName] = useState('')
 
   const handleCreateList = async () => {
     if (!newListName) { toast.error('リスト名を入力してください'); return }
@@ -86,6 +92,38 @@ export default function ShoppingPage() {
       })
     } catch {
       toast.error('更新に失敗しました')
+    }
+  }
+
+  const handleSaveListName = async () => {
+    if (!editingListId || !editingListName.trim()) {
+      setEditingListId(null)
+      return
+    }
+    try {
+      await updateList.mutateAsync({ id: editingListId, name: editingListName.trim() })
+      toast.success('リスト名を更新しました')
+    } catch {
+      toast.error('リスト名の更新に失敗しました')
+    } finally {
+      setEditingListId(null)
+      setEditingListName('')
+    }
+  }
+
+  const handleSaveItemName = async () => {
+    if (!editingItemId || !editingItemName.trim()) {
+      setEditingItemId(null)
+      return
+    }
+    try {
+      await updateItem.mutateAsync({ id: editingItemId, name: editingItemName.trim() })
+      toast.success('アイテム名を更新しました')
+    } catch {
+      toast.error('アイテムの更新に失敗しました')
+    } finally {
+      setEditingItemId(null)
+      setEditingItemName('')
     }
   }
 
@@ -154,7 +192,36 @@ export default function ShoppingPage() {
               >
                 <CardContent className="flex items-center justify-between p-4">
                   <div>
-                    <p className="font-medium text-sm">{list.name}</p>
+                    {editingListId === list.id ? (
+                      <Input
+                        value={editingListName}
+                        onChange={(e) => setEditingListName(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onBlur={handleSaveListName}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveListName()
+                          if (e.key === 'Escape') {
+                            setEditingListId(null)
+                            setEditingListName('')
+                          }
+                        }}
+                        autoFocus
+                        className="h-8 text-sm"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-left"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingListId(list.id)
+                          setEditingListName(list.name)
+                        }}
+                      >
+                        <span className="font-medium text-sm">{list.name}</span>
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {categoryLabels[list.category] || list.category}
                     </p>
@@ -205,7 +272,34 @@ export default function ShoppingPage() {
                             onCheckedChange={() => handleToggle(item.id, item.is_checked)}
                           />
                           <div className="flex-1">
-                            <p className={cn('text-sm', priorityColors[item.priority])}>{item.name}</p>
+                            {editingItemId === item.id ? (
+                              <Input
+                                value={editingItemName}
+                                onChange={(e) => setEditingItemName(e.target.value)}
+                                onBlur={handleSaveItemName}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveItemName()
+                                  if (e.key === 'Escape') {
+                                    setEditingItemId(null)
+                                    setEditingItemName('')
+                                  }
+                                }}
+                                autoFocus
+                                className="h-8 text-sm"
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                className={cn('flex items-center gap-1 text-left text-sm', priorityColors[item.priority])}
+                                onClick={() => {
+                                  setEditingItemId(item.id)
+                                  setEditingItemName(item.name)
+                                }}
+                              >
+                                <span>{item.name}</span>
+                                <Pencil className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            )}
                             {item.memo && <p className="text-xs text-muted-foreground">{item.memo}</p>}
                           </div>
                           {item.estimated_price && (

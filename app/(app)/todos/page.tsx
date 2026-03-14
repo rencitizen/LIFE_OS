@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Circle, Clock, CheckCircle2 } from 'lucide-react'
+import { Plus, Circle, Clock, CheckCircle2, Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,26 +40,58 @@ export default function TodosPage() {
   const [newPriority, setNewPriority] = useState('medium')
   const [newAssignee, setNewAssignee] = useState('shared')
   const [newDueDate, setNewDueDate] = useState('')
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null)
 
-  const handleCreate = async () => {
+  const openCreateDialog = () => {
+    setEditingTodoId(null)
+    setNewTitle('')
+    setNewPriority('medium')
+    setNewAssignee('shared')
+    setNewDueDate('')
+    setDialogOpen(true)
+  }
+
+  const openEditDialog = (todo: NonNullable<typeof allTodos>[number]) => {
+    setEditingTodoId(todo.id)
+    setNewTitle(todo.title)
+    setNewPriority(todo.priority)
+    setNewAssignee(
+      !todo.assigned_to ? 'shared' : todo.assigned_to === user?.id ? 'me' : 'partner'
+    )
+    setNewDueDate(todo.due_date || '')
+    setDialogOpen(true)
+  }
+
+  const handleSubmit = async () => {
     if (!newTitle) { toast.error('タイトルを入力してください'); return }
     if (!user?.id) { toast.error('ログインが必要です'); return }
     if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
     try {
-      await createTodo.mutateAsync({
-        couple_id: couple.id,
-        created_by: user.id,
-        title: newTitle,
-        priority: newPriority,
-        assigned_to: newAssignee === 'shared' ? null : newAssignee === 'me' ? user.id : partner?.id || null,
-        due_date: newDueDate || null,
-      })
+      if (editingTodoId) {
+        await updateTodo.mutateAsync({
+          id: editingTodoId,
+          title: newTitle,
+          priority: newPriority,
+          assigned_to: newAssignee === 'shared' ? null : newAssignee === 'me' ? user.id : partner?.id || null,
+          due_date: newDueDate || null,
+        })
+      } else {
+        await createTodo.mutateAsync({
+          couple_id: couple.id,
+          created_by: user.id,
+          title: newTitle,
+          priority: newPriority,
+          assigned_to: newAssignee === 'shared' ? null : newAssignee === 'me' ? user.id : partner?.id || null,
+          due_date: newDueDate || null,
+        })
+      }
       setNewTitle('')
       setNewDueDate('')
+      setEditingTodoId(null)
       setDialogOpen(false)
-      toast.success('タスクを追加しました')
+      toast.success(editingTodoId ? 'タスクを更新しました' : 'タスクを追加しました')
     } catch {
-      toast.error('タスクの追加に失敗しました')
+      toast.error(editingTodoId ? 'タスクの更新に失敗しました' : 'タスクの追加に失敗しました')
     }
   }
 
@@ -103,14 +135,17 @@ export default function TodosPage() {
               <button onClick={() => cycleStatus(todo.id, todo.status)} className="shrink-0">
                 <StatusIcon className={cn('h-5 w-5', todo.status === 'in_progress' ? 'text-[#85B59B]' : 'text-muted-foreground')} />
               </button>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{todo.title}</p>
+              <button type="button" className="flex-1 min-w-0 text-left" onClick={() => openEditDialog(todo)}>
+                <p className="flex items-center gap-1 text-sm font-medium truncate">
+                  <span>{todo.title}</span>
+                  <Pencil className="h-3 w-3 text-muted-foreground" />
+                </p>
                 {todo.due_date && (
                   <p className="text-xs text-muted-foreground">
                     期限: {format(new Date(todo.due_date), 'M/d')}
                   </p>
                 )}
-              </div>
+              </button>
               <Badge className={cn('text-xs', priorityColors[todo.priority])}>
                 {priorityLabels[todo.priority]}
               </Badge>
@@ -142,7 +177,7 @@ export default function TodosPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">TODO</h1>
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
+        <Button size="sm" onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-1" />
           タスク追加
         </Button>
@@ -152,7 +187,7 @@ export default function TodosPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新しいタスク</DialogTitle>
+            <DialogTitle>{editingTodoId ? 'タスクを編集' : '新しいタスク'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -161,7 +196,7 @@ export default function TodosPage() {
                 placeholder="やること..."
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               />
             </div>
             <div className="space-y-2">
@@ -194,8 +229,8 @@ export default function TodosPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleCreate} className="w-full" disabled={createTodo.isPending}>
-              作成
+            <Button onClick={handleSubmit} className="w-full" disabled={createTodo.isPending || updateTodo.isPending}>
+              {editingTodoId ? '更新' : '作成'}
             </Button>
           </div>
         </DialogContent>
