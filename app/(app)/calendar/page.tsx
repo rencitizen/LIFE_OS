@@ -239,11 +239,11 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-2">
                   <Label>開始時刻</Label>
-                  <Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
+                  <Input type="time" step={900} value={newTime} onChange={(e) => setNewTime(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>終了時刻</Label>
-                  <Input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)} />
+                  <Input type="time" step={900} value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)} />
                 </div>
               </div>
             )}
