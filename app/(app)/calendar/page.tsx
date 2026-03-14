@@ -16,9 +16,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useCalendarEvents, useCreateCalendarEvent, useDeleteCalendarEvent } from '@/lib/hooks/use-calendar-events'
+import { useCalendarEvents, useCreateCalendarEvent, useDeleteCalendarEvent, useUpdateCalendarEvent } from '@/lib/hooks/use-calendar-events'
 import { useCalendarStore } from '@/stores/calendar-store'
 import { toast } from 'sonner'
+import type { CalendarEvent } from '@/types'
 
 const eventTypeColors: Record<string, string> = {
   life: 'bg-[#85B59B]',
@@ -61,6 +62,7 @@ export default function CalendarPage() {
   const [newEventType, setNewEventType] = useState('life')
   const [newLocation, setNewLocation] = useState('')
   const [newVisibility, setNewVisibility] = useState<VisibilityMode>('shared')
+  const [editingEventId, setEditingEventId] = useState<string | null>(null)
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(currentMonth)
@@ -74,6 +76,7 @@ export default function CalendarPage() {
     calendarEnd.toISOString()
   )
   const createEvent = useCreateCalendarEvent()
+  const updateEvent = useUpdateCalendarEvent()
   const deleteEvent = useDeleteCalendarEvent()
 
   // Filter events by creator
@@ -90,6 +93,7 @@ export default function CalendarPage() {
 
   const openCreateDialog = (date = selectedDate) => {
     setSelectedDate(date)
+    setEditingEventId(null)
     setNewDate(format(date, 'yyyy-MM-dd'))
     setNewTitle('')
     setNewDescription('')
@@ -102,7 +106,25 @@ export default function CalendarPage() {
     setDialogOpen(true)
   }
 
-  const handleCreate = async () => {
+  const openEditDialog = (event: CalendarEvent) => {
+    const startDate = new Date(event.start_at)
+    const endDate = event.end_at ? new Date(event.end_at) : null
+
+    setSelectedDate(startDate)
+    setEditingEventId(event.id)
+    setNewDate(format(startDate, 'yyyy-MM-dd'))
+    setNewTitle(event.title)
+    setNewDescription(event.description || '')
+    setNewTime(event.all_day ? '' : format(startDate, 'HH:mm'))
+    setNewEndTime(!event.all_day && endDate ? format(endDate, 'HH:mm') : '')
+    setNewAllDay(event.all_day)
+    setNewEventType(event.event_type)
+    setNewLocation(event.location || '')
+    setNewVisibility((event.visibility as VisibilityMode) || 'shared')
+    setDialogOpen(true)
+  }
+
+  const handleSubmit = async () => {
     if (!newTitle) { toast.error('タイトルを入力してください'); return }
     if (!newDate) { toast.error('日付を選択してください'); return }
     if (!user?.id) { toast.error('ログインが必要です'); return }
@@ -115,22 +137,37 @@ export default function CalendarPage() {
         ? new Date(`${newDate}T${newEndTime}`).toISOString()
         : undefined
 
-      await createEvent.mutateAsync({
-        couple_id: couple.id,
-        created_by: user.id,
-        title: newTitle,
-        description: newDescription || undefined,
-        start_at: startAt,
-        end_at: endAt,
-        all_day: newAllDay,
-        event_type: newEventType,
-        location: newLocation || undefined,
-        visibility: newVisibility,
-      })
+      if (editingEventId) {
+        await updateEvent.mutateAsync({
+          id: editingEventId,
+          title: newTitle,
+          description: newDescription || undefined,
+          start_at: startAt,
+          end_at: endAt,
+          all_day: newAllDay,
+          event_type: newEventType,
+          location: newLocation || undefined,
+          visibility: newVisibility,
+        })
+      } else {
+        await createEvent.mutateAsync({
+          couple_id: couple.id,
+          created_by: user.id,
+          title: newTitle,
+          description: newDescription || undefined,
+          start_at: startAt,
+          end_at: endAt,
+          all_day: newAllDay,
+          event_type: newEventType,
+          location: newLocation || undefined,
+          visibility: newVisibility,
+        })
+      }
       setDialogOpen(false)
-      toast.success('予定を追加しました')
+      setEditingEventId(null)
+      toast.success(editingEventId ? '予定を更新しました' : '予定を追加しました')
     } catch {
-      toast.error('予定の追加に失敗しました')
+      toast.error(editingEventId ? '予定の更新に失敗しました' : '予定の追加に失敗しました')
     }
   }
 
@@ -184,7 +221,7 @@ export default function CalendarPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>予定を追加</DialogTitle>
+            <DialogTitle>{editingEventId ? '予定を編集' : '予定を追加'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-2">
@@ -248,8 +285,8 @@ export default function CalendarPage() {
               <Label>メモ</Label>
               <Textarea placeholder="メモ（任意）" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={2} />
             </div>
-            <Button onClick={handleCreate} className="w-full" disabled={createEvent.isPending}>
-              追加
+            <Button onClick={handleSubmit} className="w-full" disabled={createEvent.isPending || updateEvent.isPending}>
+              {editingEventId ? '更新' : '追加'}
             </Button>
           </div>
         </DialogContent>
@@ -347,7 +384,11 @@ export default function CalendarPage() {
               {selectedDayEvents.map((event) => (
                 <div key={event.id} className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 group">
                   <div className={cn('w-1 h-full min-h-[40px] rounded-full', eventTypeColors[event.event_type] || 'bg-[#85B59B]')} />
-                  <div className="flex-1">
+                  <button
+                    type="button"
+                    className="flex-1 text-left"
+                    onClick={() => openEditDialog(event)}
+                  >
                     <p className="font-medium text-sm">{event.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {event.all_day ? '終日' : `${format(new Date(event.start_at), 'HH:mm')}${event.end_at ? ` - ${format(new Date(event.end_at), 'HH:mm')}` : ''}`}
@@ -358,7 +399,7 @@ export default function CalendarPage() {
                     {event.location && (
                       <p className="text-xs text-muted-foreground mt-0.5">📍 {event.location}</p>
                     )}
-                  </div>
+                  </button>
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-xs shrink-0">
                       {eventTypeLabels[event.event_type] || event.event_type}
@@ -371,7 +412,10 @@ export default function CalendarPage() {
                         size="icon"
                         variant="ghost"
                         className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => handleDelete(event.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(event.id)
+                        }}
                       >
                         <Trash2 className="h-3 w-3 text-destructive" />
                       </Button>
