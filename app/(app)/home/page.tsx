@@ -10,13 +10,15 @@ import { useCalendarEvents } from '@/lib/hooks/use-calendar-events'
 import { useTodos } from '@/lib/hooks/use-todos'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
-import { getBudgetLimitTotal } from '@/lib/budget-utils'
+import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
+import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
 
 export default function HomePage() {
   const { user, couple, partner } = useAuth()
   const today = new Date()
   const todayStr = format(today, 'yyyy-MM-dd')
   const monthStr = format(today, 'yyyy-MM')
+  const lifePlanConfig = useLifePlanConfig(couple?.id)
 
   const { data: events } = useCalendarEvents(
     couple?.id,
@@ -27,7 +29,8 @@ export default function HomePage() {
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, monthStr)
   const { data: budget } = useBudget(couple?.id, monthStr)
   const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
-  const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits)
+  const lifePlanBudget = getLifePlanMonthlyBudget(lifePlanConfig, monthStr)
+  const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits) || lifePlanBudget.total
 
   const remainingBudget = budgetLimit > 0
     ? budgetLimit - (summary?.total || 0)

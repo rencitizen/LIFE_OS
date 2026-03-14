@@ -12,7 +12,8 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { useExpenseHistory, useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useIncomeHistory, useIncomes } from '@/lib/hooks/use-incomes'
 import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
-import { getBudgetLimitTotal } from '@/lib/budget-utils'
+import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
+import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
 import { usePlanVsActual } from '@/lib/hooks/use-plan-vs-actual'
 import { useFinanceStore } from '@/stores/finance-store'
 
@@ -35,6 +36,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 export default function FinanceDashboardPage() {
   const { couple } = useAuth()
   const { selectedMonth, setSelectedMonth } = useFinanceStore()
+  const lifePlanConfig = useLifePlanConfig(couple?.id)
 
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
   const { data: incomes } = useIncomes(couple?.id, selectedMonth)
@@ -46,7 +48,8 @@ export default function FinanceDashboardPage() {
 
   const totalIncome = incomes?.reduce((sum, i) => sum + Number(i.amount), 0) || 0
   const balance = totalIncome - (summary?.total || 0)
-  const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits)
+  const lifePlanBudget = getLifePlanMonthlyBudget(lifePlanConfig, selectedMonth)
+  const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits) || lifePlanBudget.total
 
   const navigateMonth = (direction: number) => {
     const [y, m] = selectedMonth.split('-').map(Number)
