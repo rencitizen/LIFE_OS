@@ -166,6 +166,11 @@ export default function CalendarPage() {
     }
   }
 
+  const formatEventChipLabel = (event: CalendarEvent) => {
+    if (event.all_day) return event.title
+    return `${format(new Date(event.start_at), 'HH:mm')} ${event.title}`
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -319,13 +324,18 @@ export default function CalendarPage() {
                     className="mt-0.5 block w-full space-y-0.5 text-left"
                   >
                     {dayEvents.slice(0, 2).map((event) => (
-                      <div
+                      <button
                         key={event.id}
-                        className="text-[10px] leading-tight truncate rounded px-1 text-white"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openEditDialog(event)
+                        }}
+                        className="block w-full truncate rounded px-1 text-left text-[10px] leading-tight text-white"
                         style={{ backgroundColor: getEventColor(event) }}
                       >
-                        {event.title}
-                      </div>
+                        {formatEventChipLabel(event)}
+                      </button>
                     ))}
                     {dayEvents.length > 2 && (
                       <div className="text-[10px] text-muted-foreground px-1">
