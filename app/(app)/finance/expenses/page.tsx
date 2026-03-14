@@ -48,6 +48,16 @@ function createBulkExpenseRow(): BulkExpenseRow {
   }
 }
 
+function getCategoryLabel(
+  categories: Array<{ id: string; name: string; icon: string | null }> | undefined,
+  categoryId: string
+) {
+  if (!categoryId) return null
+  const category = categories?.find((item) => item.id === categoryId)
+  if (!category) return null
+  return `${category.icon || '📦'} ${category.name}`
+}
+
 export default function ExpensesPage() {
   const { user, couple } = useAuth()
   const { selectedMonth, setSelectedMonth } = useFinanceStore()
@@ -224,6 +234,7 @@ export default function ExpensesPage() {
 
   const [displayYear, displayMonth] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(displayYear, displayMonth - 1, 1)
+  const selectedCategoryLabel = getCategoryLabel(categories, categoryId)
 
   return (
     <div className="space-y-4">
@@ -259,11 +270,11 @@ export default function ExpensesPage() {
             <Plus className="h-4 w-4 mr-1" />
             支出登録
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingExpenseId ? '支出を編集' : '支出を記録'}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto pr-1">
               <div className="space-y-2">
                 <Label>対象月</Label>
                 <Input
@@ -275,7 +286,11 @@ export default function ExpensesPage() {
               <div className="space-y-2">
                 <Label>カテゴリ</Label>
                 <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? '')}>
-                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="選択...">
+                      {selectedCategoryLabel}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
                     {categories?.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
@@ -337,7 +352,11 @@ export default function ExpensesPage() {
                   <div className="space-y-2">
                     <Label>カテゴリ</Label>
                     <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? '')}>
-                      <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="選択...">
+                          {selectedCategoryLabel}
+                        </SelectValue>
+                      </SelectTrigger>
                       <SelectContent>
                         {categories?.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
@@ -393,7 +412,11 @@ export default function ExpensesPage() {
                           <div className="space-y-2">
                             <Label>カテゴリ</Label>
                             <Select value={row.categoryId || undefined} onValueChange={(value) => updateBulkRow(row.id, { categoryId: value || '' })}>
-                              <SelectTrigger><SelectValue placeholder={categoryId ? '上のカテゴリを使う' : '選択...'} /></SelectTrigger>
+                              <SelectTrigger>
+                                <SelectValue placeholder={categoryId ? '上のカテゴリを使う' : '選択...'}>
+                                  {getCategoryLabel(categories, row.categoryId)}
+                                </SelectValue>
+                              </SelectTrigger>
                               <SelectContent>
                                 {categories?.map((cat) => (
                                   <SelectItem key={cat.id} value={cat.id}>
