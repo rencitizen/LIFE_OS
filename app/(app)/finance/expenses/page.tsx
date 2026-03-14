@@ -33,7 +33,7 @@ const expenseTypeBadgeColors: Record<string, string> = {
 export default function ExpensesPage() {
   const { user, couple } = useAuth()
   const { selectedMonth } = useFinanceStore()
-  const defaultExpenseDate = `${selectedMonth}-01`
+  const defaultExpenseMonth = selectedMonth
   const { data: expenses } = useExpenses(couple?.id, selectedMonth)
   const { data: categories } = useExpenseCategories(couple?.id)
   const createExpense = useCreateExpense()
@@ -45,17 +45,17 @@ export default function ExpensesPage() {
   const [categoryId, setCategoryId] = useState('')
   const [expenseType, setExpenseType] = useState('shared')
   const [paymentMethod, setPaymentMethod] = useState('card')
-  const [expenseDate, setExpenseDate] = useState(defaultExpenseDate)
+  const [expenseMonth, setExpenseMonth] = useState(defaultExpenseMonth)
 
   useEffect(() => {
     if (!dialogOpen) {
-      setExpenseDate(defaultExpenseDate)
+      setExpenseMonth(defaultExpenseMonth)
     }
-  }, [defaultExpenseDate, dialogOpen])
+  }, [defaultExpenseMonth, dialogOpen])
 
   const handleCreate = async () => {
     if (!amount) { toast.error('金額を入力してください'); return }
-    if (!expenseDate) { toast.error('日付を入力してください'); return }
+    if (!expenseMonth) { toast.error('対象月を入力してください'); return }
     if (!user?.id) { toast.error('ログインが必要です'); return }
     if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
     try {
@@ -64,7 +64,7 @@ export default function ExpensesPage() {
         paid_by: user.id,
         amount: Number(amount),
         description: description || undefined,
-        expense_date: expenseDate,
+        expense_date: `${expenseMonth}-01`,
         expense_type: expenseType,
         category_id: categoryId || undefined,
         payment_method: paymentMethod,
@@ -74,7 +74,7 @@ export default function ExpensesPage() {
       setCategoryId('')
       setExpenseType('shared')
       setPaymentMethod('card')
-      setExpenseDate(defaultExpenseDate)
+      setExpenseMonth(defaultExpenseMonth)
       setDialogOpen(false)
       toast.success('支出を登録しました')
     } catch {
@@ -128,11 +128,11 @@ export default function ExpensesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>日付</Label>
+                <Label>対象月</Label>
                 <Input
-                  type="date"
-                  value={expenseDate}
-                  onChange={(e) => setExpenseDate(e.target.value)}
+                  type="month"
+                  value={expenseMonth}
+                  onChange={(e) => setExpenseMonth(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
