@@ -96,10 +96,11 @@ export default function BudgetsPage() {
 
       // Update total_limit to match sum of categories
       const supabase = (await import('@/lib/supabase/client')).createClient()
-      await supabase
+      const { error: budgetUpdateError } = await supabase
         .from('budgets')
         .update({ total_limit: editTotal })
         .eq('id', budget.id)
+      if (budgetUpdateError) throw budgetUpdateError
 
       await refetchBudget()
       setEditing(false)

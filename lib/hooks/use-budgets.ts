@@ -72,7 +72,7 @@ export function useUpsertBudgetCategory() {
     mutationFn: async (category: InsertTables<'budget_categories'>) => {
       const { data, error } = await supabase
         .from('budget_categories')
-        .upsert(category)
+        .upsert(category, { onConflict: 'budget_id,category_id' })
         .select()
         .single()
       if (error) throw error

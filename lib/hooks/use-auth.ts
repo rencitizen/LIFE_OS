@@ -43,11 +43,12 @@ export function useAuth() {
     queryKey: ['auth-profile', authUser?.id],
     queryFn: async () => {
       if (!authUser) return null
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', authUser.id)
-        .single()
+        .maybeSingle()
+      if (error) throw error
       return data as unknown as User | null
     },
     enabled: !!authUser,
@@ -64,11 +65,12 @@ export function useAuth() {
     queryKey: ['auth-couple', resolvedUser?.couple_id],
     queryFn: async () => {
       if (!resolvedUser?.couple_id) return null
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('couples')
         .select('*')
         .eq('id', resolvedUser.couple_id)
-        .single()
+        .maybeSingle()
+      if (error) throw error
       return data as unknown as Couple | null
     },
     enabled: !!resolvedUser?.couple_id,
@@ -78,12 +80,13 @@ export function useAuth() {
     queryKey: ['auth-partner', resolvedUser?.couple_id, resolvedUser?.id],
     queryFn: async () => {
       if (!resolvedUser?.couple_id) return null
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('couple_id', resolvedUser.couple_id)
         .neq('id', resolvedUser.id)
-        .single()
+        .maybeSingle()
+      if (error) throw error
       return (data as unknown as User) || null
     },
     enabled: !!resolvedUser?.couple_id,

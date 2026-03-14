@@ -16,7 +16,7 @@ export function useExpenses(coupleId: string | undefined, yearMonth?: string) {
     queryFn: async () => {
       let query = supabase
         .from('expenses')
-        .select('*')
+        .select('*, expense_categories(name, icon, color)')
         .eq('couple_id', coupleId!)
         .order('expense_date', { ascending: false })
 
