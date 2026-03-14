@@ -58,11 +58,14 @@ export default function CalendarPage() {
   const calendarStart = startOfWeek(monthStart)
   const calendarEnd = endOfWeek(monthEnd)
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
+  const weekStart = startOfWeek(selectedDate)
+  const weekEnd = endOfWeek(selectedDate)
+  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd })
 
   const { data: events } = useCalendarEvents(
     couple?.id,
-    calendarStart.toISOString(),
-    calendarEnd.toISOString()
+    (view === 'week' ? weekStart : calendarStart).toISOString(),
+    (view === 'week' ? weekEnd : calendarEnd).toISOString()
   )
   const createEvent = useCreateCalendarEvent()
   const updateEvent = useUpdateCalendarEvent()
@@ -302,86 +305,175 @@ export default function CalendarPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between py-3">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => view === 'week'
+              ? setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() - 7))
+              : setCurrentMonth(subMonths(currentMonth, 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <CardTitle className="text-base">
-            {format(currentMonth, 'yyyy年M月', { locale: ja })}
+            {view === 'week'
+              ? `${format(weekStart, 'yyyy年M月d日', { locale: ja })} - ${format(weekEnd, 'M月d日', { locale: ja })}`
+              : format(currentMonth, 'yyyy年M月', { locale: ja })}
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => view === 'week'
+              ? setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 7))
+              : setCurrentMonth(addMonths(currentMonth, 1))}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </CardHeader>
         <CardContent className="p-0">
-          {/* Day headers */}
-          <div className="grid grid-cols-7 border-b">
-            {['日', '月', '火', '水', '木', '金', '土'].map((day) => (
-              <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">
-                {day}
+          {view === 'month' ? (
+            <>
+              <div className="grid grid-cols-7 border-b">
+                {['日', '月', '火', '水', '木', '金', '土'].map((day) => (
+                  <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">
+                    {day}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7">
-            {days.map((day) => {
-              const dayEvents = getEventsForDay(day)
-              const isSelected = isSameDay(day, selectedDate)
-              return (
-                <div
-                  key={day.toISOString()}
-                  onClick={() => openCreateDialog(day)}
-                  className={cn(
-                    'min-h-[60px] cursor-pointer sm:min-h-[80px] p-1 border-b border-r text-left transition-colors hover:bg-muted/50',
-                    !isSameMonth(day, currentMonth) && 'text-muted-foreground/50',
-                    isSelected && 'bg-primary/5 ring-1 ring-primary'
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openCreateDialog(day)
-                    }}
-                    className={cn(
-                      'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs transition-colors hover:bg-primary/10',
-                      isToday(day) && 'bg-primary text-primary-foreground font-bold'
-                    )}
-                  >
-                    {format(day, 'd')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelectedDate(day)
-                    }}
-                    className="mt-0.5 block w-full space-y-0.5 text-left"
-                  >
-                    {dayEvents.slice(0, 2).map((event) => (
+              <div className="grid grid-cols-7">
+                {days.map((day) => {
+                  const dayEvents = getEventsForDay(day)
+                  const isSelected = isSameDay(day, selectedDate)
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      onClick={() => openCreateDialog(day)}
+                      className={cn(
+                        'min-h-[60px] cursor-pointer sm:min-h-[80px] p-1 border-b border-r text-left transition-colors hover:bg-muted/50',
+                        !isSameMonth(day, currentMonth) && 'text-muted-foreground/50',
+                        isSelected && 'bg-primary/5 ring-1 ring-primary'
+                      )}
+                    >
                       <button
-                        key={event.id}
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          openEditDialog(event)
+                          openCreateDialog(day)
                         }}
-                        className="block w-full truncate rounded px-1 text-left text-[10px] leading-tight text-white"
-                        style={{ backgroundColor: getEventColor(event) }}
+                        className={cn(
+                          'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs transition-colors hover:bg-primary/10',
+                          isToday(day) && 'bg-primary text-primary-foreground font-bold'
+                        )}
                       >
-                        {formatEventChipLabel(event)}
+                        {format(day, 'd')}
                       </button>
-                    ))}
-                    {dayEvents.length > 2 && (
-                      <div className="text-[10px] text-muted-foreground px-1">
-                        +{dayEvents.length - 2}件
-                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedDate(day)
+                        }}
+                        className="mt-0.5 block w-full space-y-0.5 text-left"
+                      >
+                        {dayEvents.slice(0, 2).map((event) => (
+                          <button
+                            key={event.id}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openEditDialog(event)
+                            }}
+                            className="block w-full truncate rounded px-1 text-left text-[10px] leading-tight text-white"
+                            style={{ backgroundColor: getEventColor(event) }}
+                          >
+                            {formatEventChipLabel(event)}
+                          </button>
+                        ))}
+                        {dayEvents.length > 2 && (
+                          <div className="text-[10px] text-muted-foreground px-1">
+                            +{dayEvents.length - 2}件
+                          </div>
+                        )}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7">
+              {weekDays.map((day) => {
+                const dayEvents = getEventsForDay(day)
+                const isSelected = isSameDay(day, selectedDate)
+                return (
+                  <div
+                    key={day.toISOString()}
+                    onClick={() => {
+                      setSelectedDate(day)
+                      openCreateDialog(day)
+                    }}
+                    className={cn(
+                      'min-h-[180px] cursor-pointer border-b border-r p-3 transition-colors hover:bg-muted/50',
+                      isSelected && 'bg-primary/5 ring-1 ring-primary'
                     )}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openCreateDialog(day)
+                        }}
+                        className={cn(
+                          'inline-flex rounded-full px-3 py-1 text-sm font-medium transition-colors hover:bg-primary/10',
+                          isToday(day) && 'bg-primary text-primary-foreground'
+                        )}
+                      >
+                        {format(day, 'M/d（E）', { locale: ja })}
+                      </button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openCreateDialog(day)
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {dayEvents.length > 0 ? dayEvents.map((event) => (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEditDialog(event)
+                          }}
+                          className="block w-full rounded-md px-2 py-2 text-left text-xs text-white"
+                          style={{ backgroundColor: getEventColor(event) }}
+                        >
+                          <div className="font-medium">{event.title}</div>
+                          <div className="mt-1 opacity-90">
+                            {event.all_day
+                              ? '終日'
+                              : `${format(new Date(event.start_at), 'HH:mm')}${event.end_at ? ` - ${format(new Date(event.end_at), 'HH:mm')}` : ''}`}
+                          </div>
+                        </button>
+                      )) : (
+                        <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                          予定はありません
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
