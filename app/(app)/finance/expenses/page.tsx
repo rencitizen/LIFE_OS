@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Search, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useExpenses, useCreateExpense } from '@/lib/hooks/use-expenses'
+import { useExpenses, useCreateExpense, useDeleteExpense, useUpdateExpense } from '@/lib/hooks/use-expenses'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
@@ -55,6 +55,8 @@ export default function ExpensesPage() {
   const { data: expenses } = useExpenses(couple?.id, selectedMonth)
   const { data: categories } = useExpenseCategories(couple?.id)
   const createExpense = useCreateExpense()
+  const updateExpense = useUpdateExpense()
+  const deleteExpense = useDeleteExpense()
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -65,10 +67,14 @@ export default function ExpensesPage() {
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [expenseMonth, setExpenseMonth] = useState(defaultExpenseMonth)
   const [bulkRows, setBulkRows] = useState<BulkExpenseRow[]>([createBulkExpenseRow()])
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single')
 
   useEffect(() => {
     if (!dialogOpen) {
       setExpenseMonth(defaultExpenseMonth)
+      setEditingExpenseId(null)
+      setActiveTab('single')
     }
   }, [defaultExpenseMonth, dialogOpen])
 
@@ -78,16 +84,28 @@ export default function ExpensesPage() {
     if (!user?.id) { toast.error('ログインが必要です'); return }
     if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
     try {
-      await createExpense.mutateAsync({
-        couple_id: couple.id,
-        paid_by: user.id,
-        amount: Number(amount),
-        description: description || undefined,
-        expense_date: `${expenseMonth}-01`,
-        expense_type: expenseType,
-        category_id: categoryId || undefined,
-        payment_method: paymentMethod,
-      })
+      if (editingExpenseId) {
+        await updateExpense.mutateAsync({
+          id: editingExpenseId,
+          amount: Number(amount),
+          description: description || null,
+          expense_date: `${expenseMonth}-01`,
+          expense_type: expenseType,
+          category_id: categoryId || null,
+          payment_method: paymentMethod,
+        })
+      } else {
+        await createExpense.mutateAsync({
+          couple_id: couple.id,
+          paid_by: user.id,
+          amount: Number(amount),
+          description: description || undefined,
+          expense_date: `${expenseMonth}-01`,
+          expense_type: expenseType,
+          category_id: categoryId || undefined,
+          payment_method: paymentMethod,
+        })
+      }
       setAmount('')
       setDescription('')
       setCategoryId('')
@@ -96,9 +114,9 @@ export default function ExpensesPage() {
       setExpenseMonth(defaultExpenseMonth)
       setSelectedMonth(expenseMonth)
       setDialogOpen(false)
-      toast.success('支出を登録しました')
+      toast.success(editingExpenseId ? '支出を更新しました' : '支出を登録しました')
     } catch {
-      toast.error('支出の登録に失敗しました')
+      toast.error(editingExpenseId ? '支出の更新に失敗しました' : '支出の登録に失敗しました')
     }
   }
 
@@ -121,11 +139,6 @@ export default function ExpensesPage() {
         toast.error(`${index + 1}行目の金額が不正です`)
         return
       }
-      if (!row.description) {
-        toast.error(`${index + 1}行目の説明を入力してください`)
-        return
-      }
-
       payloads.push({
         couple_id: couple.id,
         paid_by: user.id,
@@ -169,8 +182,39 @@ export default function ExpensesPage() {
   }
 
   const filteredExpenses = expenses?.filter((e) =>
-    !searchQuery || e.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    !searchQuery
+      || e.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      || (e.expense_categories as { name: string } | null)?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const openEditExpense = (expense: NonNullable<typeof expenses>[number]) => {
+    setEditingExpenseId(expense.id)
+    setAmount(String(Number(expense.amount) || 0))
+    setDescription(expense.description || '')
+    setCategoryId(expense.category_id || '')
+    setExpenseType(expense.expense_type)
+    setPaymentMethod(expense.payment_method || 'card')
+    setExpenseMonth(expense.expense_date.slice(0, 7))
+    setActiveTab('single')
+    setDialogOpen(true)
+  }
+
+  const handleDeleteExpense = async () => {
+    if (!editingExpenseId) return
+    try {
+      await deleteExpense.mutateAsync(editingExpenseId)
+      setEditingExpenseId(null)
+      setAmount('')
+      setDescription('')
+      setCategoryId('')
+      setExpenseType('shared')
+      setPaymentMethod('card')
+      setDialogOpen(false)
+      toast.success('支出を削除しました')
+    } catch {
+      toast.error('支出の削除に失敗しました')
+    }
+  }
 
   const navigateMonth = (direction: number) => {
     const [year, month] = selectedMonth.split('-').map(Number)
@@ -217,7 +261,7 @@ export default function ExpensesPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>支出を記録</DialogTitle>
+              <DialogTitle>{editingExpenseId ? '支出を編集' : '支出を記録'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -266,10 +310,10 @@ export default function ExpensesPage() {
                 </div>
               </div>
 
-              <Tabs defaultValue="single">
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'single' | 'bulk')}>
                 <TabsList className="grid grid-cols-2 w-full">
                   <TabsTrigger value="single">1件ずつ</TabsTrigger>
-                  <TabsTrigger value="bulk">まとめて</TabsTrigger>
+                  <TabsTrigger value="bulk" disabled={!!editingExpenseId}>まとめて</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="single" className="space-y-4 pt-4">
@@ -303,9 +347,27 @@ export default function ExpensesPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button onClick={handleCreate} className="w-full" disabled={createExpense.isPending}>
-                    登録
-                  </Button>
+                  <div className="flex gap-2">
+                    {editingExpenseId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={handleDeleteExpense}
+                        disabled={deleteExpense.isPending || updateExpense.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        削除
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleCreate}
+                      className="flex-1"
+                      disabled={createExpense.isPending || updateExpense.isPending || deleteExpense.isPending}
+                    >
+                      {editingExpenseId ? '更新' : '登録'}
+                    </Button>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="bulk" className="space-y-4 pt-4">
@@ -376,14 +438,19 @@ export default function ExpensesPage() {
             const cat = expense.expense_categories as { name: string; icon: string | null; color: string | null } | null
             return (
               <Card key={expense.id}>
-                <CardContent className="flex items-center gap-3 p-4">
+                <CardContent
+                  className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => openEditExpense(expense)}
+                >
                   <div className="text-xl">{cat?.icon || '📦'}</div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {expense.description || cat?.name || '支出'}
+                    <p className="text-sm font-medium truncate flex items-center gap-1">
+                      <span>{cat?.name || 'その他'}</span>
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(expense.expense_date), 'M/d')}
+                      {expense.description && ` · ${expense.description}`}
                       {expense.payment_method && ` · ${expense.payment_method}`}
                     </p>
                   </div>
