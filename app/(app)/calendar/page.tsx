@@ -37,6 +37,12 @@ const eventTypeLabels: Record<string, string> = {
 }
 
 type FilterMode = 'all' | 'mine' | 'partner'
+type VisibilityMode = 'shared' | 'private'
+
+const visibilityLabels: Record<VisibilityMode, string> = {
+  shared: '共有予定',
+  private: '個人予定',
+}
 
 export default function CalendarPage() {
   const { user, couple, partner } = useAuth()
@@ -54,6 +60,7 @@ export default function CalendarPage() {
   const [newAllDay, setNewAllDay] = useState(true)
   const [newEventType, setNewEventType] = useState('life')
   const [newLocation, setNewLocation] = useState('')
+  const [newVisibility, setNewVisibility] = useState<VisibilityMode>('shared')
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(currentMonth)
@@ -81,8 +88,9 @@ export default function CalendarPage() {
 
   const selectedDayEvents = getEventsForDay(selectedDate)
 
-  const openCreateDialog = () => {
-    setNewDate(format(selectedDate, 'yyyy-MM-dd'))
+  const openCreateDialog = (date = selectedDate) => {
+    setSelectedDate(date)
+    setNewDate(format(date, 'yyyy-MM-dd'))
     setNewTitle('')
     setNewDescription('')
     setNewTime('')
@@ -90,6 +98,7 @@ export default function CalendarPage() {
     setNewAllDay(true)
     setNewEventType('life')
     setNewLocation('')
+    setNewVisibility('shared')
     setDialogOpen(true)
   }
 
@@ -116,7 +125,7 @@ export default function CalendarPage() {
         all_day: newAllDay,
         event_type: newEventType,
         location: newLocation || undefined,
-        visibility: 'shared',
+        visibility: newVisibility,
       })
       setDialogOpen(false)
       toast.success('予定を追加しました')
@@ -145,7 +154,7 @@ export default function CalendarPage() {
               <TabsTrigger value="week">週</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button size="sm" onClick={openCreateDialog}>
+          <Button size="sm" onClick={() => openCreateDialog()}>
             <Plus className="h-4 w-4 mr-1" />
             予定追加
           </Button>
@@ -222,6 +231,16 @@ export default function CalendarPage() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>公開範囲</Label>
+              <Select value={newVisibility} onValueChange={(v) => v && setNewVisibility(v as VisibilityMode)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="shared">共有予定</SelectItem>
+                  <SelectItem value="private">個人予定</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>場所</Label>
               <Input placeholder="場所（任意）" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} />
             </div>
@@ -264,24 +283,29 @@ export default function CalendarPage() {
               const dayEvents = getEventsForDay(day)
               const isSelected = isSameDay(day, selectedDate)
               return (
-                <button
+                <div
                   key={day.toISOString()}
-                  onClick={() => setSelectedDate(day)}
                   className={cn(
                     'min-h-[60px] sm:min-h-[80px] p-1 border-b border-r text-left transition-colors hover:bg-muted/50',
                     !isSameMonth(day, currentMonth) && 'text-muted-foreground/50',
                     isSelected && 'bg-primary/5 ring-1 ring-primary'
                   )}
                 >
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => openCreateDialog(day)}
                     className={cn(
-                      'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs',
+                      'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs transition-colors hover:bg-primary/10',
                       isToday(day) && 'bg-primary text-primary-foreground font-bold'
                     )}
                   >
                     {format(day, 'd')}
-                  </span>
-                  <div className="mt-0.5 space-y-0.5">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate(day)}
+                    className="mt-0.5 block w-full space-y-0.5 text-left"
+                  >
                     {dayEvents.slice(0, 2).map((event) => (
                       <div
                         key={event.id}
@@ -299,8 +323,8 @@ export default function CalendarPage() {
                         +{dayEvents.length - 2}件
                       </div>
                     )}
-                  </div>
-                </button>
+                  </button>
+                </div>
               )
             })}
           </div>
@@ -313,7 +337,7 @@ export default function CalendarPage() {
           <CardTitle className="text-base">
             {format(selectedDate, 'M月d日（E）', { locale: ja })}の予定
           </CardTitle>
-          <Button size="sm" variant="ghost" onClick={openCreateDialog}>
+          <Button size="sm" variant="ghost" onClick={() => openCreateDialog()}>
             <Plus className="h-4 w-4" />
           </Button>
         </CardHeader>
@@ -338,6 +362,9 @@ export default function CalendarPage() {
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-xs shrink-0">
                       {eventTypeLabels[event.event_type] || event.event_type}
+                    </Badge>
+                    <Badge variant={event.visibility === 'shared' ? 'secondary' : 'outline'} className="text-xs shrink-0">
+                      {visibilityLabels[(event.visibility as VisibilityMode) || 'shared'] || event.visibility}
                     </Badge>
                     {event.created_by === user?.id && (
                       <Button
