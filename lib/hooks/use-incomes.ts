@@ -73,6 +73,7 @@ export function useCreateIncome() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incomes'] })
+      queryClient.invalidateQueries({ queryKey: ['income-history'] })
     },
   })
 }

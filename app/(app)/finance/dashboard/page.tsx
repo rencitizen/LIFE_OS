@@ -1,21 +1,26 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { format, subMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet, PieChart, ArrowRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet, PieChart, ArrowRight, Plus } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useExpenseHistory, useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
-import { useIncomeHistory, useIncomes } from '@/lib/hooks/use-incomes'
+import { useCreateIncome, useIncomeHistory, useIncomes } from '@/lib/hooks/use-incomes'
 import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
 import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
 import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
 import { usePlanVsActual } from '@/lib/hooks/use-plan-vs-actual'
 import { useFinanceStore } from '@/stores/finance-store'
+import { toast } from 'sonner'
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
 
@@ -34,7 +39,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 }
 
 export default function FinanceDashboardPage() {
-  const { couple } = useAuth()
+  const { user, couple } = useAuth()
   const { selectedMonth, setSelectedMonth } = useFinanceStore()
   const lifePlanConfig = useLifePlanConfig(couple?.id)
 
@@ -45,6 +50,7 @@ export default function FinanceDashboardPage() {
   const { data: budget } = useBudget(couple?.id, selectedMonth)
   const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
   const { currentYear } = usePlanVsActual(couple?.id)
+  const createIncome = useCreateIncome()
 
   const totalIncome = incomes?.reduce((sum, i) => sum + Number(i.amount), 0) || 0
   const balance = totalIncome - (summary?.total || 0)
@@ -59,6 +65,43 @@ export default function FinanceDashboardPage() {
 
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
+  const [incomeDialogOpen, setIncomeDialogOpen] = useState(false)
+  const [incomeAmount, setIncomeAmount] = useState('')
+  const [incomeDescription, setIncomeDescription] = useState('')
+  const [incomeType, setIncomeType] = useState('salary')
+  const [incomeMonth, setIncomeMonth] = useState(selectedMonth)
+
+  useEffect(() => {
+    if (!incomeDialogOpen) {
+      setIncomeMonth(selectedMonth)
+    }
+  }, [incomeDialogOpen, selectedMonth])
+
+  const handleCreateIncome = async () => {
+    if (!incomeAmount) { toast.error('収入金額を入力してください'); return }
+    if (!incomeMonth) { toast.error('対象月を入力してください'); return }
+    if (!user?.id) { toast.error('ログインが必要です'); return }
+    if (!couple?.id) { toast.error('先にカップルを作成または参加してください'); return }
+
+    try {
+      await createIncome.mutateAsync({
+        couple_id: couple.id,
+        user_id: user.id,
+        amount: Number(incomeAmount),
+        income_type: incomeType,
+        description: incomeDescription || undefined,
+        income_date: `${incomeMonth}-01`,
+      })
+      setSelectedMonth(incomeMonth)
+      setIncomeAmount('')
+      setIncomeDescription('')
+      setIncomeType('salary')
+      setIncomeDialogOpen(false)
+      toast.success('収入を登録しました')
+    } catch {
+      toast.error('収入の登録に失敗しました')
+    }
+  }
 
   // Plan vs Actual for this month
   const currentMonthIdx = month - 1
@@ -114,6 +157,46 @@ export default function FinanceDashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">CFOダッシュボード</h1>
         <div className="flex items-center gap-2">
+          <Dialog open={incomeDialogOpen} onOpenChange={setIncomeDialogOpen}>
+            <DialogTrigger render={<Button size="sm" variant="outline" />}>
+              <Plus className="h-4 w-4 mr-1" />
+              収入登録
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>収入を登録</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>対象月</Label>
+                  <Input type="month" value={incomeMonth} onChange={(e) => setIncomeMonth(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>金額</Label>
+                  <Input type="number" placeholder="0" value={incomeAmount} onChange={(e) => setIncomeAmount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>収入区分</Label>
+                  <Select value={incomeType} onValueChange={(value) => value && setIncomeType(value)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="salary">給与</SelectItem>
+                      <SelectItem value="bonus">賞与</SelectItem>
+                      <SelectItem value="freelance">副業</SelectItem>
+                      <SelectItem value="other">その他</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>説明</Label>
+                  <Input placeholder="例: 3月給与" value={incomeDescription} onChange={(e) => setIncomeDescription(e.target.value)} />
+                </div>
+                <Button onClick={handleCreateIncome} className="w-full" disabled={createIncome.isPending}>
+                  登録
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
           <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
