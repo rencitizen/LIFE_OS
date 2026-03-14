@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Circle, Clock, CheckCircle2, Pencil } from 'lucide-react'
+import { Plus, Circle, Clock, CheckCircle2, Pencil, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useTodos, useCreateTodo, useUpdateTodo } from '@/lib/hooks/use-todos'
+import { useTodos, useCreateTodo, useUpdateTodo, useDeleteTodo } from '@/lib/hooks/use-todos'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -34,6 +34,7 @@ export default function TodosPage() {
   const { data: allTodos } = useTodos(couple?.id)
   const createTodo = useCreateTodo()
   const updateTodo = useUpdateTodo()
+  const deleteTodo = useDeleteTodo()
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -105,6 +106,21 @@ export default function TodosPage() {
       })
     } catch {
       toast.error('ステータスの更新に失敗しました')
+    }
+  }
+
+  const handleDeleteTodo = async () => {
+    if (!editingTodoId) return
+
+    try {
+      await deleteTodo.mutateAsync(editingTodoId)
+      setEditingTodoId(null)
+      setNewTitle('')
+      setNewDueDate('')
+      setDialogOpen(false)
+      toast.success('タスクを削除しました')
+    } catch {
+      toast.error('タスクの削除に失敗しました')
     }
   }
 
@@ -229,9 +245,27 @@ export default function TodosPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleSubmit} className="w-full" disabled={createTodo.isPending || updateTodo.isPending}>
-              {editingTodoId ? '更新' : '作成'}
-            </Button>
+            <div className="flex gap-2">
+              {editingTodoId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleDeleteTodo}
+                  disabled={deleteTodo.isPending || updateTodo.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  削除
+                </Button>
+              )}
+              <Button
+                onClick={handleSubmit}
+                className="flex-1"
+                disabled={createTodo.isPending || updateTodo.isPending || deleteTodo.isPending}
+              >
+                {editingTodoId ? '更新' : '作成'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
