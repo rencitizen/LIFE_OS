@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Plus, Search, Trash2 } from 'lucide-react'
+import { ja } from 'date-fns/locale'
+import { ChevronLeft, ChevronRight, Plus, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -171,8 +172,32 @@ export default function ExpensesPage() {
     !searchQuery || e.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const navigateMonth = (direction: number) => {
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const date = new Date(year, month - 1 + direction, 1)
+    setSelectedMonth(format(date, 'yyyy-MM'))
+  }
+
+  const [displayYear, displayMonth] = selectedMonth.split('-').map(Number)
+  const displayDate = new Date(displayYear, displayMonth - 1, 1)
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">支出</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium min-w-[100px] text-center">
+            {format(displayDate, 'yyyy年M月', { locale: ja })}
+          </span>
+          <Button variant="ghost" size="icon" onClick={() => navigateMonth(1)}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
