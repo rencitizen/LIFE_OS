@@ -1,9 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { ChangeEvent, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,17 +14,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { INCOME_TYPE_LABELS, TRANSACTION_FILTER_LABELS, TRANSACTION_SOURCE_LABELS, UI_ACCENT_COLORS } from '@/lib/finance/constants'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useExpenseCategories } from '@/lib/hooks/use-categories'
+import { useCreateCategory, useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useCreateTransaction, useDeleteTransaction, useTransactions, useUpdateTransaction } from '@/lib/hooks/use-transactions'
 import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
 import type { UnifiedTransaction } from '@/types'
 
 const EXPENSE_KIND_LABELS: Record<string, string> = {
-  shared: '共通',
+  shared: '共有',
   personal: '個人',
   advance: '立替',
   pending_settlement: '精算待ち',
+}
+
+type MoneyforwardImportItem = {
+  id: string
+  category: string
+  amount: string
+}
+
+function normalizeCategoryKey(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, '')
+}
+
+function loadImageSize(file: File) {
+  return new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const image = new Image()
+
+    image.onload = () => {
+      resolve({ width: image.width, height: image.height })
+      URL.revokeObjectURL(objectUrl)
+    }
+
+    image.onerror = () => {
+      reject(new Error('invalid image'))
+      URL.revokeObjectURL(objectUrl)
+    }
+
+    image.src = objectUrl
+  })
 }
 
 export default function TransactionsPage() {
@@ -32,11 +61,13 @@ export default function TransactionsPage() {
   const { selectedMonth, setSelectedMonth } = useFinanceStore()
   const { data: transactions } = useTransactions(couple?.id, selectedMonth)
   const { data: categories } = useExpenseCategories(couple?.id)
+  const createCategory = useCreateCategory()
   const createTransaction = useCreateTransaction()
   const updateTransaction = useUpdateTransaction()
   const deleteTransaction = useDeleteTransaction()
 
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
   const [editingTransaction, setEditingTransaction] = useState<UnifiedTransaction | null>(null)
@@ -50,6 +81,13 @@ export default function TransactionsPage() {
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [incomeType, setIncomeType] = useState('salary')
 
+  const [importItems, setImportItems] = useState<MoneyforwardImportItem[]>([])
+  const [importMonth, setImportMonth] = useState(selectedMonth)
+  const [importError, setImportError] = useState('')
+  const [isImporting, setIsImporting] = useState(false)
+  const [isSavingImport, setIsSavingImport] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
   const resetForm = () => {
     setEditingTransaction(null)
     setTransactionType('expense')
@@ -62,6 +100,15 @@ export default function TransactionsPage() {
     setIncomeType('salary')
   }
 
+  const resetImportState = () => {
+    setImportItems([])
+    setImportMonth(selectedMonth)
+    setImportError('')
+    setIsImporting(false)
+    setIsSavingImport(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   const navigateMonth = (direction: number) => {
     const [year, month] = selectedMonth.split('-').map(Number)
     const nextDate = new Date(year, month - 1 + direction, 1)
@@ -69,15 +116,7 @@ export default function TransactionsPage() {
   }
 
   const openCreateDialog = () => {
-    setEditingTransaction(null)
-    setTransactionType('expense')
-    setDate(`${selectedMonth}-01`)
-    setAmount('')
-    setMemo('')
-    setCategoryId('')
-    setExpenseKind('shared')
-    setPaymentMethod('card')
-    setIncomeType('salary')
+    resetForm()
     setDialogOpen(true)
   }
 
@@ -92,6 +131,11 @@ export default function TransactionsPage() {
     setPaymentMethod(transaction.rawExpense?.payment_method || 'card')
     setIncomeType(transaction.rawIncome?.income_type || 'salary')
     setDialogOpen(true)
+  }
+
+  const openImportDialog = () => {
+    resetImportState()
+    setImportDialogOpen(true)
   }
 
   const handleSave = async () => {
@@ -176,6 +220,125 @@ export default function TransactionsPage() {
     }
   }
 
+  const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setImportItems([])
+    setImportError('')
+
+    try {
+      const size = await loadImageSize(file)
+      if (size.width < 640 || size.height < 640) {
+        setImportError('カテゴリ金額を認識できませんでした')
+        return
+      }
+    } catch {
+      setImportError('カテゴリ金額を認識できませんでした')
+      return
+    }
+
+    setIsImporting(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/finance/import-moneyforward', {
+        method: 'POST',
+        body: formData,
+      })
+      const payload = await response.json()
+
+      if (!response.ok || !Array.isArray(payload.items) || payload.items.length === 0) {
+        setImportError(payload.error || 'カテゴリ金額を認識できませんでした')
+        return
+      }
+
+      setImportItems(
+        payload.items.map((item: { category: string; amount: number }) => ({
+          id: crypto.randomUUID(),
+          category: item.category,
+          amount: String(item.amount),
+        }))
+      )
+    } catch {
+      setImportError('カテゴリ金額を認識できませんでした')
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  const updateImportItem = (id: string, updates: Partial<MoneyforwardImportItem>) => {
+    setImportItems((current) => current.map((item) => (item.id === id ? { ...item, ...updates } : item)))
+  }
+
+  const removeImportItem = (id: string) => {
+    setImportItems((current) => current.filter((item) => item.id !== id))
+  }
+
+  const handleSaveImportedTransactions = async () => {
+    if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
+    if (!importMonth) return toast.error('保存対象月を指定してください')
+
+    const validItems = importItems
+      .map((item) => ({
+        ...item,
+        amountNumber: Number(item.amount),
+      }))
+      .filter((item) => item.category.trim() && Number.isFinite(item.amountNumber) && item.amountNumber > 0)
+
+    if (validItems.length === 0) {
+      return toast.error('カテゴリ金額を認識できませんでした')
+    }
+
+    setIsSavingImport(true)
+    try {
+      const categoryMap = new Map((categories || []).map((category) => [normalizeCategoryKey(category.name), category]))
+      let sortOrderBase = Math.max(0, ...(categories || []).map((category) => category.sort_order || 0))
+
+      for (const item of validItems) {
+        const normalizedKey = normalizeCategoryKey(item.category)
+        let category = categoryMap.get(normalizedKey)
+
+        if (!category) {
+          sortOrderBase += 1
+          category = await createCategory.mutateAsync({
+            couple_id: couple.id,
+            name: item.category.trim(),
+            icon: '•',
+            color: null,
+            sort_order: sortOrderBase,
+          })
+          categoryMap.set(normalizedKey, category)
+        }
+
+        await createTransaction.mutateAsync({
+          transactionType: 'expense',
+          values: {
+            couple_id: couple.id,
+            paid_by: user.id,
+            amount: item.amountNumber,
+            description: 'MF screenshot import',
+            expense_date: `${importMonth}-01`,
+            expense_type: 'shared',
+            category_id: category.id,
+            payment_method: null,
+            source: 'moneyforward_screenshot',
+          },
+        })
+      }
+
+      setSelectedMonth(importMonth)
+      setImportDialogOpen(false)
+      resetImportState()
+      toast.success(`${validItems.length}件のカテゴリ支出を保存しました`)
+    } catch {
+      toast.error('カテゴリ金額を認識できませんでした')
+    } finally {
+      setIsSavingImport(false)
+    }
+  }
+
   const filteredTransactions = useMemo(() => {
     return (transactions || []).filter((transaction) => {
       const matchesFilter = filter === 'all' || transaction.transactionType === filter
@@ -216,7 +379,7 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
+      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="カテゴリやメモで検索" className="pl-9" />
@@ -228,6 +391,10 @@ export default function TransactionsPage() {
             </Button>
           ))}
         </div>
+        <Button size="sm" variant="outline" onClick={openImportDialog}>
+          <Upload className="mr-1 h-4 w-4" />
+          スクショから取り込み
+        </Button>
         <Dialog
           open={dialogOpen}
           onOpenChange={(open) => {
@@ -235,9 +402,7 @@ export default function TransactionsPage() {
             if (!open) resetForm()
           }}
         >
-          <DialogTrigger
-            render={<Button size="sm" onClick={openCreateDialog} />}
-          >
+          <DialogTrigger render={<Button size="sm" onClick={openCreateDialog} />}>
             <Plus className="mr-1 h-4 w-4" />
             取引を追加
           </DialogTrigger>
@@ -290,7 +455,7 @@ export default function TransactionsPage() {
                       <Select value={expenseKind} onValueChange={(value) => setExpenseKind(value ?? 'shared')}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="shared">共通</SelectItem>
+                          <SelectItem value="shared">共有</SelectItem>
                           <SelectItem value="personal">個人</SelectItem>
                         </SelectContent>
                       </Select>
@@ -342,6 +507,83 @@ export default function TransactionsPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={(open) => {
+          setImportDialogOpen(open)
+          if (!open) resetImportState()
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>マネーフォワードのスクショ取り込み</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>対象月</Label>
+              <Input type="month" value={importMonth} onChange={(e) => setImportMonth(e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                このデータを {importMonth.replace('-', '年')}月として保存しますか？
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>スクリーンショット</Label>
+              <Input ref={fileInputRef} type="file" accept="image/*" onChange={handleImportFileChange} />
+              <p className="text-xs text-muted-foreground">
+                対応画面はマネーフォワードのカテゴリ別支出一覧画面のみです。
+              </p>
+            </div>
+
+            {isImporting && (
+              <div className="flex items-center gap-2 rounded-lg border p-3 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                AIでカテゴリ別金額を抽出しています
+              </div>
+            )}
+
+            {importError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {importError}
+              </div>
+            )}
+
+            {importItems.length > 0 && (
+              <div className="space-y-3">
+                <div className="rounded-lg bg-muted/40 p-3 text-sm">
+                  AI抽出結果は自動保存されません。カテゴリと金額を確認してから保存してください。
+                </div>
+                <div className="grid grid-cols-[1fr_140px_auto] gap-2 border-b pb-2 text-xs text-muted-foreground">
+                  <span>カテゴリ</span>
+                  <span className="text-right">金額</span>
+                  <span />
+                </div>
+                <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                  {importItems.map((item) => (
+                    <div key={item.id} className="grid grid-cols-[1fr_140px_auto] items-center gap-2">
+                      <Input value={item.category} onChange={(e) => updateImportItem(item.id, { category: e.target.value })} />
+                      <Input
+                        type="number"
+                        className="text-right"
+                        value={item.amount}
+                        onChange={(e) => updateImportItem(item.id, { amount: e.target.value })}
+                      />
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeImportItem(item.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button className="w-full" onClick={handleSaveImportedTransactions} disabled={isSavingImport || createTransaction.isPending || createCategory.isPending}>
+                  {isSavingImport && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                  確認して保存
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-3 md:grid-cols-3">
         <Card>

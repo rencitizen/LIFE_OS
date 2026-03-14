@@ -43,7 +43,7 @@ export type IncomeType = 'salary' | 'bonus' | 'freelance' | 'other'
 export type ShoppingCategory = 'food' | 'daily' | 'other' | 'general'
 export type LivingMode = 'before_cohabiting' | 'after_cohabiting'
 export type TransactionType = 'income' | 'expense'
-export type TransactionSource = 'manual' | 'imported' | 'ai'
+export type TransactionSource = 'manual' | 'ocr' | 'moneyforward_screenshot' | 'imported' | 'ai'
 
 export interface UnifiedTransaction {
   id: string

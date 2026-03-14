@@ -28,7 +28,8 @@ export function getFiscalYearLabel(yearMonth: string, fiscalStartMonth = 1) {
 }
 
 function mapExpenseSource(source: Expense['source']) {
-  if (source === 'ocr') return 'ai'
+  if (source === 'moneyforward_screenshot') return 'moneyforward_screenshot'
+  if (source === 'ocr') return 'ocr'
   if (source === 'auto' || source === 'shopping_list') return 'imported'
   return 'manual'
 }

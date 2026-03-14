@@ -29,10 +29,11 @@ export const EXPENSE_TYPE_LABELS: Record<string, string> = {
 
 export const TRANSACTION_SOURCE_LABELS: Record<string, string> = {
   manual: '手動',
+  ocr: 'OCR',
+  moneyforward_screenshot: 'MFスクショ',
   imported: '取り込み',
   ai: 'AI',
   shopping_list: '買い物連携',
-  ocr: 'OCR',
   auto: '自動',
 }
 
