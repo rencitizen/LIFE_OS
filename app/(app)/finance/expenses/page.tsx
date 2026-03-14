@@ -34,7 +34,7 @@ const expenseTypeBadgeColors: Record<string, string> = {
 
 export default function ExpensesPage() {
   const { user, couple } = useAuth()
-  const { selectedMonth } = useFinanceStore()
+  const { selectedMonth, setSelectedMonth } = useFinanceStore()
   const defaultExpenseMonth = selectedMonth
   const { data: expenses } = useExpenses(couple?.id, selectedMonth)
   const { data: categories } = useExpenseCategories(couple?.id)
@@ -78,6 +78,7 @@ export default function ExpensesPage() {
       setExpenseType('shared')
       setPaymentMethod('card')
       setExpenseMonth(defaultExpenseMonth)
+      setSelectedMonth(expenseMonth)
       setDialogOpen(false)
       toast.success('支出を登録しました')
     } catch {
@@ -120,7 +121,9 @@ export default function ExpensesPage() {
 
       const descriptionValue = parts[1]
       const categoryName = parts[2]?.toLowerCase()
-      const matchedCategoryId = categoryName ? categoryMap.get(categoryName) : undefined
+      const matchedCategoryId = categoryName
+        ? categoryMap.get(categoryName)
+        : categoryId || undefined
 
       if (categoryName && !matchedCategoryId) {
         toast.error(`${index + 1}行目のカテゴリが見つかりません`)
@@ -145,6 +148,7 @@ export default function ExpensesPage() {
       }
       setBulkInput('')
       setExpenseMonth(defaultExpenseMonth)
+      setSelectedMonth(expenseMonth)
       setDialogOpen(false)
       toast.success(`${payloads.length}件の支出を登録しました`)
     } catch {
@@ -273,12 +277,15 @@ export default function ExpensesPage() {
                     <Label>一括入力</Label>
                     <Textarea
                       rows={8}
-                      placeholder={'1200, コーヒー, 食費\n8500, ドラッグストア, 日用品\n15000, 電車代, 交通費'}
+                      placeholder={'1200, コーヒー\n8500, ドラッグストア\n15000, 電車代'}
                       value={bulkInput}
                       onChange={(e) => setBulkInput(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      1行に `金額, 説明, カテゴリ名`。カテゴリ名は省略可です。
+                      上でカテゴリを選べば、1行に `金額, 説明` だけでまとめて登録できます。
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      行ごとにカテゴリを変えたい場合は `金額, 説明, カテゴリ名` でも入力できます。
                     </p>
                   </div>
                   <Button onClick={handleBulkCreate} className="w-full" disabled={createExpense.isPending}>
