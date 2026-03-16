@@ -1,12 +1,13 @@
 'use client'
 
+import { useMemo } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { Calendar, CheckSquare, TrendingUp, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
-import { getTodayJstRange } from '@/lib/date-utils'
+import { enumerateDateKeys, eventOverlapsDateRange, getJstDayRange, getTodayJstDateKey } from '@/lib/date-utils'
 import { LIVING_MODE_LABELS } from '@/lib/finance/constants'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -24,17 +25,24 @@ function formatTodoPeriod(startDate?: string | null, endDate?: string | null, du
   return `${from} - ${to}`
 }
 
+function formatEventTime(startAt: string, endAt?: string | null, allDay?: boolean) {
+  if (allDay) return '終日'
+  return `${format(new Date(startAt), 'HH:mm')}${endAt ? ` - ${format(new Date(endAt), 'HH:mm')}` : ''}`
+}
+
 export default function HomePage() {
   const { user, couple, partner } = useAuth()
   const today = new Date()
   const monthStr = format(today, 'yyyy-MM')
   const lifePlanConfig = useLifePlanConfig(couple?.id)
-  const todayRange = getTodayJstRange()
+  const todayKey = getTodayJstDateKey()
+  const weekDateKeys = useMemo(() => enumerateDateKeys(todayKey, format(new Date(today.getTime() + 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')), [today, todayKey])
+  const weekRange = useMemo(() => getJstDayRange(weekDateKeys[weekDateKeys.length - 1]), [weekDateKeys])
 
   const { data: events } = useCalendarEvents(
     couple?.id,
-    todayRange.start.toISOString(),
-    todayRange.end.toISOString()
+    getJstDayRange(todayKey).start.toISOString(),
+    weekRange.end.toISOString()
   )
   const { data: todos } = useTodos(couple?.id, { status: 'pending' })
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, monthStr)
@@ -44,6 +52,16 @@ export default function HomePage() {
   const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits) || lifePlanBudget.total
 
   const remainingBudget = budgetLimit > 0 ? budgetLimit - (summary?.total || 0) : null
+  const groupedUpcomingEvents = useMemo(
+    () =>
+      weekDateKeys
+        .map((dateKey) => ({
+          dateKey,
+          items: (events || []).filter((event) => eventOverlapsDateRange(event.start_at, event.end_at, dateKey)),
+        }))
+        .filter((group) => group.items.length > 0),
+    [events, weekDateKeys]
+  )
 
   return (
     <div className="space-y-6">
@@ -62,7 +80,7 @@ export default function HomePage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">今日の予定</CardTitle>
+            <CardTitle className="text-sm font-medium">1週間の予定</CardTitle>
             <Calendar className="h-4 w-4 text-[var(--color-info)]" />
           </CardHeader>
           <CardContent>
@@ -121,28 +139,39 @@ export default function HomePage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">今日のスケジュール</CardTitle>
+            <CardTitle className="text-base">今日から1週間のスケジュール</CardTitle>
           </CardHeader>
           <CardContent>
-            {events && events.length > 0 ? (
+            {groupedUpcomingEvents.length > 0 ? (
               <div className="space-y-3">
-                {events.map((event) => (
-                  <div key={event.id} className="flex items-start gap-3 rounded-lg border p-3">
-                    <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: event.color || '#3B82F6' }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{event.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {event.all_day
-                          ? '終日'
-                          : `${format(new Date(event.start_at), 'HH:mm')}${event.end_at ? ` - ${format(new Date(event.end_at), 'HH:mm')}` : ''}`}
+                {groupedUpcomingEvents.map((group) => (
+                  <div key={group.dateKey} className="rounded-lg border p-3">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold">
+                        {format(new Date(`${group.dateKey}T00:00:00+09:00`), 'M月d日 EEE', { locale: ja })}
                       </p>
-                      {event.location && <p className="mt-1 text-xs text-muted-foreground">{event.location}</p>}
+                      <Badge variant="outline">{group.items.length}件</Badge>
+                    </div>
+
+                    <div className="space-y-3">
+                      {group.items.map((event) => (
+                        <div key={`${group.dateKey}-${event.id}`} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
+                          <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: event.color || '#3B82F6' }} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{event.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatEventTime(event.start_at, event.end_at, event.all_day)}
+                            </p>
+                            {event.location && <p className="mt-1 text-xs text-muted-foreground">{event.location}</p>}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">今日の予定はありません</p>
+              <p className="text-sm text-muted-foreground">今日から1週間の予定はありません</p>
             )}
           </CardContent>
         </Card>
