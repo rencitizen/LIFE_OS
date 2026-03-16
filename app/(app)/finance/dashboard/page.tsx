@@ -35,6 +35,29 @@ import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
 import type { LivingMode } from '@/types'
 
+type PieDatum = {
+  name: string
+  value: number
+  color: string
+}
+
+const CATEGORY_PALETTE = [
+  '#F59E0B',
+  '#3B82F6',
+  '#22C55E',
+  '#1F5C4D',
+  '#EF4444',
+  '#8B5CF6',
+  '#06B6D4',
+  '#F97316',
+  '#84CC16',
+  '#EC4899',
+  '#14B8A6',
+  '#A855F7',
+  '#64748B',
+  '#DC2626',
+]
+
 function ChartTooltip({
   active,
   payload,
@@ -57,8 +80,35 @@ function ChartTooltip({
   )
 }
 
+function PieLegend({
+  items,
+  total,
+}: {
+  items: PieDatum[]
+  total: number
+}) {
+  return (
+    <div className="max-h-[280px] space-y-3 overflow-y-auto pr-1">
+      {items.map((item) => (
+        <div key={item.name} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+            <span className="text-sm">{item.name}</span>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-medium">{formatYen(item.value)}</p>
+            <p className="text-xs text-muted-foreground">
+              {total > 0 ? `${Math.round((item.value / total) * 100)}%` : '0%'}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function FinanceDashboardPage() {
-  const { couple } = useAuth()
+  const { couple, user, partner } = useAuth()
   const queryClient = useQueryClient()
   const supabase = createClient()
   const { selectedMonth, setSelectedMonth, livingMode, setLivingMode } = useFinanceStore()
@@ -110,46 +160,70 @@ export default function FinanceDashboardPage() {
   }
 
   const monthlyCashflow = useMemo(() => {
-    const monthRows = getCalendarYearMonths(selectedYear).map((row) => ({
+    const rows = getCalendarYearMonths(selectedYear).map((row) => ({
       ...row,
       income: 0,
       expense: 0,
       balance: 0,
     }))
-    const map = new Map(monthRows.map((row) => [row.key, row]))
+    const rowMap = new Map(rows.map((row) => [row.key, row]))
 
     for (const income of yearIncomes || []) {
-      const key = income.income_date.slice(0, 7)
-      const row = map.get(key)
+      const row = rowMap.get(income.income_date.slice(0, 7))
       if (row) row.income += Number(income.amount)
     }
 
     for (const expense of yearExpenses || []) {
-      const key = expense.expense_date.slice(0, 7)
-      const row = map.get(key)
+      const row = rowMap.get(expense.expense_date.slice(0, 7))
       if (row) row.expense += Number(expense.amount)
     }
 
-    return monthRows.map((row) => ({
+    return rows.map((row) => ({
       ...row,
       balance: row.income - row.expense,
     }))
   }, [selectedYear, yearExpenses, yearIncomes])
 
-  const pieData = useMemo(() => {
+  const categoryPieData = useMemo(() => {
     const entries = Object.values(summary?.byCategory || {}).sort((a, b) => b.total - a.total)
-    const colors = ['#F59E0B', '#3B82F6', '#22C55E', '#1F5C4D', '#6B7280', '#94A3B8']
-    const top = entries.slice(0, 5).map((entry, index) => ({
+    return entries.map((entry, index) => ({
       name: entry.name,
       value: entry.total,
-      color: colors[index % colors.length],
+      color: CATEGORY_PALETTE[index % CATEGORY_PALETTE.length],
     }))
-    const otherTotal = entries.slice(5).reduce((sum, entry) => sum + entry.total, 0)
-    if (otherTotal > 0) {
-      top.push({ name: 'その他', value: otherTotal, color: '#CBD5E1' })
-    }
-    return top
   }, [summary?.byCategory])
+
+  const payerPieData = useMemo(() => {
+    const rows = (transactions || []).filter((transaction) => transaction.transactionType === 'expense')
+    const totals = new Map<string, PieDatum>()
+
+    for (const row of rows) {
+      const key = row.ownerId || 'unknown'
+      const name = key === user?.id
+        ? (user?.display_name || '自分')
+        : key === partner?.id
+          ? (partner?.display_name || '相手')
+          : 'その他'
+      const color = key === user?.id
+        ? '#1F5C4D'
+        : key === partner?.id
+          ? '#3B82F6'
+          : '#F59E0B'
+      const current = totals.get(key)
+
+      if (current) {
+        current.value += row.amount
+      } else {
+        totals.set(key, {
+          name,
+          value: row.amount,
+          color,
+        })
+      }
+    }
+
+    return Array.from(totals.values()).sort((a, b) => b.value - a.value)
+  }, [partner?.display_name, partner?.id, transactions, user?.display_name, user?.id])
 
   return (
     <div className="space-y-6">
@@ -218,7 +292,7 @@ export default function FinanceDashboardPage() {
             <div className={`text-2xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
               {formatYen(balance)}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">同棲モード: {LIVING_MODE_LABELS[livingMode]}</p>
+            <p className="mt-1 text-xs text-muted-foreground">生活モード: {LIVING_MODE_LABELS[livingMode]}</p>
           </CardContent>
         </Card>
 
@@ -260,40 +334,25 @@ export default function FinanceDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">今月の支出内訳</CardTitle>
+            <CardTitle className="text-base">今月の支出カテゴリ内訳</CardTitle>
           </CardHeader>
           <CardContent>
-            {pieData.length > 0 ? (
+            {categoryPieData.length > 0 ? (
               <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-                <ResponsiveContainer width="100%" height={260}>
+                <ResponsiveContainer width="100%" height={280}>
                   <RechartsPieChart>
                     <Tooltip formatter={(value) => formatYen(Number(value || 0))} />
-                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={95} paddingAngle={2}>
-                      {pieData.map((entry) => (
+                    <Pie data={categoryPieData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={96} paddingAngle={2}>
+                      {categoryPieData.map((entry) => (
                         <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
                   </RechartsPieChart>
                 </ResponsiveContainer>
-                <div className="space-y-3">
-                  {pieData.map((entry) => (
-                    <div key={entry.name} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: entry.color }} />
-                        <span className="text-sm">{entry.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">{formatYen(entry.value)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {totalExpense > 0 ? `${Math.round((entry.value / totalExpense) * 100)}%` : '0%'}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <PieLegend items={categoryPieData} total={totalExpense} />
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">支出データがありません</p>
@@ -302,36 +361,61 @@ export default function FinanceDashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">今月の取引</CardTitle>
-            <Badge variant="outline">{transactions?.length || 0}件</Badge>
+          <CardHeader>
+            <CardTitle className="text-base">今月の支出負担内訳</CardTitle>
           </CardHeader>
           <CardContent>
-            {transactions && transactions.length > 0 ? (
-              <div className="space-y-3">
-                {transactions.slice(0, 8).map((transaction) => (
-                  <div key={`${transaction.transactionType}-${transaction.id}`} className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-medium">
-                        {transaction.transactionType === 'income' ? '収入' : '支出'} / {transaction.category}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {transaction.date}
-                        {transaction.memo ? ` ・ ${transaction.memo}` : ''}
-                      </p>
-                    </div>
-                    <p className={`font-semibold ${transaction.transactionType === 'income' ? 'text-[var(--color-income)]' : 'text-[var(--color-expense)]'}`}>
-                      {transaction.transactionType === 'income' ? '+' : '-'}{formatYen(transaction.amount).replace('¥', '')}
-                    </p>
-                  </div>
-                ))}
+            {payerPieData.length > 0 ? (
+              <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+                <ResponsiveContainer width="100%" height={250}>
+                  <RechartsPieChart>
+                    <Tooltip formatter={(value) => formatYen(Number(value || 0))} />
+                    <Pie data={payerPieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3}>
+                      {payerPieData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+                <PieLegend items={payerPieData} total={totalExpense} />
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">取引データがありません</p>
+              <p className="text-sm text-muted-foreground">支出データがありません</p>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">今月の取引</CardTitle>
+          <Badge variant="outline">{transactions?.length || 0}件</Badge>
+        </CardHeader>
+        <CardContent>
+          {transactions && transactions.length > 0 ? (
+            <div className="space-y-3">
+              {transactions.slice(0, 8).map((transaction) => (
+                <div key={`${transaction.transactionType}-${transaction.id}`} className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {transaction.transactionType === 'income' ? '収入' : '支出'} / {transaction.category}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {transaction.date}
+                      {transaction.memo ? ` ・ ${transaction.memo}` : ''}
+                    </p>
+                  </div>
+                  <p className={`font-semibold ${transaction.transactionType === 'income' ? 'text-[var(--color-income)]' : 'text-[var(--color-expense)]'}`}>
+                    {transaction.transactionType === 'income' ? '+' : '-'}{formatYen(transaction.amount).replace('¥', '')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">取引データがありません</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
