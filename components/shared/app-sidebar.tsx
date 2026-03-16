@@ -26,11 +26,11 @@ const navigation = [
 ]
 
 const financeNavigation = [
-  { name: 'ダッシュボード', href: '/finance/dashboard', icon: BarChart3 },
-  { name: '予実分析', href: '/finance/analysis', icon: LineChart },
-  { name: '収入・支出', href: '/finance/expenses', icon: Wallet },
+  { name: '概要', href: '/finance/dashboard', icon: BarChart3 },
+  { name: '月次実績', href: '/finance/analysis', icon: LineChart },
+  { name: '収入・支出入力', href: '/finance/expenses', icon: Wallet },
   { name: '予算', href: '/finance/budgets', icon: Target },
-  { name: 'ライフプラン', href: '/finance/life-plan', icon: TrendingUp },
+  { name: '5年計画', href: '/finance/life-plan', icon: TrendingUp },
 ]
 
 export function AppSidebar() {
@@ -77,8 +77,8 @@ export function AppSidebar() {
               </Link>
             ))}
 
-            <div className="pt-4 pb-2">
-              <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="pb-2 pt-4">
+              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 家計管理
               </p>
             </div>

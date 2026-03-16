@@ -1,155 +1,109 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { useQueryClient } from '@tanstack/react-query'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart as RechartsPieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import { ChevronLeft, ChevronRight, PieChart, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { ChevronLeft, ChevronRight, Landmark, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
 import { LIVING_MODE_LABELS, LIVING_MODES } from '@/lib/finance/constants'
-import { formatYen, getCalendarYearMonths, getFiscalYearLabel } from '@/lib/finance/utils'
+import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useAccountBalanceSummary } from '@/lib/hooks/use-accounts'
 import { useBudget, useBudgetIncomeCategories, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
 import { useMonthlyExpenseSummary, useYearExpenseHistory } from '@/lib/hooks/use-expenses'
 import { useIncomes, useYearIncomeHistory } from '@/lib/hooks/use-incomes'
-import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
-import { useTransactions } from '@/lib/hooks/use-transactions'
+import { useLifePlanConfig, useSimulation } from '@/lib/hooks/use-life-plan'
 import { createClient } from '@/lib/supabase/client'
 import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
 import type { LivingMode } from '@/types'
 
-type PieDatum = {
-  name: string
-  value: number
-  color: string
-  budget?: number
-}
-
-const CATEGORY_PALETTE = [
-  '#F59E0B',
-  '#3B82F6',
-  '#22C55E',
-  '#1F5C4D',
-  '#EF4444',
-  '#8B5CF6',
-  '#06B6D4',
-  '#F97316',
-  '#84CC16',
-  '#EC4899',
-  '#14B8A6',
-  '#A855F7',
-  '#64748B',
-  '#DC2626',
-]
-
-function ChartTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean
-  payload?: Array<{ name: string; value: number; color: string }>
-  label?: string
-}) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-lg border bg-card p-3 shadow-md">
-      <p className="mb-1 text-sm font-medium">{label}</p>
-      {payload.map((entry) => (
-        <p key={`${entry.name}-${entry.value}`} className="text-xs" style={{ color: entry.color }}>
-          {entry.name}: {formatYen(entry.value)}
-        </p>
-      ))}
-    </div>
-  )
-}
-
-function PieLegend({
-  items,
-  total,
-  showBudgetShare = false,
-}: {
-  items: PieDatum[]
-  total: number
-  showBudgetShare?: boolean
-}) {
-  return (
-    <div className="max-h-[280px] space-y-3 overflow-y-auto pr-1">
-      {items.map((item) => (
-        <div key={item.name} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-            <span className="text-sm">{item.name}</span>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-medium">{formatYen(item.value)}</p>
-            <p className="text-xs text-muted-foreground">
-              {showBudgetShare && typeof item.budget === 'number'
-                ? `予算比 ${item.budget > 0 ? Math.round((item.value / item.budget) * 100) : 0}%`
-                : total > 0
-                  ? `${Math.round((item.value / total) * 100)}%`
-                  : '0%'}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+function compareTone(value: number) {
+  if (value > 0) return 'text-destructive'
+  if (value < 0) return 'text-primary'
+  return 'text-foreground'
 }
 
 export default function FinanceDashboardPage() {
-  const { couple, user, partner } = useAuth()
-  const queryClient = useQueryClient()
+  const { couple } = useAuth()
   const supabase = createClient()
-  const { selectedMonth, setSelectedMonth, livingMode, setLivingMode } = useFinanceStore()
   const lifePlanConfig = useLifePlanConfig(couple?.id)
-  const { data: summary } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
-  const { data: incomes } = useIncomes(couple?.id, selectedMonth)
+  const simulation = useSimulation(lifePlanConfig)
+  const { selectedMonth, setSelectedMonth, livingMode, setLivingMode } = useFinanceStore()
+  const { data: monthExpenses } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
+  const { data: monthIncomes } = useIncomes(couple?.id, selectedMonth)
   const { data: budget } = useBudget(couple?.id, selectedMonth)
   const { data: budgetIncomeCategories } = useBudgetIncomeCategories(budget?.id)
   const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
-  const { data: transactions } = useTransactions(couple?.id, selectedMonth)
+  const { data: accountSummary } = useAccountBalanceSummary(couple?.id)
 
   const selectedYear = Number(selectedMonth.slice(0, 4))
   const { data: yearExpenses } = useYearExpenseHistory(couple?.id, selectedYear)
   const { data: yearIncomes } = useYearIncomeHistory(couple?.id, selectedYear)
 
   const [savingMode, setSavingMode] = useState(false)
-  const [transactionOwnerFilter, setTransactionOwnerFilter] = useState<'all' | 'mine' | 'partner'>('all')
+  const [year, month] = selectedMonth.split('-').map(Number)
+  const displayDate = new Date(year, month - 1, 1)
 
-  const totalIncome = incomes?.reduce((sum, income) => sum + Number(income.amount), 0) || 0
-  const totalExpense = summary?.total || 0
-  const balance = totalIncome - totalExpense
-  const lifePlanBudget = getLifePlanMonthlyBudget(lifePlanConfig, selectedMonth)
-  const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits) || lifePlanBudget.total
-  const remaining = budgetLimit - totalExpense
-  const plannedIncome = (budgetIncomeCategories || []).reduce((sum, row) => sum + Number(row.planned_amount), 0)
+  const actualMonthIncome = useMemo(
+    () => (monthIncomes || []).reduce((sum, row) => sum + Number(row.amount), 0),
+    [monthIncomes]
+  )
+  const actualMonthExpense = monthExpenses?.total || 0
+  const actualMonthBalance = actualMonthIncome - actualMonthExpense
+
+  const plannedMonthIncome = useMemo(
+    () => (budgetIncomeCategories || []).reduce((sum, row) => sum + Number(row.planned_amount), 0),
+    [budgetIncomeCategories]
+  )
+  const plannedMonthExpense = useMemo(
+    () => (budgetMemberLimits || []).reduce((sum, row) => sum + Number(row.limit_amount), 0) || Number(budget?.total_limit || 0),
+    [budget?.total_limit, budgetMemberLimits]
+  )
+  const plannedMonthBalance = plannedMonthIncome - plannedMonthExpense
+
+  const actualYearIncome = useMemo(
+    () => (yearIncomes || []).reduce((sum, row) => sum + Number(row.amount), 0),
+    [yearIncomes]
+  )
+  const actualYearExpense = useMemo(
+    () => (yearExpenses || []).reduce((sum, row) => sum + Number(row.amount), 0),
+    [yearExpenses]
+  )
+
+  const yearPlan = useMemo(() => {
+    const index = simulation.household.findIndex((row) => row.year === selectedYear)
+    if (index < 0) return null
+    return {
+      income: simulation.household[index].householdNet,
+      expense: simulation.ren[index].livingCost + simulation.hikaru[index].livingCost,
+      asset: simulation.household[index].householdTotalAssets,
+    }
+  }, [selectedYear, simulation.household, simulation.hikaru, simulation.ren])
+
+  const fiveYearRows = useMemo(() => {
+    const startIndex = simulation.household.findIndex((row) => row.year === selectedYear)
+    const index = startIndex >= 0 ? startIndex : 0
+    return simulation.household.slice(index, index + 5).map((row, offset) => ({
+      year: row.year,
+      income: row.householdNet,
+      expense: simulation.ren[index + offset].livingCost + simulation.hikaru[index + offset].livingCost,
+      balance: row.householdNet - (simulation.ren[index + offset].livingCost + simulation.hikaru[index + offset].livingCost),
+      asset: row.householdTotalAssets,
+    }))
+  }, [selectedYear, simulation.household, simulation.hikaru, simulation.ren])
+
+  const accountNetWorth = accountSummary?.netWorth ?? 0
+  const accountAssets = accountSummary?.assets ?? 0
+  const accountLiabilities = accountSummary?.liabilities ?? 0
+  const planAssetGap = yearPlan ? accountNetWorth - yearPlan.asset : 0
 
   const navigateMonth = (direction: number) => {
-    const [year, month] = selectedMonth.split('-').map(Number)
     const nextDate = new Date(year, month - 1 + direction, 1)
     setSelectedMonth(format(nextDate, 'yyyy-MM'))
   }
-
-  const [year, month] = selectedMonth.split('-').map(Number)
-  const displayDate = new Date(year, month - 1, 1)
 
   const handleLivingModeChange = async (mode: LivingMode) => {
     setLivingMode(mode)
@@ -159,7 +113,6 @@ export default function FinanceDashboardPage() {
     try {
       const { error } = await supabase.from('couples').update({ living_mode: mode }).eq('id', couple.id)
       if (error) throw error
-      await queryClient.invalidateQueries({ queryKey: ['auth-couple', couple.id] })
     } catch {
       toast.error('生活モードの更新に失敗しました')
     } finally {
@@ -167,95 +120,23 @@ export default function FinanceDashboardPage() {
     }
   }
 
-  const monthlyCashflow = useMemo(() => {
-    const rows = getCalendarYearMonths(selectedYear).map((row) => ({
-      ...row,
-      income: 0,
-      expense: 0,
-      balance: 0,
-    }))
-    const rowMap = new Map(rows.map((row) => [row.key, row]))
-
-    for (const income of yearIncomes || []) {
-      const row = rowMap.get(income.income_date.slice(0, 7))
-      if (row) row.income += Number(income.amount)
-    }
-
-    for (const expense of yearExpenses || []) {
-      const row = rowMap.get(expense.expense_date.slice(0, 7))
-      if (row) row.expense += Number(expense.amount)
-    }
-
-    return rows.map((row) => ({
-      ...row,
-      balance: row.income - row.expense,
-    }))
-  }, [selectedYear, yearExpenses, yearIncomes])
-
-  const categoryPieData = useMemo(() => {
-    const entries = Object.values(summary?.byCategory || {}).sort((a, b) => b.total - a.total)
-    return entries.map((entry, index) => ({
-      name: entry.name,
-      value: entry.total,
-      color: CATEGORY_PALETTE[index % CATEGORY_PALETTE.length],
-    }))
-  }, [summary?.byCategory])
-
-  const payerPieData = useMemo(() => {
-    const budgetMap = new Map((budgetMemberLimits || []).map((row) => [row.user_id, Number(row.limit_amount) || 0]))
-    const rows = (transactions || []).filter((transaction) => transaction.transactionType === 'expense')
-    const totals = new Map<string, PieDatum>()
-
-    for (const row of rows) {
-      const key = row.ownerId || 'unknown'
-      const name = key === user?.id
-        ? (user?.display_name || '自分')
-        : key === partner?.id
-          ? (partner?.display_name || '相手')
-          : 'その他'
-      const color = key === user?.id
-        ? '#1F5C4D'
-        : key === partner?.id
-          ? '#3B82F6'
-          : '#F59E0B'
-      const current = totals.get(key)
-
-      if (current) {
-        current.value += row.amount
-      } else {
-        totals.set(key, {
-          name,
-          value: row.amount,
-          color,
-          budget: budgetMap.get(key),
-        })
-      }
-    }
-
-    return Array.from(totals.values()).sort((a, b) => b.value - a.value)
-  }, [budgetMemberLimits, partner?.display_name, partner?.id, transactions, user?.display_name, user?.id])
-
-  const visibleTransactions = useMemo(() => {
-    const rows = transactions || []
-    if (transactionOwnerFilter === 'mine') {
-      return rows.filter((row) => row.ownerId === user?.id)
-    }
-    if (transactionOwnerFilter === 'partner') {
-      return rows.filter((row) => row.ownerId === partner?.id)
-    }
-    return rows
-  }, [partner?.id, transactionOwnerFilter, transactions, user?.id])
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">家計ダッシュボード</h1>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              {LIVING_MODE_LABELS[livingMode]}
+            </span>
+            <span className="text-sm text-muted-foreground">家計の概要</span>
+          </div>
+          <h1 className="text-2xl font-bold">{format(displayDate, 'yyyy年M月', { locale: ja })}の概要</h1>
           <p className="text-sm text-muted-foreground">
-            暦年 {getFiscalYearLabel(selectedMonth)} 年度として表示 / {format(displayDate, 'yyyy年M月', { locale: ja })}
+            月次実績は PL、5年計画は CF、資産は実績残高ベースで表示します。
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex flex-wrap items-center gap-2">
           <div className="rounded-lg border p-1">
             {LIVING_MODES.map((mode) => (
               <Button
@@ -272,7 +153,7 @@ export default function FinanceDashboardPage() {
           <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="min-w-[110px] text-center text-sm font-medium">
+          <span className="min-w-[120px] text-center text-sm font-medium">
             {format(displayDate, 'yyyy年M月', { locale: ja })}
           </span>
           <Button variant="ghost" size="icon" onClick={() => navigateMonth(1)}>
@@ -281,176 +162,187 @@ export default function FinanceDashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">今月の収入</CardTitle>
-            <TrendingUp className="h-4 w-4 text-[var(--color-income)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[var(--color-income)]">{formatYen(totalIncome)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">予算 {formatYen(plannedIncome)}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">今月の支出</CardTitle>
-            <TrendingDown className="h-4 w-4 text-[var(--color-expense)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[var(--color-expense)]">{formatYen(totalExpense)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">予算 {formatYen(budgetLimit)}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">月次差額</CardTitle>
+            <CardTitle className="text-sm font-medium">今月の実績収支</CardTitle>
             <Wallet className="h-4 w-4 text-primary" />
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
-              {formatYen(balance)}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">生活モード: {LIVING_MODE_LABELS[livingMode]}</p>
+          <CardContent className="space-y-1">
+            <p className={`text-2xl font-bold ${actualMonthBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
+              {formatYen(actualMonthBalance)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              収入 {formatYen(actualMonthIncome)} / 支出 {formatYen(actualMonthExpense)}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">予算残り</CardTitle>
-            <PieChart className="h-4 w-4 text-[var(--color-info)]" />
+            <CardTitle className="text-sm font-medium">今月の計画差異</CardTitle>
+            <TrendingDown className="h-4 w-4 text-[var(--color-expense)]" />
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${remaining >= 0 ? 'text-primary' : 'text-destructive'}`}>
-              {formatYen(remaining)}
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">収入差異</span>
+              <span className={compareTone(plannedMonthIncome - actualMonthIncome)}>
+                {formatYen(actualMonthIncome - plannedMonthIncome)}
+              </span>
             </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className={`h-full rounded-full ${remaining < 0 ? 'bg-destructive' : 'bg-[var(--color-expense)]'}`}
-                style={{ width: `${budgetLimit > 0 ? Math.min(100, (totalExpense / budgetLimit) * 100) : 0}%` }}
-              />
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">支出差異</span>
+              <span className={compareTone(actualMonthExpense - plannedMonthExpense)}>
+                {formatYen(actualMonthExpense - plannedMonthExpense)}
+              </span>
             </div>
+            <div className="flex items-center justify-between border-t pt-2 font-medium">
+              <span>収支差異</span>
+              <span className={actualMonthBalance - plannedMonthBalance >= 0 ? 'text-primary' : 'text-destructive'}>
+                {formatYen(actualMonthBalance - plannedMonthBalance)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">{selectedYear}年の進捗</CardTitle>
+            <TrendingUp className="h-4 w-4 text-[var(--color-info)]" />
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">年収実績</span>
+              <span>{formatYen(actualYearIncome)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">年支出実績</span>
+              <span>{formatYen(actualYearExpense)}</span>
+            </div>
+            <div className="flex items-center justify-between border-t pt-2 font-medium">
+              <span>年収支差異</span>
+              <span className={yearPlan && actualYearIncome - actualYearExpense >= yearPlan.income - yearPlan.expense ? 'text-primary' : 'text-destructive'}>
+                {formatYen((actualYearIncome - actualYearExpense) - ((yearPlan?.income || 0) - (yearPlan?.expense || 0)))}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">純資産</CardTitle>
+            <Landmark className="h-4 w-4 text-[var(--color-info)]" />
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <p className="text-2xl font-bold text-primary">{formatYen(accountNetWorth)}</p>
+            <p className="text-xs text-muted-foreground">
+              資産 {formatYen(accountAssets)} / 負債 {formatYen(accountLiabilities)}
+            </p>
+            {yearPlan && (
+              <p className={`text-xs ${planAssetGap >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                計画差異 {formatYen(planAssetGap)}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{selectedYear}年の月次キャッシュフロー</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={monthlyCashflow}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#D7E4DD" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tickFormatter={(value) => `${Math.round(value / 10000)}万`} tick={{ fontSize: 11 }} />
-              <Tooltip content={<ChartTooltip />} />
-              <Legend />
-              <Bar dataKey="income" name="収入" fill="#22C55E" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expense" name="支出" fill="#F59E0B" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">今月の支出カテゴリ内訳</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">月次実績の見方</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">今月の PL と予算差異を先に確認します。</p>
+            </div>
+            <Link
+              href="/finance/analysis"
+              className="inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition-colors hover:bg-muted"
+            >
+              月次実績へ
+            </Link>
           </CardHeader>
-          <CardContent>
-            {categoryPieData.length > 0 ? (
-              <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-                <ResponsiveContainer width="100%" height={280}>
-                  <RechartsPieChart>
-                    <Tooltip formatter={(value) => formatYen(Number(value || 0))} />
-                    <Pie data={categoryPieData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={96} paddingAngle={2}>
-                      {categoryPieData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </RechartsPieChart>
-                </ResponsiveContainer>
-                <PieLegend items={categoryPieData} total={totalExpense} />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">支出データがありません</p>
-            )}
+          <CardContent className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border p-4">
+              <p className="text-xs text-muted-foreground">計画収入</p>
+              <p className="mt-1 text-lg font-semibold text-primary">{formatYen(plannedMonthIncome)}</p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-xs text-muted-foreground">計画支出</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--color-expense)]">{formatYen(plannedMonthExpense)}</p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-xs text-muted-foreground">計画収支</p>
+              <p className={`mt-1 text-lg font-semibold ${plannedMonthBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                {formatYen(plannedMonthBalance)}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">今月の支出負担内訳</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">資産の見方</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">入力は不要で、口座残高から実績を表示します。</p>
+            </div>
           </CardHeader>
-          <CardContent>
-            {payerPieData.length > 0 ? (
-              <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-                <ResponsiveContainer width="100%" height={250}>
-                  <RechartsPieChart>
-                    <Tooltip formatter={(value) => formatYen(Number(value || 0))} />
-                    <Pie data={payerPieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3}>
-                      {payerPieData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </RechartsPieChart>
-                </ResponsiveContainer>
-                <PieLegend items={payerPieData} total={totalExpense} showBudgetShare />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">支出データがありません</p>
-            )}
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="text-muted-foreground">現預金</span>
+              <span className="font-medium">{formatYen(accountSummary?.cashLike || 0)}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="text-muted-foreground">投資</span>
+              <span className="font-medium">{formatYen(accountSummary?.investments || 0)}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="text-muted-foreground">純資産</span>
+              <span className="font-semibold text-primary">{formatYen(accountNetWorth)}</span>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <div className="space-y-2">
-            <CardTitle className="text-base">今月の取引</CardTitle>
-            <div className="flex gap-1">
-              <Button size="sm" variant={transactionOwnerFilter === 'all' ? 'default' : 'outline'} onClick={() => setTransactionOwnerFilter('all')}>
-                すべて
-              </Button>
-              <Button size="sm" variant={transactionOwnerFilter === 'mine' ? 'default' : 'outline'} onClick={() => setTransactionOwnerFilter('mine')}>
-                自分
-              </Button>
-              <Button size="sm" variant={transactionOwnerFilter === 'partner' ? 'default' : 'outline'} onClick={() => setTransactionOwnerFilter('partner')}>
-                相手
-              </Button>
-            </div>
+          <div>
+            <CardTitle className="text-base">5年見通し</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">CF 計画書として、年ごとの収支と年末資産を見ます。</p>
           </div>
-          <Badge variant="outline">{visibleTransactions.length}件</Badge>
+          <Link
+            href="/finance/life-plan"
+            className="inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            5年計画へ
+          </Link>
         </CardHeader>
         <CardContent>
-          {visibleTransactions.length > 0 ? (
-            <div className="space-y-3">
-              {visibleTransactions.slice(0, 8).map((transaction) => (
-                <div key={`${transaction.transactionType}-${transaction.id}`} className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="text-sm font-medium">
-                      {transaction.transactionType === 'income' ? '収入' : '支出'} / {transaction.category}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {transaction.date}
-                      {transaction.memo ? ` ・ ${transaction.memo}` : ''}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {transaction.ownerId === user?.id ? (user?.display_name || '自分') : transaction.ownerId === partner?.id ? (partner?.display_name || '相手') : 'その他'}
-                    </p>
-                  </div>
-                  <p className={`font-semibold ${transaction.transactionType === 'income' ? 'text-[var(--color-income)]' : 'text-[var(--color-expense)]'}`}>
-                    {transaction.transactionType === 'income' ? '+' : '-'}{formatYen(transaction.amount).replace('¥', '')}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">取引データがありません</p>
-          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="px-2 py-2">年</th>
+                  <th className="px-2 py-2 text-right">計画収入</th>
+                  <th className="px-2 py-2 text-right">計画支出</th>
+                  <th className="px-2 py-2 text-right">計画収支</th>
+                  <th className="px-2 py-2 text-right">年末資産</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fiveYearRows.map((row) => (
+                  <tr key={row.year} className="border-b last:border-b-0">
+                    <td className="px-2 py-3 font-medium">{row.year}</td>
+                    <td className="px-2 py-3 text-right">{formatYen(row.income)}</td>
+                    <td className="px-2 py-3 text-right">{formatYen(row.expense)}</td>
+                    <td className={`px-2 py-3 text-right font-medium ${row.balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                      {formatYen(row.balance)}
+                    </td>
+                    <td className="px-2 py-3 text-right font-semibold">{formatYen(row.asset)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
     </div>

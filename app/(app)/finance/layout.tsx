@@ -5,9 +5,10 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const tabs = [
-  { name: 'ダッシュボード', href: '/finance/dashboard' },
-  { name: '収入・支出', href: '/finance/expenses' },
-  { name: '予算・ライフプラン', href: '/finance/budgets' },
+  { name: '概要', href: '/finance/dashboard' },
+  { name: '月次実績', href: '/finance/analysis' },
+  { name: '予算', href: '/finance/budgets' },
+  { name: '5年計画', href: '/finance/life-plan' },
 ]
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
