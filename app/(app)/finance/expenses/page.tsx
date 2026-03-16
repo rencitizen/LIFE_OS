@@ -23,8 +23,6 @@ import type { UnifiedTransaction } from '@/types'
 const EXPENSE_KIND_LABELS: Record<string, string> = {
   shared: '共有',
   personal: '個人',
-  advance: '立替',
-  pending_settlement: '精算待ち',
 }
 
 type MoneyforwardImportItem = {

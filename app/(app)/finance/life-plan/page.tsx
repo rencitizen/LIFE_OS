@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { TrendingUp, Wallet, Calendar, Settings2, Home, Users, Download, Save, Plus, X, Pencil } from 'lucide-react'
+import Link from 'next/link'
+import { useState, useCallback, useMemo } from 'react'
+import { TrendingUp, Wallet, Calendar, Settings2, Home, Users, Download, Save, Plus, X, Pencil, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useIncomeActualsByYears } from '@/lib/hooks/use-incomes'
 import { useLifePlan, useLifePlanConfig, useSimulation, useSaveLifePlan, useInitLifePlan } from '@/lib/hooks/use-life-plan'
 import type { LifePlanConfig, LifeEvent } from '@/types/life-plan'
 import { summarizeLivingCosts } from '@/lib/life-plan/engine'
@@ -25,6 +27,21 @@ import { toast } from 'sonner'
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`
+
+interface MonthlyIncomeActual {
+  month: string
+  label: string
+  total: number
+}
+
+interface YearIncomeActual {
+  year: number
+  total: number
+  mine: number
+  partner: number
+  monthsRecorded: number
+  monthly: MonthlyIncomeActual[]
+}
 
 /** Read-only computed value — gray text on near-white bg */
 function Computed({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -90,7 +107,7 @@ function ComputedBadge() {
 }
 
 export default function LifePlanPage() {
-  const { couple } = useAuth()
+  const { user, partner, couple } = useAuth()
   const { data: lifePlan, isLoading } = useLifePlan(couple?.id)
   const defaultConfig = useLifePlanConfig(couple?.id)
   const [localConfig, setLocalConfig] = useState<LifePlanConfig | null>(null)
@@ -98,6 +115,58 @@ export default function LifePlanPage() {
   const sim = useSimulation(config)
   const savePlan = useSaveLifePlan()
   const initPlan = useInitLifePlan()
+  const incomeYears = useMemo(
+    () => [...new Set(config.incomeData.map((entry) => entry.year))].sort((a, b) => a - b),
+    [config.incomeData]
+  )
+  const { data: incomeActualRows } = useIncomeActualsByYears(couple?.id, incomeYears)
+
+  const incomeActualsByYear = useMemo(() => {
+    const yearMap = new Map<number, YearIncomeActual>()
+    const monthlyMaps = new Map<number, Map<string, number>>()
+
+    for (const year of incomeYears) {
+      yearMap.set(year, {
+        year,
+        total: 0,
+        mine: 0,
+        partner: 0,
+        monthsRecorded: 0,
+        monthly: [],
+      })
+    }
+
+    for (const row of incomeActualRows || []) {
+      const year = Number(row.income_date.slice(0, 4))
+      const month = row.income_date.slice(0, 7)
+      const entry = yearMap.get(year)
+      if (!entry) continue
+
+      const amount = Number(row.amount)
+      entry.total += amount
+      if (row.user_id === user?.id) entry.mine += amount
+      else if (row.user_id === partner?.id) entry.partner += amount
+
+      const monthlyMap = monthlyMaps.get(year) ?? new Map<string, number>()
+      monthlyMap.set(month, (monthlyMap.get(month) || 0) + amount)
+      monthlyMaps.set(year, monthlyMap)
+    }
+
+    for (const year of incomeYears) {
+      const entry = yearMap.get(year)
+      if (!entry) continue
+
+      const monthlyMap = monthlyMaps.get(year) ?? new Map<string, number>()
+      entry.monthly = Array.from(monthlyMap.entries()).map(([month, total]) => ({
+        month,
+        label: `${Number(month.slice(5, 7))}月`,
+        total,
+      }))
+      entry.monthsRecorded = entry.monthly.length
+    }
+
+    return yearMap
+  }, [incomeActualRows, incomeYears, partner?.id, user?.id])
 
   const updateConfig = useCallback((updater: (prev: LifePlanConfig) => LifePlanConfig) => {
     setLocalConfig((prev) => updater(prev ?? defaultConfig))
@@ -180,7 +249,14 @@ export default function LifePlanPage() {
           <AssetsTab sim={sim} />
         </TabsContent>
         <TabsContent value="income">
-          <IncomeTab config={config} updateConfig={updateConfig} sim={sim} />
+          <IncomeTab
+            config={config}
+            updateConfig={updateConfig}
+            sim={sim}
+            incomeActualsByYear={incomeActualsByYear}
+            userLabel={user?.display_name || '自分'}
+            partnerLabel={partner?.display_name || '相手'}
+          />
         </TabsContent>
         <TabsContent value="living">
           <LivingCostTab config={config} updateConfig={updateConfig} />
@@ -200,6 +276,13 @@ export default function LifePlanPage() {
 // Dashboard Tab (ALL computed)
 // ============================================
 function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
+  const config = { incomeData: [] as Array<{ year: number }> }
+  const activeYear = 0
+  const setSelectedActualYear = (_year: number) => {}
+  const activeActual: YearIncomeActual = { year: 0, total: 0, mine: 0, partner: 0, monthsRecorded: 0, monthly: [] }
+  const userLabel = ''
+  const partnerLabel = ''
+
   return (
     <div className="space-y-4">
       {sim.household.length > 0 && (() => {
@@ -225,6 +308,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
         )
       })()}
 
+      {false && (
       <Card className="border-[#D9D9D9]">
         <CardHeader className="pb-2">
           <CardTitle className="text-base text-[#133929]">年度別ダッシュボード <ComputedBadge /></CardTitle>
@@ -266,6 +350,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
           </table>
         </CardContent>
       </Card>
+      )}
 
       {/* Asset composition bar chart */}
       <Card className="border-[#D9D9D9]">
@@ -297,6 +382,71 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
           </div>
         </CardContent>
       </Card>
+
+      {false && (
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
+          <div>
+            <CardTitle className="text-base text-[#133929]">月別の収入実績</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">月ごとの入力実績を積み上げて、その年の実績手取りとして表示します。</p>
+          </div>
+          <Link
+            href="/finance/budgets"
+            className="inline-flex h-8 items-center rounded-md border border-[#85B59B] px-3 text-xs font-medium text-[#1E5945] transition-colors hover:bg-[#85B59B]/10"
+          >
+            月次実績を入力
+            <ArrowRight className="ml-1 h-3.5 w-3.5" />
+          </Link>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {config.incomeData.map((entry) => (
+              <Button
+                key={entry.year}
+                size="sm"
+                variant={activeYear === entry.year ? 'default' : 'outline'}
+                onClick={() => setSelectedActualYear(entry.year)}
+                className={activeYear === entry.year ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10'}
+              >
+                {entry.year}年
+              </Button>
+            ))}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+              <p className="text-xs text-muted-foreground">年額実績</p>
+              <p className="mt-1 text-xl font-semibold text-[#2563eb]">{yen(activeActual?.total ?? 0)}</p>
+            </div>
+            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+              <p className="text-xs text-muted-foreground">内訳</p>
+              <p className="mt-1 text-sm font-medium text-[#133929]">
+                {userLabel} {yen(activeActual?.mine ?? 0)} / {partnerLabel} {yen(activeActual?.partner ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+              <p className="text-xs text-muted-foreground">入力済み月数</p>
+              <p className="mt-1 text-xl font-semibold text-[#133929]">{activeActual?.monthsRecorded ?? 0}ヶ月</p>
+            </div>
+          </div>
+
+          {activeActual?.monthly.length ? (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {activeActual.monthly.map((month) => (
+                <div key={month.month} className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">{month.label}</p>
+                  <p className="mt-1 font-semibold text-[#133929]">{yen(month.total)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+              この年の月別実績はまだありません。予算ページから月ごとの収入実績を追加すると、ここに積み上がります。
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      )}
     </div>
   )
 }
@@ -307,6 +457,12 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
 function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
   const [person, setPerson] = useState<'ren' | 'hikaru'>('ren')
   const data = person === 'ren' ? sim.ren : sim.hikaru
+  const config = { incomeData: [] as Array<{ year: number }> }
+  const activeYear = 0
+  const setSelectedActualYear = (_year: number) => {}
+  const activeActual: YearIncomeActual = { year: 0, total: 0, mine: 0, partner: 0, monthsRecorded: 0, monthly: [] }
+  const userLabel = ''
+  const partnerLabel = ''
 
   return (
     <div className="space-y-4">
@@ -396,6 +552,132 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
           })}
         </CardContent>
       </Card>
+
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
+          <div>
+            <CardTitle className="text-base text-[#133929]">月別の収入実績</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">月ごとの入力実績を積み上げて、その年の実績手取りとして表示します。</p>
+          </div>
+          <Link
+            href="/finance/budgets"
+            className="inline-flex h-8 items-center rounded-md border border-[#85B59B] px-3 text-xs font-medium text-[#1E5945] transition-colors hover:bg-[#85B59B]/10"
+          >
+            月次実績を入力
+            <ArrowRight className="ml-1 h-3.5 w-3.5" />
+          </Link>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {config.incomeData.map((entry) => (
+              <Button
+                key={entry.year}
+                size="sm"
+                variant={activeYear === entry.year ? 'default' : 'outline'}
+                onClick={() => setSelectedActualYear(entry.year)}
+                className={activeYear === entry.year ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10'}
+              >
+                {entry.year}年
+              </Button>
+            ))}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+              <p className="text-xs text-muted-foreground">年額実績</p>
+              <p className="mt-1 text-xl font-semibold text-[#2563eb]">{yen(activeActual?.total ?? 0)}</p>
+            </div>
+            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+              <p className="text-xs text-muted-foreground">内訳</p>
+              <p className="mt-1 text-sm font-medium text-[#133929]">
+                {userLabel} {yen(activeActual?.mine ?? 0)} / {partnerLabel} {yen(activeActual?.partner ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+              <p className="text-xs text-muted-foreground">入力済み月数</p>
+              <p className="mt-1 text-xl font-semibold text-[#133929]">{activeActual?.monthsRecorded ?? 0}ヶ月</p>
+            </div>
+          </div>
+
+          {activeActual?.monthly.length ? (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {activeActual.monthly.map((month) => (
+                <div key={month.month} className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">{month.label}</p>
+                  <p className="mt-1 font-semibold text-[#133929]">{yen(month.total)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+              この年の月別実績はまだありません。予算ページから月ごとの収入実績を追加すると、ここに積み上がります。
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-[#D9D9D9]">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
+          <div>
+            <CardTitle className="text-base text-[#133929]">月別の収入実績</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">月ごとの入力実績を積み上げて、その年の実績手取りとして表示します。</p>
+          </div>
+          <Link
+            href="/finance/budgets"
+            className="inline-flex h-8 items-center rounded-md border border-[#85B59B] px-3 text-xs font-medium text-[#1E5945] transition-colors hover:bg-[#85B59B]/10"
+          >
+            月次実績を入力
+            <ArrowRight className="ml-1 h-3.5 w-3.5" />
+          </Link>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {config.incomeData.map((entry) => (
+              <Button
+                key={entry.year}
+                size="sm"
+                variant={activeYear === entry.year ? 'default' : 'outline'}
+                onClick={() => setSelectedActualYear(entry.year)}
+                className={activeYear === entry.year ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10'}
+              >
+                {entry.year}年
+              </Button>
+            ))}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+              <p className="text-xs text-muted-foreground">年額実績</p>
+              <p className="mt-1 text-xl font-semibold text-[#2563eb]">{yen(activeActual?.total ?? 0)}</p>
+            </div>
+            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+              <p className="text-xs text-muted-foreground">内訳</p>
+              <p className="mt-1 text-sm font-medium text-[#133929]">
+                {userLabel} {yen(activeActual?.mine ?? 0)} / {partnerLabel} {yen(activeActual?.partner ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+              <p className="text-xs text-muted-foreground">入力済み月数</p>
+              <p className="mt-1 text-xl font-semibold text-[#133929]">{activeActual?.monthsRecorded ?? 0}ヶ月</p>
+            </div>
+          </div>
+
+          {activeActual?.monthly?.length ? (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {activeActual.monthly.map((month) => (
+                <div key={month.month} className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">{month.label}</p>
+                  <p className="mt-1 font-semibold text-[#133929]">{yen(month.total)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+              この年の月別実績はまだありません。予算ページから月ごとの収入実績を追加すると、ここに積み上がります。
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -407,11 +689,19 @@ function IncomeTab({
   config,
   updateConfig,
   sim,
+  incomeActualsByYear,
+  userLabel,
+  partnerLabel,
 }: {
   config: LifePlanConfig
   updateConfig: (fn: (c: LifePlanConfig) => LifePlanConfig) => void
   sim: ReturnType<typeof useSimulation>
+  incomeActualsByYear: Map<number, YearIncomeActual>
+  userLabel: string
+  partnerLabel: string
 }) {
+  const [selectedActualYear, setSelectedActualYear] = useState<number | null>(config.incomeData[0]?.year ?? null)
+
   const updateIncome = (yearIdx: number, path: string, value: number) => {
     updateConfig((c) => {
       const incomeData = [...c.incomeData]
@@ -445,6 +735,9 @@ function IncomeTab({
     }))
   }
 
+  const activeYear = selectedActualYear ?? config.incomeData[0]?.year ?? new Date().getFullYear()
+  const activeActual = incomeActualsByYear.get(activeYear)
+
   return (
     <div className="space-y-4">
       <Card className="border-[#D9D9D9]">
@@ -467,6 +760,7 @@ function IncomeTab({
                 <th className="text-right p-2 font-medium">世帯額面</th>
                 <th className="text-right p-2 font-medium">世帯手取</th>
                 <th className="text-right p-2 font-medium">世帯可処分</th>
+                <th className="text-right p-2 font-medium">世帯 実績手取り</th>
                 <th className="p-2 font-medium"></th>
               </tr>
             </thead>
@@ -474,6 +768,7 @@ function IncomeTab({
               {config.incomeData.map((entry, i) => {
                 const renResult = sim.ren[i]
                 const hikaruResult = sim.hikaru[i]
+                const actual = incomeActualsByYear.get(entry.year)
                 return (
                   <tr key={entry.year} className={`border-b border-[#D9D9D9] ${i % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'}`}>
                     <td className="p-2 font-bold text-[#133929]">{entry.year}</td>
@@ -491,6 +786,10 @@ function IncomeTab({
                     </td>
                     <td className="p-2 text-right"><Computed>{yen(entry.ren.gross + entry.hikaru.gross)}</Computed></td>
                     <td className="p-2 text-right font-medium text-[#1E5945]">{yen(entry.ren.net + entry.hikaru.net)}</td>
+                    <td className="p-2 text-right">
+                      <div className="font-medium text-[#2563eb]">{yen(actual?.total ?? 0)}</div>
+                      <div className="text-[10px] text-muted-foreground">{actual?.monthsRecorded ?? 0}/12ヶ月</div>
+                    </td>
                     <td className="p-2 text-right">
                       <Computed>{renResult && hikaruResult ? yen(renResult.disposable + hikaruResult.disposable) : '-'}</Computed>
                     </td>

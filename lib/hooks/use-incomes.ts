@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Income, InsertTables, UpdateTables } from '@/types'
 
+export type IncomeActualRow = Pick<Income, 'amount' | 'income_date' | 'income_type' | 'user_id'>
+
 export function useIncomes(coupleId: string | undefined, yearMonth?: string) {
   const supabase = createClient()
 
@@ -74,6 +76,31 @@ export function useYearIncomeHistory(coupleId: string | undefined, year: number)
       return data as unknown as Pick<Income, 'amount' | 'income_date' | 'income_type'>[]
     },
     enabled: !!coupleId,
+  })
+}
+
+export function useIncomeActualsByYears(coupleId: string | undefined, years: number[]) {
+  const supabase = createClient()
+  const normalizedYears = [...new Set(years)].sort((a, b) => a - b)
+
+  return useQuery({
+    queryKey: ['income-actuals-years', coupleId, normalizedYears.join(',')],
+    queryFn: async () => {
+      const startYear = normalizedYears[0]
+      const endYear = normalizedYears[normalizedYears.length - 1]
+
+      const { data, error } = await supabase
+        .from('incomes')
+        .select('amount, income_date, income_type, user_id')
+        .eq('couple_id', coupleId!)
+        .gte('income_date', `${startYear}-01-01`)
+        .lt('income_date', `${endYear + 1}-01-01`)
+        .order('income_date', { ascending: true })
+      if (error) throw error
+
+      return data as IncomeActualRow[]
+    },
+    enabled: !!coupleId && normalizedYears.length > 0,
   })
 }
 

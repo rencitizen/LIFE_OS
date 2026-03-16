@@ -1,9 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Pencil, Plus, Save, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Pencil, Plus, Save, Sparkles, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -339,6 +340,49 @@ export default function BudgetsPage() {
           )}
         </div>
       </div>
+
+      <Card className="border-primary/20 bg-[linear-gradient(135deg,rgba(31,92,77,0.08),rgba(59,130,246,0.08))]">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Sparkles className="h-4 w-4 text-primary" />
+                ライフプランをもとに月予算を管理
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                生活費の前提、二人の配分、同棲モードをこの画面でまとめて確認します。長期シミュレーションの編集だけ別画面に残します。
+              </p>
+            </div>
+            <Link
+              href="/finance/life-plan"
+              className="inline-flex h-9 items-center rounded-md border border-primary/30 bg-white/80 px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:bg-white"
+            >
+              ライフプラン詳細
+              <ArrowRight className="ml-1 h-4 w-4" />
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-lg border bg-background/85 p-4">
+            <p className="text-xs text-muted-foreground">ライフプラン基準額</p>
+            <p className="mt-1 text-xl font-semibold text-primary">{formatYen(lifePlanBudget.total)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">長期前提から自動算出した今月の目安です。</p>
+          </div>
+          <div className="rounded-lg border bg-background/85 p-4">
+            <p className="text-xs text-muted-foreground">二人の配分</p>
+            <p className="mt-1 text-xl font-semibold">{formatYen(lifePlanBudget.ren + lifePlanBudget.hikaru)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {(user?.display_name || '自分')} {formatYen(lifePlanBudget.ren)}
+              {partner ? ` / ${(partner.display_name || '相手')} ${formatYen(lifePlanBudget.hikaru)}` : ''}
+            </p>
+          </div>
+          <div className="rounded-lg border bg-background/85 p-4">
+            <p className="text-xs text-muted-foreground">生活モード</p>
+            <p className="mt-1 text-xl font-semibold">{LIVING_MODE_LABELS[livingMode]}</p>
+            <p className="mt-1 text-xs text-muted-foreground">同棲前/同棲後の前提を予算と同じ文脈で見直せます。</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

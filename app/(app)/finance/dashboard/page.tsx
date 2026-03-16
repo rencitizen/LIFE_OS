@@ -39,6 +39,7 @@ type PieDatum = {
   name: string
   value: number
   color: string
+  budget?: number
 }
 
 const CATEGORY_PALETTE = [
@@ -83,9 +84,11 @@ function ChartTooltip({
 function PieLegend({
   items,
   total,
+  showBudgetShare = false,
 }: {
   items: PieDatum[]
   total: number
+  showBudgetShare?: boolean
 }) {
   return (
     <div className="max-h-[280px] space-y-3 overflow-y-auto pr-1">
@@ -98,7 +101,11 @@ function PieLegend({
           <div className="text-right">
             <p className="text-sm font-medium">{formatYen(item.value)}</p>
             <p className="text-xs text-muted-foreground">
-              {total > 0 ? `${Math.round((item.value / total) * 100)}%` : '0%'}
+              {showBudgetShare && typeof item.budget === 'number'
+                ? `予算比 ${item.budget > 0 ? Math.round((item.value / item.budget) * 100) : 0}%`
+                : total > 0
+                  ? `${Math.round((item.value / total) * 100)}%`
+                  : '0%'}
             </p>
           </div>
         </div>
@@ -125,6 +132,7 @@ export default function FinanceDashboardPage() {
   const { data: yearIncomes } = useYearIncomeHistory(couple?.id, selectedYear)
 
   const [savingMode, setSavingMode] = useState(false)
+  const [transactionOwnerFilter, setTransactionOwnerFilter] = useState<'all' | 'mine' | 'partner'>('all')
 
   const totalIncome = incomes?.reduce((sum, income) => sum + Number(income.amount), 0) || 0
   const totalExpense = summary?.total || 0
@@ -194,6 +202,7 @@ export default function FinanceDashboardPage() {
   }, [summary?.byCategory])
 
   const payerPieData = useMemo(() => {
+    const budgetMap = new Map((budgetMemberLimits || []).map((row) => [row.user_id, Number(row.limit_amount) || 0]))
     const rows = (transactions || []).filter((transaction) => transaction.transactionType === 'expense')
     const totals = new Map<string, PieDatum>()
 
@@ -218,12 +227,24 @@ export default function FinanceDashboardPage() {
           name,
           value: row.amount,
           color,
+          budget: budgetMap.get(key),
         })
       }
     }
 
     return Array.from(totals.values()).sort((a, b) => b.value - a.value)
-  }, [partner?.display_name, partner?.id, transactions, user?.display_name, user?.id])
+  }, [budgetMemberLimits, partner?.display_name, partner?.id, transactions, user?.display_name, user?.id])
+
+  const visibleTransactions = useMemo(() => {
+    const rows = transactions || []
+    if (transactionOwnerFilter === 'mine') {
+      return rows.filter((row) => row.ownerId === user?.id)
+    }
+    if (transactionOwnerFilter === 'partner') {
+      return rows.filter((row) => row.ownerId === partner?.id)
+    }
+    return rows
+  }, [partner?.id, transactionOwnerFilter, transactions, user?.id])
 
   return (
     <div className="space-y-6">
@@ -377,7 +398,7 @@ export default function FinanceDashboardPage() {
                     </Pie>
                   </RechartsPieChart>
                 </ResponsiveContainer>
-                <PieLegend items={payerPieData} total={totalExpense} />
+                <PieLegend items={payerPieData} total={totalExpense} showBudgetShare />
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">支出データがありません</p>
@@ -388,13 +409,26 @@ export default function FinanceDashboardPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">今月の取引</CardTitle>
-          <Badge variant="outline">{transactions?.length || 0}件</Badge>
+          <div className="space-y-2">
+            <CardTitle className="text-base">今月の取引</CardTitle>
+            <div className="flex gap-1">
+              <Button size="sm" variant={transactionOwnerFilter === 'all' ? 'default' : 'outline'} onClick={() => setTransactionOwnerFilter('all')}>
+                すべて
+              </Button>
+              <Button size="sm" variant={transactionOwnerFilter === 'mine' ? 'default' : 'outline'} onClick={() => setTransactionOwnerFilter('mine')}>
+                自分
+              </Button>
+              <Button size="sm" variant={transactionOwnerFilter === 'partner' ? 'default' : 'outline'} onClick={() => setTransactionOwnerFilter('partner')}>
+                相手
+              </Button>
+            </div>
+          </div>
+          <Badge variant="outline">{visibleTransactions.length}件</Badge>
         </CardHeader>
         <CardContent>
-          {transactions && transactions.length > 0 ? (
+          {visibleTransactions.length > 0 ? (
             <div className="space-y-3">
-              {transactions.slice(0, 8).map((transaction) => (
+              {visibleTransactions.slice(0, 8).map((transaction) => (
                 <div key={`${transaction.transactionType}-${transaction.id}`} className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <p className="text-sm font-medium">
@@ -403,6 +437,9 @@ export default function FinanceDashboardPage() {
                     <p className="text-xs text-muted-foreground">
                       {transaction.date}
                       {transaction.memo ? ` ・ ${transaction.memo}` : ''}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {transaction.ownerId === user?.id ? (user?.display_name || '自分') : transaction.ownerId === partner?.id ? (partner?.display_name || '相手') : 'その他'}
                     </p>
                   </div>
                   <p className={`font-semibold ${transaction.transactionType === 'income' ? 'text-[var(--color-income)]' : 'text-[var(--color-expense)]'}`}>

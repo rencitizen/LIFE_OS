@@ -7,8 +7,7 @@ import { cn } from '@/lib/utils'
 const tabs = [
   { name: 'ダッシュボード', href: '/finance/dashboard' },
   { name: '収入・支出', href: '/finance/expenses' },
-  { name: '予算', href: '/finance/budgets' },
-  { name: 'ライフプラン', href: '/finance/life-plan' },
+  { name: '予算・ライフプラン', href: '/finance/budgets' },
 ]
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {

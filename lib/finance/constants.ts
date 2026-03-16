@@ -23,8 +23,6 @@ export const INCOME_TYPE_LABELS: Record<string, string> = {
 export const EXPENSE_TYPE_LABELS: Record<string, string> = {
   shared: '共通',
   personal: '個人',
-  advance: '立替',
-  pending_settlement: '精算待ち',
 }
 
 export const TRANSACTION_SOURCE_LABELS: Record<string, string> = {
