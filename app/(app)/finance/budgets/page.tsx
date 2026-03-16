@@ -26,7 +26,7 @@ import {
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useIncomes } from '@/lib/hooks/use-incomes'
 import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
-import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
+import { useExpenses, useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
 
@@ -41,6 +41,7 @@ export default function BudgetsPage() {
   const { data: budgetIncomeCategories } = useBudgetIncomeCategories(budget?.id)
   const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
+  const { data: expenses } = useExpenses(couple?.id, selectedMonth)
   const { data: allCategories } = useExpenseCategories(couple?.id)
   const { data: incomes } = useIncomes(couple?.id, selectedMonth)
   const createBudget = useCreateBudget()
@@ -70,6 +71,15 @@ export default function BudgetsPage() {
     const entry = lifePlanConfig.incomeData.find((row) => row.year === year)
     if (!entry) return 0
     return Math.round((entry.ren.net + entry.hikaru.net) / 12)
+  }, [lifePlanConfig.incomeData, selectedMonth])
+  const lifePlanIncomeByMember = useMemo(() => {
+    const year = Number(selectedMonth.slice(0, 4))
+    const entry = lifePlanConfig.incomeData.find((row) => row.year === year)
+    if (!entry) return { mine: 0, partner: 0 }
+    return {
+      mine: Math.round(entry.ren.net / 12),
+      partner: Math.round(entry.hikaru.net / 12),
+    }
   }, [lifePlanConfig.incomeData, selectedMonth])
 
   useEffect(() => {
@@ -206,6 +216,24 @@ export default function BudgetsPage() {
     }
     return map
   }, [incomes])
+  const actualIncomeByMember = useMemo(() => {
+    const mine = (incomes || [])
+      .filter((income) => income.user_id === user?.id)
+      .reduce((sum, income) => sum + Number(income.amount), 0)
+    const partnerTotal = (incomes || [])
+      .filter((income) => income.user_id === partner?.id)
+      .reduce((sum, income) => sum + Number(income.amount), 0)
+    return { mine, partner: partnerTotal }
+  }, [incomes, partner?.id, user?.id])
+  const actualExpenseByMember = useMemo(() => {
+    const mine = (expenses || [])
+      .filter((expense) => expense.paid_by === user?.id)
+      .reduce((sum, expense) => sum + Number(expense.amount), 0)
+    const partnerTotal = (expenses || [])
+      .filter((expense) => expense.paid_by === partner?.id)
+      .reduce((sum, expense) => sum + Number(expense.amount), 0)
+    return { mine, partner: partnerTotal }
+  }, [expenses, partner?.id, user?.id])
 
   const allRows = useMemo(() => {
     const categoryIds = new Set<string>([
@@ -332,7 +360,26 @@ export default function BudgetsPage() {
           <CardHeader>
             <CardTitle className="text-base">収入予算と実績</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-3">
+          <CardContent className={`grid gap-3 ${livingMode === 'before_cohabiting' ? 'md:grid-cols-3' : 'md:grid-cols-3'}`}>
+            {livingMode === 'before_cohabiting' && (
+              <>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">{user?.display_name || '自分'}</p>
+                  <p className="mt-1 text-lg font-semibold text-[#22C55E]">{formatYen(lifePlanIncomeByMember.mine)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(actualIncomeByMember.mine)}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">{partner?.display_name || '相手'}</p>
+                  <p className="mt-1 text-lg font-semibold text-[#22C55E]">{formatYen(lifePlanIncomeByMember.partner)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(actualIncomeByMember.partner)}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">合算</p>
+                  <p className="mt-1 text-lg font-semibold text-[#22C55E]">{formatYen(lifePlanIncomeReference)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(incomeActualTotal)}</p>
+                </div>
+              </>
+            )}
             <div className="rounded-lg border p-4">
               <p className="text-xs text-muted-foreground">5年計画の月次収入目安</p>
               <p className="mt-1 text-lg font-semibold text-[#22C55E]">{formatYen(lifePlanIncomeReference)}</p>
@@ -352,7 +399,26 @@ export default function BudgetsPage() {
           <CardHeader>
             <CardTitle className="text-base">生活費予算と実績</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-3">
+          <CardContent className={`grid gap-3 ${livingMode === 'before_cohabiting' ? 'md:grid-cols-3' : 'md:grid-cols-3'}`}>
+            {livingMode === 'before_cohabiting' && (
+              <>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">{user?.display_name || '自分'}</p>
+                  <p className="mt-1 text-lg font-semibold">{formatYen(lifePlanBudget.ren)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(actualExpenseByMember.mine)}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">{partner?.display_name || '相手'}</p>
+                  <p className="mt-1 text-lg font-semibold">{formatYen(lifePlanBudget.hikaru)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(actualExpenseByMember.partner)}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">合算</p>
+                  <p className="mt-1 text-lg font-semibold">{formatYen(lifePlanBudget.total)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(livingCostActualTotal)}</p>
+                </div>
+              </>
+            )}
             <div className="rounded-lg border p-4">
               <p className="text-xs text-muted-foreground">5年計画の月次生活費</p>
               <p className="mt-1 text-lg font-semibold">{formatYen(lifePlanBudget.total)}</p>

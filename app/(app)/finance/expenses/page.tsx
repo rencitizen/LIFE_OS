@@ -79,6 +79,8 @@ export default function TransactionsPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
+  const [ownerFilter, setOwnerFilter] = useState<'all' | 'mine' | 'partner'>('all')
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'manual' | 'imported'>('all')
   const [editingTransaction, setEditingTransaction] = useState<UnifiedTransaction | null>(null)
 
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense')
@@ -351,11 +353,20 @@ export default function TransactionsPage() {
   const filteredTransactions = useMemo(() => {
     return (transactions || []).filter((transaction) => {
       const matchesFilter = filter === 'all' || transaction.transactionType === filter
+      const matchesOwner =
+        ownerFilter === 'all' ||
+        (ownerFilter === 'mine' && transaction.ownerId === user?.id) ||
+        (ownerFilter === 'partner' && transaction.ownerId === partner?.id)
+      const isImportedSource = transaction.source !== 'manual'
+      const matchesSource =
+        sourceFilter === 'all' ||
+        (sourceFilter === 'manual' && !isImportedSource) ||
+        (sourceFilter === 'imported' && isImportedSource)
       const text = `${transaction.category} ${transaction.memo} ${transaction.type}`.toLowerCase()
       const matchesSearch = !searchQuery || text.includes(searchQuery.toLowerCase())
-      return matchesFilter && matchesSearch
+      return matchesFilter && matchesOwner && matchesSource && matchesSearch
     })
-  }, [filter, searchQuery, transactions])
+  }, [filter, ownerFilter, partner?.id, searchQuery, sourceFilter, transactions, user?.id])
 
   const [displayYear, displayMonth] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(displayYear, displayMonth - 1, 1)
@@ -388,7 +399,7 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
+      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="カテゴリやメモで検索" className="pl-9" />
@@ -400,6 +411,26 @@ export default function TransactionsPage() {
             </Button>
           ))}
         </div>
+        <Select value={ownerFilter} onValueChange={(value) => setOwnerFilter((value as 'all' | 'mine' | 'partner') ?? 'all')}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="所有者" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全員</SelectItem>
+            <SelectItem value="mine">{user?.display_name || '自分'}</SelectItem>
+            {partner && <SelectItem value="partner">{partner.display_name}</SelectItem>}
+          </SelectContent>
+        </Select>
+        <Select value={sourceFilter} onValueChange={(value) => setSourceFilter((value as 'all' | 'manual' | 'imported') ?? 'all')}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="入力元" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">入力元すべて</SelectItem>
+            <SelectItem value="manual">手入力</SelectItem>
+            <SelectItem value="imported">取り込み</SelectItem>
+          </SelectContent>
+        </Select>
         <Button size="sm" variant="outline" onClick={openImportDialog}>
           <Upload className="mr-1 h-4 w-4" />
           スクショから取り込み
