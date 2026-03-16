@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
+import { getBudgetLimitTotal, getLifePlanCategoryBudgetMap, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
 import { INCOME_TYPE_LABELS, LIVING_MODE_LABELS } from '@/lib/finance/constants'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -61,6 +61,10 @@ export default function BudgetsPage() {
   }, [partner, user])
 
   const lifePlanBudget = useMemo(() => getLifePlanMonthlyBudget(lifePlanConfig, selectedMonth), [lifePlanConfig, selectedMonth])
+  const lifePlanCategoryBudgetMap = useMemo(
+    () => getLifePlanCategoryBudgetMap(lifePlanConfig, selectedMonth),
+    [lifePlanConfig, selectedMonth]
+  )
   const lifePlanIncomeReference = useMemo(() => {
     const year = Number(selectedMonth.slice(0, 4))
     const entry = lifePlanConfig.incomeData.find((row) => row.year === year)
@@ -69,14 +73,24 @@ export default function BudgetsPage() {
   }, [lifePlanConfig.incomeData, selectedMonth])
 
   useEffect(() => {
-    if (!budgetCategories) {
+    if (budgetCategories?.length) {
+      setEditAmounts(
+        Object.fromEntries(budgetCategories.map((row) => [row.category_id, String(Number(row.limit_amount) || 0)]))
+      )
+      return
+    }
+
+    if (!allCategories?.length) {
       setEditAmounts({})
       return
     }
-    setEditAmounts(
-      Object.fromEntries(budgetCategories.map((row) => [row.category_id, String(Number(row.limit_amount) || 0)]))
-    )
-  }, [budgetCategories])
+
+    const seededRows = allCategories
+      .filter((category) => lifePlanCategoryBudgetMap[category.name] !== undefined)
+      .map((category) => [category.id, String(lifePlanCategoryBudgetMap[category.name] || 0)])
+
+    setEditAmounts(Object.fromEntries(seededRows))
+  }, [allCategories, budgetCategories, lifePlanCategoryBudgetMap])
 
   useEffect(() => {
     if (budgetMemberLimits?.length) {
@@ -193,41 +207,32 @@ export default function BudgetsPage() {
     return map
   }, [incomes])
 
-  const comparisonRows = (budgetCategories || []).map((budgetCategory) => {
-    const budgetAmount = editing ? (Number(editAmounts[budgetCategory.category_id]) || 0) : (Number(budgetCategory.limit_amount) || 0)
-    const actualAmount = summary?.byCategory?.[budgetCategory.category_id]?.total || 0
-    const diff = budgetAmount - actualAmount
-    const pct = budgetAmount > 0 ? (actualAmount / budgetAmount) * 100 : 0
+  const allRows = useMemo(() => {
+    const categoryIds = new Set<string>([
+      ...(budgetCategories || []).map((row) => row.category_id),
+      ...Object.keys(editAmounts),
+    ])
 
-    return {
-      categoryId: budgetCategory.category_id,
-      icon: budgetCategory.expense_categories?.icon || '•',
-      name: budgetCategory.expense_categories?.name || '未分類',
-      budgetAmount,
-      actualAmount,
-      diff,
-      pct,
-    }
-  })
-
-  const newCategoryRows = Object.entries(editAmounts)
-    .filter(([id]) => !budgetCategories?.some((row) => row.category_id === id))
-    .map(([id, amount]) => {
+    return Array.from(categoryIds).map((id) => {
+      const budgetCategory = budgetCategories?.find((row) => row.category_id === id)
       const category = allCategories?.find((row) => row.id === id)
-      const budgetAmount = Number(amount) || 0
+      const budgetAmount = editing
+        ? (Number(editAmounts[id]) || 0)
+        : (Number(budgetCategory?.limit_amount) || Number(editAmounts[id]) || 0)
       const actualAmount = summary?.byCategory?.[id]?.total || 0
+
       return {
         categoryId: id,
-        icon: category?.icon || '•',
-        name: category?.name || '未分類',
+        icon: budgetCategory?.expense_categories?.icon || category?.icon || '•',
+        name: budgetCategory?.expense_categories?.name || category?.name || '未分類',
         budgetAmount,
         actualAmount,
         diff: budgetAmount - actualAmount,
         pct: budgetAmount > 0 ? (actualAmount / budgetAmount) * 100 : 0,
       }
-    })
+    }).sort((a, b) => b.budgetAmount - a.budgetAmount)
+  }, [allCategories, budgetCategories, editAmounts, editing, summary?.byCategory])
 
-  const allRows = [...comparisonRows, ...newCategoryRows]
   const addableCategories = (allCategories || []).filter((category) => !allRows.some((row) => row.categoryId === category.id))
   const incomeBudgetRows = INCOME_BUDGET_TYPES.map((incomeType) => {
     const plannedAmount = Number(editIncomeAmounts[incomeType]) || 0
