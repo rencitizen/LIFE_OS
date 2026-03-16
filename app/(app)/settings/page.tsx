@@ -11,7 +11,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { LIVING_MODE_LABELS, LIVING_MODES } from '@/lib/finance/constants'
+import { formatYen } from '@/lib/finance/utils'
+import { useAccountBalanceSummary } from '@/lib/hooks/use-accounts'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useLifePlanConfig, useSaveLifePlan } from '@/lib/hooks/use-life-plan'
 import { createClient } from '@/lib/supabase/client'
 import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
@@ -31,6 +34,9 @@ export default function SettingsPage() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   const { livingMode, setLivingMode } = useFinanceStore()
+  const lifePlanConfig = useLifePlanConfig(couple?.id)
+  const saveLifePlan = useSaveLifePlan()
+  const { data: accountSummary } = useAccountBalanceSummary(couple?.id)
 
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('#1F5C4D')
@@ -47,12 +53,20 @@ export default function SettingsPage() {
 
   const [copied, setCopied] = useState(false)
   const [savingMode, setSavingMode] = useState(false)
+  const [openingCash, setOpeningCash] = useState({ mine: '', partner: '' })
 
   useEffect(() => {
     if (couple?.living_mode) {
       setLivingMode(couple.living_mode as LivingMode)
     }
   }, [couple?.living_mode, setLivingMode])
+
+  useEffect(() => {
+    setOpeningCash({
+      mine: String(lifePlanConfig.initialAssets.ren.cash || 0),
+      partner: String(lifePlanConfig.initialAssets.hikaru.cash || 0),
+    })
+  }, [lifePlanConfig.initialAssets.hikaru.cash, lifePlanConfig.initialAssets.ren.cash])
 
   const copyInviteCode = () => {
     if (!couple?.invite_code) return
@@ -157,6 +171,33 @@ export default function SettingsPage() {
       toast.error('参加処理に失敗しました')
     } finally {
       setJoiningCouple(false)
+    }
+  }
+
+  const handleSaveOpeningCash = async () => {
+    if (!couple?.id) return
+
+    try {
+      await saveLifePlan.mutateAsync({
+        coupleId: couple.id,
+        config: {
+          ...lifePlanConfig,
+          initialAssets: {
+            ...lifePlanConfig.initialAssets,
+            ren: {
+              ...lifePlanConfig.initialAssets.ren,
+              cash: Number(openingCash.mine || 0),
+            },
+            hikaru: {
+              ...lifePlanConfig.initialAssets.hikaru,
+              cash: Number(openingCash.partner || 0),
+            },
+          },
+        },
+      })
+      toast.success('期首預金残高を更新しました')
+    } catch {
+      toast.error('期首預金残高の更新に失敗しました')
     }
   }
 
@@ -265,6 +306,47 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">期首預金残高</CardTitle>
+          <CardDescription>5年計画の起点になる現預金を設定します</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{user?.display_name || '自分'}</Label>
+              <Input
+                inputMode="numeric"
+                value={openingCash.mine}
+                onChange={(event) => setOpeningCash((current) => ({ ...current, mine: event.target.value.replace(/[^\d]/g, '') }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{partner?.display_name || '相手'}</Label>
+              <Input
+                inputMode="numeric"
+                value={openingCash.partner}
+                onChange={(event) => setOpeningCash((current) => ({ ...current, partner: event.target.value.replace(/[^\d]/g, '') }))}
+              />
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between rounded-md border px-3 py-3 text-sm">
+              <span className="text-muted-foreground">設定中の合計</span>
+              <span className="font-semibold">{formatYen(Number(openingCash.mine || 0) + Number(openingCash.partner || 0))}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-md border px-3 py-3 text-sm">
+              <span className="text-muted-foreground">実績の現預金</span>
+              <span className="font-medium">{formatYen(accountSummary?.cashLike || 0)}</span>
+            </div>
+          </div>
+          <Button onClick={handleSaveOpeningCash} disabled={saveLifePlan.isPending || !couple?.id}>
+            {saveLifePlan.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            保存
+          </Button>
         </CardContent>
       </Card>
 

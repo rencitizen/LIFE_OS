@@ -37,6 +37,15 @@ function diffTone(value: number, inverse = false) {
   return positive ? 'text-primary' : 'text-destructive'
 }
 
+function balanceTone(value: number) {
+  return value >= 0 ? 'text-[#22C55E]' : 'text-destructive'
+}
+
+function formatSignedYen(value: number) {
+  const sign = value >= 0 ? '+' : '-'
+  return `${sign}${formatYen(Math.abs(value))}`
+}
+
 function sumAmount<T extends { amount: number | string }>(rows: T[]) {
   return rows.reduce((sum, row) => sum + Number(row.amount), 0)
 }
@@ -122,7 +131,7 @@ function ScopeCard({
           <div className="flex items-center justify-between border-t pt-2">
             <span className="text-muted-foreground">収支</span>
             <span className={`font-semibold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
-              {formatYen(balance)}
+              {formatSignedYen(balance)}
             </span>
           </div>
         )}
@@ -325,8 +334,8 @@ export default function AnalysisPage() {
           </CardHeader>
           <CardContent className="space-y-1">
             <p className="text-xs text-muted-foreground">計画 {formatYen(plannedBalance)}</p>
-            <p className={`text-2xl font-bold ${actualBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
-              {formatYen(actualBalance)}
+            <p className={`text-2xl font-bold ${balanceTone(actualBalance)}`}>
+              {formatSignedYen(actualBalance)}
             </p>
             <p className={`text-sm font-medium ${actualBalance - plannedBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
               差異 {formatYen(actualBalance - plannedBalance)}
@@ -498,8 +507,8 @@ export default function AnalysisPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground">年収支実績</p>
-            <p className={`mt-1 text-xl font-semibold ${yearIncome - yearExpense >= 0 ? 'text-primary' : 'text-destructive'}`}>
-              {formatYen(yearIncome - yearExpense)}
+            <p className={`mt-1 text-xl font-semibold ${balanceTone(yearIncome - yearExpense)}`}>
+              {formatSignedYen(yearIncome - yearExpense)}
             </p>
           </div>
         </CardContent>

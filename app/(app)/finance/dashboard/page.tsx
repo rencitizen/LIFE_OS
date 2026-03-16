@@ -1,13 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Landmark, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { LIVING_MODE_LABELS, LIVING_MODES } from '@/lib/finance/constants'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -15,7 +14,7 @@ import { useAccountBalanceSummary } from '@/lib/hooks/use-accounts'
 import { useBudget, useBudgetIncomeCategories, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
 import { useMonthlyExpenseSummary, useYearExpenseHistory } from '@/lib/hooks/use-expenses'
 import { useIncomes, useYearIncomeHistory } from '@/lib/hooks/use-incomes'
-import { useLifePlanConfig, useSaveLifePlan, useSimulation } from '@/lib/hooks/use-life-plan'
+import { useLifePlanConfig, useSimulation } from '@/lib/hooks/use-life-plan'
 import { createClient } from '@/lib/supabase/client'
 import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
@@ -27,11 +26,19 @@ function compareTone(value: number) {
   return 'text-foreground'
 }
 
+function balanceTone(value: number) {
+  return value >= 0 ? 'text-[#22C55E]' : 'text-destructive'
+}
+
+function formatSignedYen(value: number) {
+  const sign = value >= 0 ? '+' : '-'
+  return `${sign}${formatYen(Math.abs(value))}`
+}
+
 export default function FinanceDashboardPage() {
-  const { user, partner, couple } = useAuth()
+  const { couple } = useAuth()
   const supabase = createClient()
   const lifePlanConfig = useLifePlanConfig(couple?.id)
-  const saveLifePlan = useSaveLifePlan()
   const simulation = useSimulation(lifePlanConfig)
   const { selectedMonth, setSelectedMonth, livingMode, setLivingMode } = useFinanceStore()
   const { data: monthExpenses } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
@@ -46,16 +53,8 @@ export default function FinanceDashboardPage() {
   const { data: yearIncomes } = useYearIncomeHistory(couple?.id, selectedYear)
 
   const [savingMode, setSavingMode] = useState(false)
-  const [openingCash, setOpeningCash] = useState({ mine: '', partner: '' })
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
-
-  useEffect(() => {
-    setOpeningCash({
-      mine: String(lifePlanConfig.initialAssets.ren.cash || 0),
-      partner: String(lifePlanConfig.initialAssets.hikaru.cash || 0),
-    })
-  }, [lifePlanConfig.initialAssets.hikaru.cash, lifePlanConfig.initialAssets.ren.cash])
 
   const actualMonthIncome = useMemo(
     () => (monthIncomes || []).reduce((sum, row) => sum + Number(row.amount), 0),
@@ -109,7 +108,6 @@ export default function FinanceDashboardPage() {
   const accountAssets = accountSummary?.assets ?? 0
   const accountLiabilities = accountSummary?.liabilities ?? 0
   const planAssetGap = yearPlan ? accountNetWorth - yearPlan.asset : 0
-  const openingCashTotal = Number(openingCash.mine || 0) + Number(openingCash.partner || 0)
 
   const navigateMonth = (direction: number) => {
     const nextDate = new Date(year, month - 1 + direction, 1)
@@ -128,33 +126,6 @@ export default function FinanceDashboardPage() {
       toast.error('生活モードの更新に失敗しました')
     } finally {
       setSavingMode(false)
-    }
-  }
-
-  const handleSaveOpeningCash = async () => {
-    if (!couple?.id) return
-
-    try {
-      await saveLifePlan.mutateAsync({
-        coupleId: couple.id,
-        config: {
-          ...lifePlanConfig,
-          initialAssets: {
-            ...lifePlanConfig.initialAssets,
-            ren: {
-              ...lifePlanConfig.initialAssets.ren,
-              cash: Number(openingCash.mine || 0),
-            },
-            hikaru: {
-              ...lifePlanConfig.initialAssets.hikaru,
-              cash: Number(openingCash.partner || 0),
-            },
-          },
-        },
-      })
-      toast.success('期首預金残高を更新しました')
-    } catch {
-      toast.error('期首預金残高の更新に失敗しました')
     }
   }
 
@@ -207,8 +178,8 @@ export default function FinanceDashboardPage() {
             <Wallet className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent className="space-y-1">
-            <p className={`text-2xl font-bold ${actualMonthBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
-              {formatYen(actualMonthBalance)}
+            <p className={`text-2xl font-bold ${balanceTone(actualMonthBalance)}`}>
+              {formatSignedYen(actualMonthBalance)}
             </p>
             <p className="text-xs text-muted-foreground">
               収入 {formatYen(actualMonthIncome)} / 支出 {formatYen(actualMonthExpense)}
@@ -316,44 +287,26 @@ export default function FinanceDashboardPage() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-base">期首預金残高</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">5年計画の起点になる現預金だけここで調整できます。</p>
+              <CardTitle className="text-base">資産の見方</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">入力は不要で、口座残高から実績を表示します。</p>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">{user?.display_name || '自分'}</label>
-                <Input
-                  inputMode="numeric"
-                  value={openingCash.mine}
-                  onChange={(event) => setOpeningCash((current) => ({ ...current, mine: event.target.value.replace(/[^\d]/g, '') }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">{partner?.display_name || '相手'}</label>
-                <Input
-                  inputMode="numeric"
-                  value={openingCash.partner}
-                  onChange={(event) => setOpeningCash((current) => ({ ...current, partner: event.target.value.replace(/[^\d]/g, '') }))}
-                />
-              </div>
-            </div>
+          <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-muted-foreground">期首預金残高 合計</span>
-              <span className="font-semibold">{formatYen(openingCashTotal)}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-muted-foreground">実績の現預金</span>
+              <span className="text-muted-foreground">現預金</span>
               <span className="font-medium">{formatYen(accountSummary?.cashLike || 0)}</span>
             </div>
-            <Button onClick={handleSaveOpeningCash} disabled={saveLifePlan.isPending || !couple?.id}>
-              {saveLifePlan.isPending ? '保存中...' : '期首預金残高を保存'}
-            </Button>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="text-muted-foreground">投資</span>
+              <span className="font-medium">{formatYen(accountSummary?.investments || 0)}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="text-muted-foreground">純資産</span>
+              <span className="font-semibold text-primary">{formatYen(accountNetWorth)}</span>
+            </div>
           </CardContent>
         </Card>
       </div>
