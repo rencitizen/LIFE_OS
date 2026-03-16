@@ -10,7 +10,6 @@ import {
   CheckSquare,
   Wallet,
   BarChart3,
-  ArrowLeftRight,
   Settings,
   Target,
   TrendingUp,
@@ -28,10 +27,9 @@ const navigation = [
 
 const financeNavigation = [
   { name: 'ダッシュボード', href: '/finance/dashboard', icon: BarChart3 },
-  { name: '計画vs実績', href: '/finance/analysis', icon: LineChart },
-  { name: '支出', href: '/finance/expenses', icon: Wallet },
+  { name: '予実分析', href: '/finance/analysis', icon: LineChart },
+  { name: '収入・支出', href: '/finance/expenses', icon: Wallet },
   { name: '予算', href: '/finance/budgets', icon: Target },
-  { name: '立替・精算', href: '/finance/settlements', icon: ArrowLeftRight },
   { name: 'ライフプラン', href: '/finance/life-plan', icon: TrendingUp },
 ]
 
@@ -41,7 +39,6 @@ export function AppSidebar() {
 
   return (
     <>
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
@@ -49,7 +46,6 @@ export function AppSidebar() {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transform transition-transform lg:translate-x-0 lg:static lg:z-auto',
