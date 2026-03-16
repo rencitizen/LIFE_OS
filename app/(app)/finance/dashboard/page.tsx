@@ -11,7 +11,6 @@ import { LIVING_MODE_LABELS, LIVING_MODES } from '@/lib/finance/constants'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useAccountBalanceSummary } from '@/lib/hooks/use-accounts'
-import { useBudget, useBudgetIncomeCategories, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
 import { useMonthlyExpenseSummary, useYearExpenseHistory } from '@/lib/hooks/use-expenses'
 import { useIncomes, useYearIncomeHistory } from '@/lib/hooks/use-incomes'
 import { useLifePlanConfig, useSimulation } from '@/lib/hooks/use-life-plan'
@@ -43,9 +42,6 @@ export default function FinanceDashboardPage() {
   const { selectedMonth, setSelectedMonth, livingMode, setLivingMode } = useFinanceStore()
   const { data: monthExpenses } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
   const { data: monthIncomes } = useIncomes(couple?.id, selectedMonth)
-  const { data: budget } = useBudget(couple?.id, selectedMonth)
-  const { data: budgetIncomeCategories } = useBudgetIncomeCategories(budget?.id)
-  const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
   const { data: accountSummary } = useAccountBalanceSummary(couple?.id)
 
   const selectedYear = Number(selectedMonth.slice(0, 4))
@@ -62,16 +58,6 @@ export default function FinanceDashboardPage() {
   )
   const actualMonthExpense = monthExpenses?.total || 0
   const actualMonthBalance = actualMonthIncome - actualMonthExpense
-
-  const plannedMonthIncome = useMemo(
-    () => (budgetIncomeCategories || []).reduce((sum, row) => sum + Number(row.planned_amount), 0),
-    [budgetIncomeCategories]
-  )
-  const plannedMonthExpense = useMemo(
-    () => (budgetMemberLimits || []).reduce((sum, row) => sum + Number(row.limit_amount), 0) || Number(budget?.total_limit || 0),
-    [budget?.total_limit, budgetMemberLimits]
-  )
-  const plannedMonthBalance = plannedMonthIncome - plannedMonthExpense
 
   const actualYearIncome = useMemo(
     () => (yearIncomes || []).reduce((sum, row) => sum + Number(row.amount), 0),
@@ -92,6 +78,10 @@ export default function FinanceDashboardPage() {
     }
   }, [selectedYear, simulation.household, simulation.hikaru, simulation.ren])
 
+  const plannedMonthIncome = yearPlan ? Math.round(yearPlan.income / 12) : 0
+  const plannedMonthExpense = yearPlan ? Math.round(yearPlan.expense / 12) : 0
+  const plannedMonthBalance = plannedMonthIncome - plannedMonthExpense
+
   const fiveYearRows = useMemo(() => {
     const startIndex = simulation.household.findIndex((row) => row.year === selectedYear)
     const index = startIndex >= 0 ? startIndex : 0
@@ -104,10 +94,18 @@ export default function FinanceDashboardPage() {
     }))
   }, [selectedYear, simulation.household, simulation.hikaru, simulation.ren])
 
+  const openingAssetsTotal =
+    lifePlanConfig.initialAssets.ren.cash +
+    lifePlanConfig.initialAssets.ren.nisa +
+    lifePlanConfig.initialAssets.ren.taxable +
+    lifePlanConfig.initialAssets.hikaru.cash +
+    lifePlanConfig.initialAssets.hikaru.nisa +
+    lifePlanConfig.initialAssets.hikaru.taxable
   const accountNetWorth = accountSummary?.netWorth ?? 0
-  const accountAssets = accountSummary?.assets ?? 0
+  const displayNetWorth = accountNetWorth + openingAssetsTotal
+  const accountAssets = (accountSummary?.assets ?? 0) + openingAssetsTotal
   const accountLiabilities = accountSummary?.liabilities ?? 0
-  const planAssetGap = yearPlan ? accountNetWorth - yearPlan.asset : 0
+  const planAssetGap = yearPlan ? displayNetWorth - yearPlan.asset : 0
 
   const navigateMonth = (direction: number) => {
     const nextDate = new Date(year, month - 1 + direction, 1)
@@ -243,9 +241,9 @@ export default function FinanceDashboardPage() {
             <Landmark className="h-4 w-4 text-[var(--color-info)]" />
           </CardHeader>
           <CardContent className="space-y-1">
-            <p className="text-2xl font-bold text-primary">{formatYen(accountNetWorth)}</p>
+            <p className="text-2xl font-bold text-primary">{formatYen(displayNetWorth)}</p>
             <p className="text-xs text-muted-foreground">
-              資産 {formatYen(accountAssets)} / 負債 {formatYen(accountLiabilities)}
+              口座残高 {formatYen(accountSummary?.assets ?? 0)} + 期首資産 {formatYen(openingAssetsTotal)} / 負債 {formatYen(accountLiabilities)}
             </p>
             {yearPlan && (
               <p className={`text-xs ${planAssetGap >= 0 ? 'text-primary' : 'text-destructive'}`}>
@@ -297,15 +295,15 @@ export default function FinanceDashboardPage() {
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between rounded-lg border p-3">
               <span className="text-muted-foreground">現預金</span>
-              <span className="font-medium">{formatYen(accountSummary?.cashLike || 0)}</span>
+              <span className="font-medium">{formatYen((accountSummary?.cashLike || 0) + lifePlanConfig.initialAssets.ren.cash + lifePlanConfig.initialAssets.hikaru.cash)}</span>
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <span className="text-muted-foreground">投資</span>
-              <span className="font-medium">{formatYen(accountSummary?.investments || 0)}</span>
+              <span className="font-medium">{formatYen((accountSummary?.investments || 0) + lifePlanConfig.initialAssets.ren.nisa + lifePlanConfig.initialAssets.ren.taxable + lifePlanConfig.initialAssets.hikaru.nisa + lifePlanConfig.initialAssets.hikaru.taxable)}</span>
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <span className="text-muted-foreground">純資産</span>
-              <span className="font-semibold text-primary">{formatYen(accountNetWorth)}</span>
+              <span className="font-semibold text-primary">{formatYen(displayNetWorth)}</span>
             </div>
           </CardContent>
         </Card>

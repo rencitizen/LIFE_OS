@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +14,6 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import {
   useBudget,
   useBudgetCategories,
-  useBudgetIncomeCategories,
   useBudgetMemberLimits,
 } from '@/lib/hooks/use-budgets'
 import { useExpenses, useYearExpenseHistory } from '@/lib/hooks/use-expenses'
@@ -26,11 +26,11 @@ type CategoryView = 'combined' | 'mine' | 'partner' | 'shared' | 'mine_personal'
 type CategoryRow = {
   key: string
   name: string
-  planned: number
   actual: number
-  diff: number
   ratio: number
 }
+
+const PIE_COLORS = ['#1F5C4D', '#22C55E', '#3B82F6', '#F59E0B', '#EF4444', '#14B8A6', '#F97316', '#8B5CF6', '#6B7280', '#EC4899']
 
 function diffTone(value: number, inverse = false) {
   const positive = inverse ? value >= 0 : value <= 0
@@ -56,8 +56,7 @@ function buildCategoryRows(
     category_id: string | null
     expense_categories: { name: string | null } | null
   }>,
-  budgetCategories: ReturnType<typeof useBudgetCategories>['data'],
-  includeBudget: boolean
+  budgetCategories: ReturnType<typeof useBudgetCategories>['data']
 ) {
   const actualMap = new Map<string, { name: string; actual: number }>()
 
@@ -70,25 +69,19 @@ function buildCategoryRows(
     })
   }
 
-  const plannedMap = includeBudget
-    ? new Map((budgetCategories || []).map((row) => [row.category_id, Number(row.limit_amount) || 0]))
-    : new Map<string, number>()
-  const keys = new Set<string>([...actualMap.keys(), ...plannedMap.keys()])
+  const keys = new Set<string>([...actualMap.keys()])
   const totalActual = Array.from(actualMap.values()).reduce((sum, row) => sum + row.actual, 0)
 
   return Array.from(keys)
     .map((key) => {
       const actual = actualMap.get(key)
-      const planned = plannedMap.get(key) || 0
       const fallbackName =
         budgetCategories?.find((row) => row.category_id === key)?.expense_categories?.name || '未分類'
 
       return {
         key,
         name: actual?.name || fallbackName,
-        planned,
         actual: actual?.actual || 0,
-        diff: (actual?.actual || 0) - planned,
         ratio: totalActual > 0 ? ((actual?.actual || 0) / totalActual) * 100 : 0,
       }
     })
@@ -120,12 +113,12 @@ function ScopeCard({
         {typeof income === 'number' && (
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">収入</span>
-            <span className="font-medium text-primary">{formatYen(income)}</span>
+            <span className="font-medium text-[#22C55E]">{formatYen(income)}</span>
           </div>
         )}
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">支出</span>
-          <span className="font-medium text-[var(--color-expense)]">{formatYen(expense)}</span>
+          <span className="font-medium text-destructive">{formatYen(expense)}</span>
         </div>
         {typeof balance === 'number' && (
           <div className="flex items-center justify-between border-t pt-2">
@@ -150,7 +143,6 @@ export default function AnalysisPage() {
   const { data: monthIncomes } = useIncomes(couple?.id, selectedMonth)
   const { data: budget } = useBudget(couple?.id, selectedMonth)
   const { data: budgetCategories } = useBudgetCategories(budget?.id)
-  const { data: budgetIncomeCategories } = useBudgetIncomeCategories(budget?.id)
   const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
 
   const selectedYear = Number(selectedMonth.slice(0, 4))
@@ -160,6 +152,14 @@ export default function AnalysisPage() {
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
   const lifePlanBudget = getLifePlanMonthlyBudget(lifePlanConfig, selectedMonth)
+  const selectedYearPlan = useMemo(() => {
+    const household = lifePlanConfig.incomeData.find((row) => row.year === selectedYear)
+    if (!household) return null
+    return {
+      income: Math.round((household.ren.net + household.hikaru.net) / 12),
+      expense: Math.round(lifePlanBudget.total),
+    }
+  }, [lifePlanConfig.incomeData, lifePlanBudget.total, selectedYear])
 
   const userLabel = user?.display_name || '自分'
   const partnerLabel = partner?.display_name || '相手'
@@ -179,16 +179,8 @@ export default function AnalysisPage() {
   }, [categoryView, validViews])
 
   const actualIncome = useMemo(() => sumAmount(monthIncomes || []), [monthIncomes])
-  const plannedIncome = useMemo(
-    () => (budgetIncomeCategories || []).reduce((sum, row) => sum + Number(row.planned_amount), 0),
-    [budgetIncomeCategories]
-  )
-  const plannedExpense = useMemo(
-    () =>
-      (budgetMemberLimits || []).reduce((sum, row) => sum + Number(row.limit_amount), 0) ||
-      Number(budget?.total_limit || lifePlanBudget.total),
-    [budget?.total_limit, budgetMemberLimits, lifePlanBudget.total]
-  )
+  const plannedIncome = selectedYearPlan?.income || 0
+  const plannedExpense = selectedYearPlan?.expense || 0
 
   const memberBudgetMap = useMemo(
     () => new Map((budgetMemberLimits || []).map((row) => [row.user_id, Number(row.limit_amount) || 0])),
@@ -246,8 +238,7 @@ export default function AnalysisPage() {
   const yearExpense = useMemo(() => sumAmount(yearExpenses || []), [yearExpenses])
 
   const activeCategoryRows = useMemo(() => {
-    const includeBudget = categoryView === 'combined'
-    return buildCategoryRows(monthExpenseViews[categoryView], budgetCategories, includeBudget)
+    return buildCategoryRows(monthExpenseViews[categoryView], budgetCategories)
   }, [budgetCategories, categoryView, monthExpenseViews])
 
   const activeViewTotal = useMemo(
@@ -310,7 +301,7 @@ export default function AnalysisPage() {
           </CardHeader>
           <CardContent className="space-y-1">
             <p className="text-xs text-muted-foreground">計画 {formatYen(plannedIncome)}</p>
-            <p className="text-2xl font-bold text-primary">{formatYen(actualIncome)}</p>
+            <p className="text-2xl font-bold text-[#22C55E]">{formatYen(actualIncome)}</p>
             <p className={`text-sm font-medium ${diffTone(actualIncome - plannedIncome, true)}`}>
               差異 {formatYen(actualIncome - plannedIncome)}
             </p>
@@ -322,7 +313,7 @@ export default function AnalysisPage() {
           </CardHeader>
           <CardContent className="space-y-1">
             <p className="text-xs text-muted-foreground">計画 {formatYen(plannedExpense)}</p>
-            <p className="text-2xl font-bold text-[var(--color-expense)]">{formatYen(actualExpense)}</p>
+            <p className="text-2xl font-bold text-destructive">{formatYen(actualExpense)}</p>
             <p className={`text-sm font-medium ${diffTone(actualExpense - plannedExpense)}`}>
               差異 {formatYen(actualExpense - plannedExpense)}
             </p>
@@ -437,57 +428,63 @@ export default function AnalysisPage() {
             <span className="font-semibold">{formatYen(activeViewTotal)}</span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-2 py-2">カテゴリ</th>
-                  {categoryView === 'combined' ? (
-                    <>
-                      <th className="px-2 py-2 text-right">計画</th>
-                      <th className="px-2 py-2 text-right">実績</th>
-                      <th className="px-2 py-2 text-right">差異</th>
-                    </>
-                  ) : (
-                    <>
-                      <th className="px-2 py-2 text-right">実績</th>
-                      <th className="px-2 py-2 text-right">構成比</th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {activeCategoryRows.map((row) => (
-                  <tr key={`${categoryView}-${row.key}`} className="border-b last:border-b-0">
-                    <td className="px-2 py-3">{row.name}</td>
-                    {categoryView === 'combined' ? (
-                      <>
-                        <td className="px-2 py-3 text-right">{formatYen(row.planned)}</td>
-                        <td className="px-2 py-3 text-right">{formatYen(row.actual)}</td>
-                        <td className={`px-2 py-3 text-right font-medium ${diffTone(row.diff)}`}>
-                          {formatYen(row.diff)}
-                        </td>
-                      </>
-                    ) : (
-                      <>
+          <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="h-[260px] rounded-lg border p-3">
+              {activeCategoryRows.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={activeCategoryRows}
+                      dataKey="actual"
+                      nameKey="name"
+                      innerRadius={54}
+                      outerRadius={92}
+                      paddingAngle={2}
+                    >
+                      {activeCategoryRows.map((row, index) => (
+                        <Cell key={row.key} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatYen(Number(value || 0))} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  この条件の支出はまだありません。
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs text-muted-foreground">
+                    <th className="px-2 py-2">カテゴリ</th>
+                    <th className="px-2 py-2 text-right">実績</th>
+                    <th className="px-2 py-2 text-right">構成比</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeCategoryRows.map((row) => (
+                    <tr key={`${categoryView}-${row.key}`} className="border-b last:border-b-0">
+                      <td className="px-2 py-3">{row.name}</td>
                         <td className="px-2 py-3 text-right">{formatYen(row.actual)}</td>
                         <td className="px-2 py-3 text-right">{row.ratio.toFixed(1)}%</td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-                {activeCategoryRows.length === 0 && (
-                  <tr>
-                    <td
-                      className="px-2 py-6 text-center text-sm text-muted-foreground"
-                      colSpan={categoryView === 'combined' ? 4 : 3}
-                    >
-                      この条件の支出はまだありません。
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                    </tr>
+                  ))}
+                  {activeCategoryRows.length === 0 && (
+                    <tr>
+                      <td
+                        className="px-2 py-6 text-center text-sm text-muted-foreground"
+                        colSpan={3}
+                      >
+                        この条件の支出はまだありません。
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -499,11 +496,11 @@ export default function AnalysisPage() {
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground">年収実績</p>
-            <p className="mt-1 text-xl font-semibold text-primary">{formatYen(yearIncome)}</p>
+            <p className="mt-1 text-xl font-semibold text-[#22C55E]">{formatYen(yearIncome)}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground">年支出実績</p>
-            <p className="mt-1 text-xl font-semibold text-[var(--color-expense)]">{formatYen(yearExpense)}</p>
+            <p className="mt-1 text-xl font-semibold text-destructive">{formatYen(yearExpense)}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground">年収支実績</p>
