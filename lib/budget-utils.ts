@@ -104,3 +104,48 @@ export function getLifePlanCategoryBudgetMap(config: LifePlanConfig, yearMonth: 
     return acc
   }, {})
 }
+
+export type LifePlanCategoryBreakdown = {
+  combined: number
+  mine: number
+  partner: number
+  shared: number
+  minePersonal: number
+  partnerPersonal: number
+}
+
+export function getLifePlanCategoryBreakdownMap(config: LifePlanConfig, yearMonth: string) {
+  const year = Number(yearMonth.slice(0, 4))
+  const cohabitationYear = findCohabitationYear(config)
+  const sourceItems =
+    year < cohabitationYear
+      ? [...config.livingCosts.beforeRen, ...config.livingCosts.beforeHikaru]
+      : config.livingCosts.afterCohabitation
+
+  return sourceItems.reduce<Record<string, LifePlanCategoryBreakdown>>((acc, item) => {
+    const categoryName = mapLifePlanCategoryToExpenseCategory(item)
+    const amount = Number(item.monthly || 0)
+    const current = acc[categoryName] ?? {
+      combined: 0,
+      mine: 0,
+      partner: 0,
+      shared: 0,
+      minePersonal: 0,
+      partnerPersonal: 0,
+    }
+
+    current.combined += amount
+    if (item.owner === 'shared') {
+      current.shared += amount
+    } else if (item.owner === 'ren') {
+      current.mine += amount
+      current.minePersonal += amount
+    } else if (item.owner === 'hikaru') {
+      current.partner += amount
+      current.partnerPersonal += amount
+    }
+
+    acc[categoryName] = current
+    return acc
+  }, {})
+}

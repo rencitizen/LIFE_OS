@@ -9,7 +9,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getBudgetLimitTotal, getLifePlanCategoryBudgetMap, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  getBudgetLimitTotal,
+  getLifePlanCategoryBreakdownMap,
+  getLifePlanCategoryBudgetMap,
+  getLifePlanMonthlyBudget,
+} from '@/lib/budget-utils'
 import { INCOME_TYPE_LABELS, LIVING_MODE_LABELS } from '@/lib/finance/constants'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -31,6 +37,7 @@ import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
 
 const INCOME_BUDGET_TYPES = ['salary', 'bonus', 'freelance', 'other'] as const
+type LivingCostView = 'combined' | 'mine' | 'partner' | 'shared' | 'mine_personal' | 'partner_personal'
 
 export default function BudgetsPage() {
   const { user, couple, partner } = useAuth()
@@ -53,6 +60,7 @@ export default function BudgetsPage() {
   const [editAmounts, setEditAmounts] = useState<Record<string, string>>({})
   const [editMemberAmounts, setEditMemberAmounts] = useState<Record<string, string>>({})
   const [editIncomeAmounts, setEditIncomeAmounts] = useState<Record<string, string>>({})
+  const [livingCostView, setLivingCostView] = useState<LivingCostView>('combined')
 
   const members = useMemo(() => {
     const rows: Array<{ id: string; label: string }> = []
@@ -64,6 +72,10 @@ export default function BudgetsPage() {
   const lifePlanBudget = useMemo(() => getLifePlanMonthlyBudget(lifePlanConfig, selectedMonth), [lifePlanConfig, selectedMonth])
   const lifePlanCategoryBudgetMap = useMemo(
     () => getLifePlanCategoryBudgetMap(lifePlanConfig, selectedMonth),
+    [lifePlanConfig, selectedMonth]
+  )
+  const lifePlanCategoryBreakdownMap = useMemo(
+    () => getLifePlanCategoryBreakdownMap(lifePlanConfig, selectedMonth),
     [lifePlanConfig, selectedMonth]
   )
   const lifePlanIncomeReference = useMemo(() => {
@@ -235,6 +247,35 @@ export default function BudgetsPage() {
     return { mine, partner: partnerTotal }
   }, [expenses, partner?.id, user?.id])
 
+  const livingCostViewOptions = useMemo(
+    () =>
+      livingMode === 'before_cohabiting'
+        ? [
+            { value: 'combined' as const, label: '2人合算' },
+            { value: 'mine' as const, label: user?.display_name || '自分' },
+            { value: 'partner' as const, label: partner?.display_name || '相手' },
+          ]
+        : [
+            { value: 'combined' as const, label: '世帯合算' },
+            { value: 'shared' as const, label: '共通費' },
+            { value: 'mine_personal' as const, label: `${user?.display_name || '自分'} 個人` },
+            { value: 'partner_personal' as const, label: `${partner?.display_name || '相手'} 個人` },
+          ],
+    [livingMode, partner?.display_name, user?.display_name]
+  )
+
+  useEffect(() => {
+    if (!livingCostViewOptions.some((option) => option.value === livingCostView)) {
+      setLivingCostView('combined')
+    }
+  }, [livingCostView, livingCostViewOptions])
+
+  useEffect(() => {
+    if (editing && livingCostView !== 'combined') {
+      setLivingCostView('combined')
+    }
+  }, [editing, livingCostView])
+
   const allRows = useMemo(() => {
     const categoryIds = new Set<string>([
       ...(budgetCategories || []).map((row) => row.category_id),
@@ -248,18 +289,79 @@ export default function BudgetsPage() {
         ? (Number(editAmounts[id]) || 0)
         : (Number(budgetCategory?.limit_amount) || Number(editAmounts[id]) || 0)
       const actualAmount = summary?.byCategory?.[id]?.total || 0
+      const breakdown = lifePlanCategoryBreakdownMap[budgetCategory?.expense_categories?.name || category?.name || ''] ?? {
+        combined: 0,
+        mine: 0,
+        partner: 0,
+        shared: 0,
+        minePersonal: 0,
+        partnerPersonal: 0,
+      }
+
+      const scopedBudgetAmount = (() => {
+        if (livingCostView === 'combined') return budgetAmount
+        const sourceAmount =
+          livingCostView === 'mine'
+            ? breakdown.mine
+            : livingCostView === 'partner'
+              ? breakdown.partner
+              : livingCostView === 'shared'
+                ? breakdown.shared
+                : livingCostView === 'mine_personal'
+                  ? breakdown.minePersonal
+                  : breakdown.partnerPersonal
+        return breakdown.combined > 0 ? Math.round((budgetAmount * sourceAmount) / breakdown.combined) : 0
+      })()
+
+      const scopedActualAmount = (() => {
+        if (livingCostView === 'combined') return actualAmount
+        if (livingCostView === 'mine') {
+          return (expenses || [])
+            .filter((expense) => expense.category_id === id && expense.paid_by === user?.id)
+            .reduce((sum, expense) => sum + Number(expense.amount), 0)
+        }
+        if (livingCostView === 'partner') {
+          return (expenses || [])
+            .filter((expense) => expense.category_id === id && expense.paid_by === partner?.id)
+            .reduce((sum, expense) => sum + Number(expense.amount), 0)
+        }
+        if (livingCostView === 'shared') {
+          return (expenses || [])
+            .filter((expense) => expense.category_id === id && expense.expense_type === 'shared')
+            .reduce((sum, expense) => sum + Number(expense.amount), 0)
+        }
+        if (livingCostView === 'mine_personal') {
+          return (expenses || [])
+            .filter((expense) => expense.category_id === id && expense.paid_by === user?.id && expense.expense_type === 'personal')
+            .reduce((sum, expense) => sum + Number(expense.amount), 0)
+        }
+        return (expenses || [])
+          .filter((expense) => expense.category_id === id && expense.paid_by === partner?.id && expense.expense_type === 'personal')
+          .reduce((sum, expense) => sum + Number(expense.amount), 0)
+      })()
 
       return {
         categoryId: id,
         icon: budgetCategory?.expense_categories?.icon || category?.icon || '•',
         name: budgetCategory?.expense_categories?.name || category?.name || '未分類',
-        budgetAmount,
-        actualAmount,
-        diff: budgetAmount - actualAmount,
-        pct: budgetAmount > 0 ? (actualAmount / budgetAmount) * 100 : 0,
+        budgetAmount: scopedBudgetAmount,
+        actualAmount: scopedActualAmount,
+        diff: scopedBudgetAmount - scopedActualAmount,
+        pct: scopedBudgetAmount > 0 ? (scopedActualAmount / scopedBudgetAmount) * 100 : 0,
       }
     }).sort((a, b) => b.budgetAmount - a.budgetAmount)
-  }, [allCategories, budgetCategories, editAmounts, editing, summary?.byCategory])
+  }, [
+    allCategories,
+    budgetCategories,
+    editAmounts,
+    editing,
+    expenses,
+    lifePlanCategoryBreakdownMap,
+    livingCostView,
+    partner?.id,
+    summary?.byCategory,
+    user?.id,
+  ])
 
   const addableCategories = (allCategories || []).filter((category) => !allRows.some((row) => row.categoryId === category.id))
   const incomeBudgetRows = INCOME_BUDGET_TYPES.map((incomeType) => {
@@ -275,10 +377,28 @@ export default function BudgetsPage() {
   })
   const incomePlannedTotal = incomeBudgetRows.reduce((sum, row) => sum + row.plannedAmount, 0)
   const incomeActualTotal = incomeBudgetRows.reduce((sum, row) => sum + row.actualAmount, 0)
-  const livingCostBudgetTotal = editing
-    ? Object.values(editAmounts).reduce((sum, value) => sum + (Number(value) || 0), 0)
-    : allRows.reduce((sum, row) => sum + row.budgetAmount, 0)
-  const livingCostActualTotal = allRows.reduce((sum, row) => sum + row.actualAmount, 0)
+  const livingCostBudgetTotal = limit
+  const livingCostActualTotal = spent
+  const lifePlanCategoryBreakdownTotals = Object.values(lifePlanCategoryBreakdownMap).reduce(
+    (acc, row) => ({
+      shared: acc.shared + row.shared,
+      minePersonal: acc.minePersonal + row.minePersonal,
+      partnerPersonal: acc.partnerPersonal + row.partnerPersonal,
+    }),
+    { shared: 0, minePersonal: 0, partnerPersonal: 0 }
+  )
+  const afterSharedBudget = lifePlanCategoryBreakdownTotals.shared
+  const afterMinePersonalBudget = lifePlanCategoryBreakdownTotals.minePersonal
+  const afterPartnerPersonalBudget = lifePlanCategoryBreakdownTotals.partnerPersonal
+  const afterSharedActual = (expenses || [])
+    .filter((expense) => expense.expense_type === 'shared')
+    .reduce((sum, expense) => sum + Number(expense.amount), 0)
+  const afterMinePersonalActual = (expenses || [])
+    .filter((expense) => expense.paid_by === user?.id && expense.expense_type === 'personal')
+    .reduce((sum, expense) => sum + Number(expense.amount), 0)
+  const afterPartnerPersonalActual = (expenses || [])
+    .filter((expense) => expense.paid_by === partner?.id && expense.expense_type === 'personal')
+    .reduce((sum, expense) => sum + Number(expense.amount), 0)
 
   return (
     <div className="space-y-6">
@@ -399,7 +519,7 @@ export default function BudgetsPage() {
           <CardHeader>
             <CardTitle className="text-base">生活費予算と実績</CardTitle>
           </CardHeader>
-          <CardContent className={`grid gap-3 ${livingMode === 'before_cohabiting' ? 'md:grid-cols-3' : 'md:grid-cols-3'}`}>
+          <CardContent className={`grid gap-3 ${livingMode === 'before_cohabiting' ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
             {livingMode === 'before_cohabiting' && (
               <>
                 <div className="rounded-lg border p-4">
@@ -419,18 +539,30 @@ export default function BudgetsPage() {
                 </div>
               </>
             )}
-            <div className="rounded-lg border p-4">
-              <p className="text-xs text-muted-foreground">5年計画の月次生活費</p>
-              <p className="mt-1 text-lg font-semibold">{formatYen(lifePlanBudget.total)}</p>
-            </div>
-            <div className="rounded-lg border p-4">
-              <p className="text-xs text-muted-foreground">生活費予算</p>
-              <p className="mt-1 text-lg font-semibold">{formatYen(livingCostBudgetTotal)}</p>
-            </div>
-            <div className="rounded-lg border p-4">
-              <p className="text-xs text-muted-foreground">生活費実績</p>
-              <p className="mt-1 text-lg font-semibold text-destructive">{formatYen(livingCostActualTotal)}</p>
-            </div>
+            {livingMode === 'after_cohabiting' && (
+              <>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">共通費</p>
+                  <p className="mt-1 text-lg font-semibold">{formatYen(afterSharedBudget)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(afterSharedActual)}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">{user?.display_name || '自分'} 個人</p>
+                  <p className="mt-1 text-lg font-semibold">{formatYen(afterMinePersonalBudget)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(afterMinePersonalActual)}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">{partner?.display_name || '相手'} 個人</p>
+                  <p className="mt-1 text-lg font-semibold">{formatYen(afterPartnerPersonalBudget)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(afterPartnerPersonalActual)}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-xs text-muted-foreground">世帯合算</p>
+                  <p className="mt-1 text-lg font-semibold">{formatYen(lifePlanBudget.total)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen((expenses || []).reduce((sum, expense) => sum + Number(expense.amount), 0))}</p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -493,7 +625,18 @@ export default function BudgetsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">生活費予算</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-base">生活費予算</CardTitle>
+            <Tabs value={livingCostView} onValueChange={(value) => setLivingCostView(value as LivingCostView)}>
+              <TabsList className="h-auto flex-wrap">
+                {livingCostViewOptions.map((option) => (
+                  <TabsTrigger key={option.value} value={option.value} disabled={editing && option.value !== 'combined'}>
+                    {option.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b pb-2 text-xs text-muted-foreground">
