@@ -26,7 +26,9 @@ type CategoryView = 'combined' | 'mine' | 'partner' | 'shared' | 'mine_personal'
 type CategoryRow = {
   key: string
   name: string
+  planned: number
   actual: number
+  diff: number
   ratio: number
 }
 
@@ -69,19 +71,23 @@ function buildCategoryRows(
     })
   }
 
-  const keys = new Set<string>([...actualMap.keys()])
+  const plannedMap = new Map((budgetCategories || []).map((row) => [row.category_id, Number(row.limit_amount) || 0]))
+  const keys = new Set<string>([...actualMap.keys(), ...plannedMap.keys()])
   const totalActual = Array.from(actualMap.values()).reduce((sum, row) => sum + row.actual, 0)
 
   return Array.from(keys)
     .map((key) => {
       const actual = actualMap.get(key)
+      const planned = plannedMap.get(key) || 0
       const fallbackName =
         budgetCategories?.find((row) => row.category_id === key)?.expense_categories?.name || '未分類'
 
       return {
         key,
         name: actual?.name || fallbackName,
+        planned,
         actual: actual?.actual || 0,
+        diff: (actual?.actual || 0) - planned,
         ratio: totalActual > 0 ? ((actual?.actual || 0) / totalActual) * 100 : 0,
       }
     })
@@ -460,7 +466,9 @@ export default function AnalysisPage() {
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="px-2 py-2">カテゴリ</th>
+                    <th className="px-2 py-2 text-right">予算</th>
                     <th className="px-2 py-2 text-right">実績</th>
+                    <th className="px-2 py-2 text-right">差異</th>
                     <th className="px-2 py-2 text-right">構成比</th>
                   </tr>
                 </thead>
@@ -468,15 +476,19 @@ export default function AnalysisPage() {
                   {activeCategoryRows.map((row) => (
                     <tr key={`${categoryView}-${row.key}`} className="border-b last:border-b-0">
                       <td className="px-2 py-3">{row.name}</td>
-                        <td className="px-2 py-3 text-right">{formatYen(row.actual)}</td>
-                        <td className="px-2 py-3 text-right">{row.ratio.toFixed(1)}%</td>
+                      <td className="px-2 py-3 text-right">{formatYen(row.planned)}</td>
+                      <td className="px-2 py-3 text-right">{formatYen(row.actual)}</td>
+                      <td className={`px-2 py-3 text-right font-medium ${diffTone(row.diff)}`}>
+                        {formatYen(row.diff)}
+                      </td>
+                      <td className="px-2 py-3 text-right">{row.ratio.toFixed(1)}%</td>
                     </tr>
                   ))}
                   {activeCategoryRows.length === 0 && (
                     <tr>
                       <td
                         className="px-2 py-6 text-center text-sm text-muted-foreground"
-                        colSpan={3}
+                        colSpan={5}
                       >
                         この条件の支出はまだありません。
                       </td>
