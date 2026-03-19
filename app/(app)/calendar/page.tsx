@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import { enumerateDateKeys, eventOverlapsDateRange, getJstDateKey } from '@/lib/date-utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCalendarEvents, useCreateCalendarEvent, useDeleteCalendarEvent, useUpdateCalendarEvent } from '@/lib/hooks/use-calendar-events'
+import { getJapaneseHolidayMap, getJapaneseHolidayName } from '@/lib/japanese-holidays'
 import { useCalendarStore } from '@/stores/calendar-store'
 import { toast } from 'sonner'
 import type { CalendarEvent } from '@/types'
@@ -106,6 +107,12 @@ export default function CalendarPage() {
       return true
     })
   }, [events, filter, user?.id, partner?.id])
+
+  const visibleHolidayMap = useMemo(
+    () => getJapaneseHolidayMap(view === 'week' ? weekStart : calendarStart, view === 'week' ? weekEnd : calendarEnd),
+    [calendarEnd, calendarStart, view, weekEnd, weekStart]
+  )
+  const selectedHolidayName = useMemo(() => getJapaneseHolidayName(selectedDate), [selectedDate])
 
   const getEventsForDay = (day: Date) => {
     const dateKey = getJstDateKey(day)
@@ -217,10 +224,10 @@ export default function CalendarPage() {
     }
 
     if (getJstDateKey(event.start_at) === dayKey) {
-      return `${format(new Date(event.start_at), 'HH:mm')} ${event.title}`
+      return `${event.title} ${format(new Date(event.start_at), 'HH:mm')}`
     }
 
-    return spansMultipleDays ? `継続 ${event.title}` : event.title
+    return spansMultipleDays ? `${event.title} 継続` : event.title
   }
 
   return (
@@ -375,6 +382,7 @@ export default function CalendarPage() {
                 {days.map((day) => {
                   const dayEvents = getEventsForDay(day)
                   const isSelected = isSameDay(day, selectedDate)
+                  const holidayName = visibleHolidayMap.get(getJstDateKey(day))
                   return (
                     <div
                       key={day.toISOString()}
@@ -401,6 +409,11 @@ export default function CalendarPage() {
                       >
                         {format(day, 'd')}
                       </button>
+                      {holidayName && (
+                        <div className="mt-1 truncate px-1 text-[10px] font-medium text-destructive">
+                          {holidayName}
+                        </div>
+                      )}
                       <div className="mt-1 space-y-1">
                         {dayEvents.slice(0, 3).map((event) => (
                           <button
@@ -430,6 +443,7 @@ export default function CalendarPage() {
               {weekDays.map((day) => {
                 const dayEvents = getEventsForDay(day)
                 const isSelected = isSameDay(day, selectedDate)
+                const holidayName = visibleHolidayMap.get(getJstDateKey(day))
                 return (
                   <div
                     key={day.toISOString()}
@@ -442,6 +456,7 @@ export default function CalendarPage() {
                     <div className="mb-3 flex items-center justify-between">
                       <button type="button" onClick={() => setSelectedDate(day)} className="text-left">
                         <div className="text-sm font-medium">{format(day, 'M/d (E)', { locale: ja })}</div>
+                        {holidayName && <div className="mt-1 text-xs font-medium text-destructive">{holidayName}</div>}
                       </button>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openCreateDialog(day)}>
                         <Plus className="h-4 w-4" />
@@ -458,7 +473,7 @@ export default function CalendarPage() {
                           style={{ backgroundColor: getEventColor(event) }}
                         >
                           <div className="font-medium">{event.title}</div>
-                          <div className="mt-1 opacity-90">{formatEventChipLabel(event, day)}</div>
+                          <div className="mt-1 opacity-90">{formatEventTime(event)}</div>
                         </button>
                       )) : (
                         <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
@@ -482,8 +497,14 @@ export default function CalendarPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          {selectedDayEvents.length > 0 ? (
+          {selectedDayEvents.length > 0 || selectedHolidayName ? (
             <div className="space-y-3">
+              {selectedHolidayName && (
+                <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+                  <p className="text-sm font-medium text-destructive">{selectedHolidayName}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">日本の祝日</p>
+                </div>
+              )}
               {selectedDayEvents.map((event) => (
                 <div key={event.id} className="group flex items-start gap-3 rounded-lg border p-3">
                   <div className="min-h-[52px] w-1 rounded-full" style={{ backgroundColor: getEventColor(event) }} />
