@@ -24,17 +24,25 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import { enumerateDateKeys, eventOverlapsDateRange, getJstDateKey } from '@/lib/date-utils'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useCalendarEvents, useCreateCalendarEvent, useDeleteCalendarEvent, useUpdateCalendarEvent } from '@/lib/hooks/use-calendar-events'
 import { getJapaneseHolidayMap, getJapaneseHolidayName } from '@/lib/japanese-holidays'
+import { useCalendarEvents, useCreateCalendarEvent, useDeleteCalendarEvent, useUpdateCalendarEvent } from '@/lib/hooks/use-calendar-events'
+import { cn } from '@/lib/utils'
 import { useCalendarStore } from '@/stores/calendar-store'
 import { toast } from 'sonner'
 import type { CalendarEvent } from '@/types'
 
 type FilterMode = 'all' | 'mine' | 'partner'
 type VisibilityMode = 'shared' | 'private'
+
+type MonthEventSegment = {
+  event: CalendarEvent
+  startIndex: number
+  endIndex: number
+  startsThisWeek: boolean
+  endsThisWeek: boolean
+}
 
 const visibilityLabels: Record<VisibilityMode, string> = {
   shared: '共有',
@@ -63,6 +71,78 @@ function formatEventTime(event: CalendarEvent) {
   return `${start} - ${format(new Date(event.end_at), 'M/d HH:mm')}`
 }
 
+function chunkDays(days: Date[], size: number) {
+  const chunks: Date[][] = []
+  for (let index = 0; index < days.length; index += size) {
+    chunks.push(days.slice(index, index + size))
+  }
+  return chunks
+}
+
+function getEventStartKey(event: CalendarEvent) {
+  return getJstDateKey(event.start_at)
+}
+
+function getEventEndKey(event: CalendarEvent) {
+  return event.end_at ? getJstDateKey(event.end_at) : getEventStartKey(event)
+}
+
+function clampDateKey(dateKey: string, minKey: string, maxKey: string) {
+  if (dateKey < minKey) return minKey
+  if (dateKey > maxKey) return maxKey
+  return dateKey
+}
+
+function buildMonthEventRows(week: Date[], events: CalendarEvent[]) {
+  const weekStartKey = getJstDateKey(week[0])
+  const weekEndKey = getJstDateKey(week[week.length - 1])
+  const rows: MonthEventSegment[][] = []
+
+  const weekEvents = events
+    .filter((event) => getEventStartKey(event) <= weekEndKey && getEventEndKey(event) >= weekStartKey)
+    .sort((a, b) => {
+      const startCompare = getEventStartKey(a).localeCompare(getEventStartKey(b))
+      if (startCompare !== 0) return startCompare
+
+      const endCompare = getEventEndKey(b).localeCompare(getEventEndKey(a))
+      if (endCompare !== 0) return endCompare
+
+      return a.title.localeCompare(b.title)
+    })
+
+  for (const event of weekEvents) {
+    const startKey = getEventStartKey(event)
+    const endKey = getEventEndKey(event)
+    const visibleStartKey = clampDateKey(startKey, weekStartKey, weekEndKey)
+    const visibleEndKey = clampDateKey(endKey, weekStartKey, weekEndKey)
+    const startIndex = week.findIndex((day) => getJstDateKey(day) === visibleStartKey)
+    const endIndex = week.findIndex((day) => getJstDateKey(day) === visibleEndKey)
+
+    if (startIndex < 0 || endIndex < 0) continue
+
+    const segment: MonthEventSegment = {
+      event,
+      startIndex,
+      endIndex,
+      startsThisWeek: startKey === visibleStartKey,
+      endsThisWeek: endKey === visibleEndKey,
+    }
+
+    let rowIndex = rows.findIndex((row) =>
+      row.every((item) => item.endIndex < segment.startIndex || item.startIndex > segment.endIndex)
+    )
+
+    if (rowIndex === -1) {
+      rows.push([])
+      rowIndex = rows.length - 1
+    }
+
+    rows[rowIndex].push(segment)
+  }
+
+  return rows
+}
+
 export default function CalendarPage() {
   const { user, couple, partner } = useAuth()
   const { selectedDate, view, setSelectedDate, setView } = useCalendarStore()
@@ -86,6 +166,7 @@ export default function CalendarPage() {
   const calendarStart = startOfWeek(monthStart)
   const calendarEnd = endOfWeek(monthEnd)
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
+  const monthWeeks = useMemo(() => chunkDays(days, 7), [days])
 
   const weekStart = startOfWeek(selectedDate)
   const weekEnd = endOfWeek(selectedDate)
@@ -107,6 +188,11 @@ export default function CalendarPage() {
       return true
     })
   }, [events, filter, user?.id, partner?.id])
+
+  const monthEventRows = useMemo(
+    () => monthWeeks.map((week) => buildMonthEventRows(week, filteredEvents)),
+    [filteredEvents, monthWeeks]
+  )
 
   const visibleHolidayMap = useMemo(
     () => getJapaneseHolidayMap(view === 'week' ? weekStart : calendarStart, view === 'week' ? weekEnd : calendarEnd),
@@ -214,10 +300,7 @@ export default function CalendarPage() {
 
   const formatEventChipLabel = (event: CalendarEvent, day: Date) => {
     const dayKey = getJstDateKey(day)
-    const spansMultipleDays = enumerateDateKeys(
-      format(new Date(event.start_at), 'yyyy-MM-dd'),
-      event.end_at ? format(new Date(event.end_at), 'yyyy-MM-dd') : undefined
-    ).length > 1
+    const spansMultipleDays = enumerateDateKeys(getEventStartKey(event), getEventEndKey(event)).length > 1
 
     if (event.all_day) {
       return event.title
@@ -378,61 +461,79 @@ export default function CalendarPage() {
                   <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">{day}</div>
                 ))}
               </div>
-              <div className="grid grid-cols-7">
-                {days.map((day) => {
-                  const dayEvents = getEventsForDay(day)
-                  const isSelected = isSameDay(day, selectedDate)
-                  const holidayName = visibleHolidayMap.get(getJstDateKey(day))
+              <div>
+                {monthWeeks.map((week, weekIndex) => {
+                  const weekRows = monthEventRows[weekIndex] || []
+
                   return (
-                    <div
-                      key={day.toISOString()}
-                      onClick={() => {
-                        setSelectedDate(day)
-                        openCreateDialog(day)
-                      }}
-                      className={cn(
-                        'min-h-[88px] cursor-pointer border-b border-r p-1 text-left transition-colors hover:bg-muted/40',
-                        !isSameMonth(day, currentMonth) && 'text-muted-foreground/40',
-                        isSelected && 'bg-primary/5 ring-1 ring-primary'
-                      )}
-                    >
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedDate(day)
-                        }}
-                        className={cn(
-                          'inline-flex h-7 w-7 items-center justify-center rounded-full text-xs',
-                          getJstDateKey(day) === getJstDateKey(new Date()) && 'bg-primary text-primary-foreground'
-                        )}
-                      >
-                        {format(day, 'd')}
-                      </button>
-                      {holidayName && (
-                        <div className="mt-1 truncate px-1 text-[10px] font-medium text-destructive">
-                          {holidayName}
+                    <div key={week[0]?.toISOString() || weekIndex} className="border-b last:border-b-0">
+                      <div className="grid grid-cols-7">
+                        {week.map((day) => {
+                          const isSelected = isSameDay(day, selectedDate)
+                          const holidayName = visibleHolidayMap.get(getJstDateKey(day))
+
+                          return (
+                            <div
+                              key={day.toISOString()}
+                              onClick={() => {
+                                setSelectedDate(day)
+                                openCreateDialog(day)
+                              }}
+                              className={cn(
+                                'min-h-[72px] cursor-pointer border-r p-1 text-left transition-colors hover:bg-muted/40 last:border-r-0',
+                                !isSameMonth(day, currentMonth) && 'text-muted-foreground/40',
+                                isSelected && 'bg-primary/5 ring-1 ring-primary'
+                              )}
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedDate(day)
+                                }}
+                                className={cn(
+                                  'inline-flex h-7 w-7 items-center justify-center rounded-full text-xs',
+                                  getJstDateKey(day) === getJstDateKey(new Date()) && 'bg-primary text-primary-foreground'
+                                )}
+                              >
+                                {format(day, 'd')}
+                              </button>
+                              {holidayName && (
+                                <div className="mt-1 truncate px-1 text-[10px] font-medium text-destructive">
+                                  {holidayName}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {weekRows.length > 0 && (
+                        <div className="space-y-1 px-1 pb-1">
+                          {weekRows.map((row, rowIndex) => (
+                            <div key={`${week[0]?.toISOString() || weekIndex}-${rowIndex}`} className="grid grid-cols-7 gap-1">
+                              {row.map((segment) => (
+                                <button
+                                  key={segment.event.id}
+                                  type="button"
+                                  onClick={() => openEditDialog(segment.event)}
+                                  className={cn(
+                                    'block truncate px-2 py-1 text-left text-[10px] font-medium text-white',
+                                    segment.startsThisWeek ? 'rounded-l-md' : 'rounded-l-none',
+                                    segment.endsThisWeek ? 'rounded-r-md' : 'rounded-r-none'
+                                  )}
+                                  style={{
+                                    backgroundColor: getEventColor(segment.event),
+                                    gridColumn: `${segment.startIndex + 1} / ${segment.endIndex + 2}`,
+                                  }}
+                                >
+                                  {formatEventChipLabel(segment.event, week[segment.startIndex])}
+                                </button>
+                              ))}
+                            </div>
+                          ))}
                         </div>
                       )}
-                      <div className="mt-1 space-y-1">
-                        {dayEvents.slice(0, 3).map((event) => (
-                          <button
-                            key={event.id}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openEditDialog(event)
-                            }}
-                            className="block w-full truncate rounded px-1.5 py-1 text-left text-[10px] font-medium text-white"
-                            style={{ backgroundColor: getEventColor(event) }}
-                          >
-                            {formatEventChipLabel(event, day)}
-                          </button>
-                        ))}
-                        {dayEvents.length > 3 && (
-                          <div className="px-1 text-[10px] text-muted-foreground">+{dayEvents.length - 3}件</div>
-                        )}
-                      </div>
                     </div>
                   )
                 })}
