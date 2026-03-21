@@ -220,14 +220,14 @@ export default function CalendarPage() {
     ).length > 1
 
     if (event.all_day) {
-      return spansMultipleDays ? `期間 ${event.title}` : event.title
+      return event.title
     }
 
     if (getJstDateKey(event.start_at) === dayKey) {
       return `${event.title} ${format(new Date(event.start_at), 'HH:mm')}`
     }
 
-    return spansMultipleDays ? `${event.title} 継続` : event.title
+    return spansMultipleDays ? event.title : event.title
   }
 
   return (
