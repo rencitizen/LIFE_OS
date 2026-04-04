@@ -2,11 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import {
+  addDays,
   addMonths,
+  addWeeks,
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
   format,
+  isAfter,
   isSameDay,
   isSameMonth,
   startOfMonth,
@@ -27,14 +30,21 @@ import { Textarea } from '@/components/ui/textarea'
 import { enumerateDateKeys, eventOverlapsDateRange, getJstDateKey } from '@/lib/date-utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { getJapaneseHolidayMap, getJapaneseHolidayName } from '@/lib/japanese-holidays'
-import { useCalendarEvents, useCreateCalendarEvent, useDeleteCalendarEvent, useUpdateCalendarEvent } from '@/lib/hooks/use-calendar-events'
+import {
+  useCalendarEvents,
+  useCreateCalendarEvent,
+  useCreateCalendarEvents,
+  useDeleteCalendarEvent,
+  useUpdateCalendarEvent,
+} from '@/lib/hooks/use-calendar-events'
 import { cn } from '@/lib/utils'
 import { useCalendarStore } from '@/stores/calendar-store'
 import { toast } from 'sonner'
-import type { CalendarEvent } from '@/types'
+import type { CalendarEvent, InsertTables } from '@/types'
 
 type FilterMode = 'all' | 'mine' | 'partner'
 type VisibilityMode = 'shared' | 'private'
+type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly'
 
 type MonthEventSegment = {
   event: CalendarEvent
@@ -47,6 +57,12 @@ type MonthEventSegment = {
 const visibilityLabels: Record<VisibilityMode, string> = {
   shared: '共有',
   private: '個人',
+}
+
+const recurrenceLabels: Record<RecurrenceFrequency, string> = {
+  daily: '毎日',
+  weekly: '毎週',
+  monthly: '毎月',
 }
 
 const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, index) => {
@@ -62,6 +78,12 @@ function toStartIso(date: string, time?: string) {
 function toEndIso(date: string, time?: string, allDay = false) {
   if (allDay) return new Date(`${date}T23:59:59.999+09:00`).toISOString()
   return new Date(`${date}T${time || '23:59'}:00+09:00`).toISOString()
+}
+
+function addByFrequency(date: Date, frequency: RecurrenceFrequency) {
+  if (frequency === 'daily') return addDays(date, 1)
+  if (frequency === 'weekly') return addWeeks(date, 1)
+  return addMonths(date, 1)
 }
 
 function formatEventTime(event: CalendarEvent) {
@@ -160,6 +182,9 @@ export default function CalendarPage() {
   const [newLocation, setNewLocation] = useState('')
   const [newVisibility, setNewVisibility] = useState<VisibilityMode>('shared')
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
+  const [newIsRecurring, setNewIsRecurring] = useState(false)
+  const [newRecurrenceFrequency, setNewRecurrenceFrequency] = useState<RecurrenceFrequency>('weekly')
+  const [newRecurrenceEndDate, setNewRecurrenceEndDate] = useState('')
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(currentMonth)
@@ -178,6 +203,7 @@ export default function CalendarPage() {
     (view === 'week' ? weekEnd : calendarEnd).toISOString()
   )
   const createEvent = useCreateCalendarEvent()
+  const createEvents = useCreateCalendarEvents()
   const updateEvent = useUpdateCalendarEvent()
   const deleteEvent = useDeleteCalendarEvent()
 
@@ -224,6 +250,9 @@ export default function CalendarPage() {
     setNewAllDay(true)
     setNewLocation('')
     setNewVisibility('shared')
+    setNewIsRecurring(false)
+    setNewRecurrenceFrequency('weekly')
+    setNewRecurrenceEndDate('')
   }
 
   const openCreateDialog = (date = selectedDate) => {
@@ -248,6 +277,9 @@ export default function CalendarPage() {
     setNewAllDay(event.all_day)
     setNewLocation(event.location || '')
     setNewVisibility((event.visibility as VisibilityMode) || 'shared')
+    setNewIsRecurring(false)
+    setNewRecurrenceFrequency('weekly')
+    setNewRecurrenceEndDate('')
     setDialogOpen(true)
   }
 
@@ -255,35 +287,74 @@ export default function CalendarPage() {
     if (!newTitle.trim()) return toast.error('タイトルを入力してください')
     if (!newStartDate) return toast.error('開始日を入力してください')
     if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
+    if (!editingEventId && newIsRecurring && !newRecurrenceEndDate) {
+      return toast.error('繰り返し終了日を入力してください')
+    }
 
     const safeEndDate = newEndDate && newEndDate >= newStartDate ? newEndDate : newStartDate
 
     try {
-      const payload = {
+      const basePayload = {
         title: newTitle.trim(),
         description: newDescription || undefined,
-        start_at: toStartIso(newStartDate, newAllDay ? '00:00' : newTime || '09:00'),
-        end_at: toEndIso(safeEndDate, newAllDay ? '23:59' : newEndTime || newTime || '10:00', newAllDay),
         all_day: newAllDay,
         location: newLocation || undefined,
         visibility: newVisibility,
         color: user.color || '#1F5C4D',
       }
 
+      const buildEvent = (startDate: string, endDate: string): InsertTables<'calendar_events'> => ({
+        couple_id: couple.id,
+        created_by: user.id,
+        event_type: 'life',
+        start_at: toStartIso(startDate, newAllDay ? '00:00' : newTime || '09:00'),
+        end_at: toEndIso(endDate, newAllDay ? '23:59' : newEndTime || newTime || '10:00', newAllDay),
+        is_recurring: newIsRecurring,
+        recurrence_rule: newIsRecurring ? newRecurrenceFrequency : undefined,
+        ...basePayload,
+      })
+
       if (editingEventId) {
-        await updateEvent.mutateAsync({ id: editingEventId, ...payload })
-      } else {
-        await createEvent.mutateAsync({
-          couple_id: couple.id,
-          created_by: user.id,
-          event_type: 'life',
-          ...payload,
+        await updateEvent.mutateAsync({
+          id: editingEventId,
+          start_at: toStartIso(newStartDate, newAllDay ? '00:00' : newTime || '09:00'),
+          end_at: toEndIso(safeEndDate, newAllDay ? '23:59' : newEndTime || newTime || '10:00', newAllDay),
+          ...basePayload,
         })
+      } else if (!newIsRecurring) {
+        await createEvent.mutateAsync(buildEvent(newStartDate, safeEndDate))
+      } else {
+        const lastDate = new Date(`${newRecurrenceEndDate}T23:59:59`)
+        let startCursor = new Date(`${newStartDate}T00:00:00`)
+        let endCursor = new Date(`${safeEndDate}T00:00:00`)
+
+        if (isAfter(startCursor, lastDate)) {
+          toast.error('繰り返し終了日は開始日以降にしてください')
+          return
+        }
+
+        const eventsToCreate: InsertTables<'calendar_events'>[] = []
+        while (!isAfter(startCursor, lastDate)) {
+          eventsToCreate.push(buildEvent(
+            format(startCursor, 'yyyy-MM-dd'),
+            format(endCursor, 'yyyy-MM-dd')
+          ))
+          startCursor = addByFrequency(startCursor, newRecurrenceFrequency)
+          endCursor = addByFrequency(endCursor, newRecurrenceFrequency)
+        }
+
+        await createEvents.mutateAsync(eventsToCreate)
       }
 
       setDialogOpen(false)
       setEditingEventId(null)
-      toast.success(editingEventId ? '予定を更新しました' : '予定を追加しました')
+      toast.success(
+        editingEventId
+          ? '予定を更新しました'
+          : newIsRecurring
+            ? '繰り返し予定をまとめて追加しました'
+            : '予定を追加しました'
+      )
     } catch {
       toast.error(editingEventId ? '予定の更新に失敗しました' : '予定の追加に失敗しました')
     }
@@ -372,6 +443,13 @@ export default function CalendarPage() {
               <Label>終日</Label>
             </div>
 
+            {!editingEventId && (
+              <div className="flex items-center gap-2">
+                <Switch checked={newIsRecurring} onCheckedChange={setNewIsRecurring} />
+                <Label>繰り返し</Label>
+              </div>
+            )}
+
             {!newAllDay && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -399,6 +477,29 @@ export default function CalendarPage() {
               </div>
             )}
 
+            {!editingEventId && newIsRecurring && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label>頻度</Label>
+                  <Select
+                    value={newRecurrenceFrequency}
+                    onValueChange={(value) => setNewRecurrenceFrequency(value as RecurrenceFrequency)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(recurrenceLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>繰り返し終了日</Label>
+                  <Input type="date" value={newRecurrenceEndDate} onChange={(e) => setNewRecurrenceEndDate(e.target.value)} />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>公開範囲</Label>
               <Select value={newVisibility} onValueChange={(value) => setNewVisibility(value as VisibilityMode)}>
@@ -420,8 +521,12 @@ export default function CalendarPage() {
               <Textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={3} />
             </div>
 
-            <Button onClick={handleSubmit} className="w-full" disabled={createEvent.isPending || updateEvent.isPending}>
-              {editingEventId ? '更新する' : '追加する'}
+            <Button
+              onClick={handleSubmit}
+              className="w-full"
+              disabled={createEvent.isPending || createEvents.isPending || updateEvent.isPending}
+            >
+              {editingEventId ? '更新する' : newIsRecurring ? 'まとめて追加' : '追加する'}
             </Button>
           </div>
         </DialogContent>

@@ -44,6 +44,25 @@ export function useCreateCalendarEvent() {
   })
 }
 
+export function useCreateCalendarEvents() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (events: InsertTables<'calendar_events'>[]) => {
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .insert(events)
+        .select()
+      if (error) throw error
+      return (data ?? []) as unknown as CalendarEvent[]
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+    },
+  })
+}
+
 export function useUpdateCalendarEvent() {
   const supabase = createClient()
   const queryClient = useQueryClient()
