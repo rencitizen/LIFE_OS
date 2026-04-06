@@ -313,6 +313,35 @@ export type Database = {
           created_at?: string
         }
       }
+      idea_items: {
+        Row: {
+          id: string
+          couple_id: string
+          created_by: string
+          title: string
+          memo: string | null
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          couple_id: string
+          created_by: string
+          title: string
+          memo?: string | null
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          couple_id?: string
+          created_by?: string
+          title?: string
+          memo?: string | null
+          status?: string
+          created_at?: string
+        }
+      }
       expenses: {
         Row: {
           id: string

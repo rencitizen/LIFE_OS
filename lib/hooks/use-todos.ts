@@ -60,6 +60,25 @@ export function useCreateTodo() {
   })
 }
 
+export function useCreateTodos() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (todos: InsertTables<'todos'>[]) => {
+      const { data, error } = await supabase
+        .from('todos')
+        .insert(todos)
+        .select()
+      if (error) throw error
+      return (data ?? []) as unknown as Todo[]
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
+    },
+  })
+}
+
 export function useUpdateTodo() {
   const supabase = createClient()
   const queryClient = useQueryClient()

@@ -11,11 +11,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { normalizeDateRange } from '@/lib/date-utils'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useCreateTodo, useDeleteTodo, useTodos, useUpdateTodo } from '@/lib/hooks/use-todos'
+import { useCreateIdeaItem, useDeleteIdeaItem, useIdeaItems, useUpdateIdeaItem } from '@/lib/hooks/use-idea-items'
+import { useCreateTodo, useCreateTodos, useDeleteTodo, useTodos, useUpdateTodo } from '@/lib/hooks/use-todos'
 import { toast } from 'sonner'
+import type { IdeaItem, InsertTables } from '@/types'
 
 const statusIcons = {
   pending: Circle,
@@ -46,21 +49,34 @@ function formatTodoPeriod(startDate?: string | null, endDate?: string | null, du
 export default function TodosPage() {
   const { user, couple, partner } = useAuth()
   const { data: allTodos } = useTodos(couple?.id)
+  const { data: ideaItems } = useIdeaItems(couple?.id)
   const createTodo = useCreateTodo()
+  const createTodos = useCreateTodos()
   const updateTodo = useUpdateTodo()
   const deleteTodo = useDeleteTodo()
+  const createIdeaItem = useCreateIdeaItem()
+  const updateIdeaItem = useUpdateIdeaItem()
+  const deleteIdeaItem = useDeleteIdeaItem()
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [bulkMode, setBulkMode] = useState(false)
+  const [bulkTitles, setBulkTitles] = useState('')
   const [newPriority, setNewPriority] = useState('medium')
   const [newAssignee, setNewAssignee] = useState('shared')
   const [newStartDate, setNewStartDate] = useState('')
   const [newEndDate, setNewEndDate] = useState('')
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null)
+  const [ideaDialogOpen, setIdeaDialogOpen] = useState(false)
+  const [ideaTitle, setIdeaTitle] = useState('')
+  const [ideaMemo, setIdeaMemo] = useState('')
+  const [editingIdeaId, setEditingIdeaId] = useState<string | null>(null)
 
   const openCreateDialog = () => {
     setEditingTodoId(null)
     setNewTitle('')
+    setBulkMode(false)
+    setBulkTitles('')
     setNewPriority('medium')
     setNewAssignee('shared')
     setNewStartDate('')
@@ -71,6 +87,8 @@ export default function TodosPage() {
   const openEditDialog = (todo: NonNullable<typeof allTodos>[number]) => {
     setEditingTodoId(todo.id)
     setNewTitle(todo.title)
+    setBulkMode(false)
+    setBulkTitles('')
     setNewPriority(todo.priority)
     setNewAssignee(!todo.assigned_to ? 'shared' : todo.assigned_to === user?.id ? 'me' : 'partner')
     setNewStartDate(todo.start_date || todo.due_date || '')
@@ -78,9 +96,29 @@ export default function TodosPage() {
     setDialogOpen(true)
   }
 
+  const openCreateIdeaDialog = () => {
+    setEditingIdeaId(null)
+    setIdeaTitle('')
+    setIdeaMemo('')
+    setIdeaDialogOpen(true)
+  }
+
+  const openEditIdeaDialog = (idea: IdeaItem) => {
+    setEditingIdeaId(idea.id)
+    setIdeaTitle(idea.title)
+    setIdeaMemo(idea.memo || '')
+    setIdeaDialogOpen(true)
+  }
+
   const handleSubmit = async () => {
-    if (!newTitle.trim()) return toast.error('タイトルを入力してください')
     if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
+    if (editingTodoId) {
+      if (!newTitle.trim()) return toast.error('タイトルを入力してください')
+    } else if (bulkMode) {
+      if (!bulkTitles.trim()) return toast.error('TODOを1件以上入力してください')
+    } else if (!newTitle.trim()) {
+      return toast.error('タイトルを入力してください')
+    }
 
     const normalizedRange = newStartDate
       ? normalizeDateRange(newStartDate, newEndDate || newStartDate)
@@ -88,7 +126,6 @@ export default function TodosPage() {
 
     try {
       const payload = {
-        title: newTitle.trim(),
         priority: newPriority,
         assigned_to: newAssignee === 'shared' ? null : newAssignee === 'me' ? user.id : partner?.id || null,
         due_date: normalizedRange?.endDate || null,
@@ -97,11 +134,27 @@ export default function TodosPage() {
       }
 
       if (editingTodoId) {
-        await updateTodo.mutateAsync({ id: editingTodoId, ...payload })
+        await updateTodo.mutateAsync({ id: editingTodoId, title: newTitle.trim(), ...payload })
+      } else if (bulkMode) {
+        const titles = bulkTitles
+          .split('\n')
+          .map((title) => title.trim())
+          .filter(Boolean)
+
+        const todosToCreate: InsertTables<'todos'>[] = titles.map((title) => ({
+          couple_id: couple.id,
+          created_by: user.id,
+          title,
+          status: 'pending',
+          ...payload,
+        }))
+
+        await createTodos.mutateAsync(todosToCreate)
       } else {
         await createTodo.mutateAsync({
           couple_id: couple.id,
           created_by: user.id,
+          title: newTitle.trim(),
           status: 'pending',
           ...payload,
         })
@@ -110,9 +163,11 @@ export default function TodosPage() {
       setDialogOpen(false)
       setEditingTodoId(null)
       setNewTitle('')
+      setBulkMode(false)
+      setBulkTitles('')
       setNewStartDate('')
       setNewEndDate('')
-      toast.success(editingTodoId ? 'TODOを更新しました' : 'TODOを追加しました')
+      toast.success(editingTodoId ? 'TODOを更新しました' : bulkMode ? 'TODOをまとめて追加しました' : 'TODOを追加しました')
     } catch {
       toast.error(editingTodoId ? 'TODOの更新に失敗しました' : 'TODOの追加に失敗しました')
     }
@@ -140,11 +195,70 @@ export default function TodosPage() {
       setEditingTodoId(null)
       setDialogOpen(false)
       setNewTitle('')
+      setBulkMode(false)
+      setBulkTitles('')
       setNewStartDate('')
       setNewEndDate('')
       toast.success('TODOを削除しました')
     } catch {
       toast.error('TODOの削除に失敗しました')
+    }
+  }
+
+  const handleIdeaSubmit = async () => {
+    if (!ideaTitle.trim()) return toast.error('やりたいことを入力してください')
+    if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
+
+    try {
+      const payload = {
+        title: ideaTitle.trim(),
+        memo: ideaMemo.trim() || null,
+      }
+
+      if (editingIdeaId) {
+        await updateIdeaItem.mutateAsync({ id: editingIdeaId, ...payload })
+      } else {
+        await createIdeaItem.mutateAsync({
+          couple_id: couple.id,
+          created_by: user.id,
+          status: 'active',
+          ...payload,
+        })
+      }
+
+      setIdeaDialogOpen(false)
+      setEditingIdeaId(null)
+      setIdeaTitle('')
+      setIdeaMemo('')
+      toast.success(editingIdeaId ? 'やりたいことを更新しました' : 'やりたいことを追加しました')
+    } catch {
+      toast.error(editingIdeaId ? 'やりたいことの更新に失敗しました' : 'やりたいことの追加に失敗しました')
+    }
+  }
+
+  const toggleIdeaStatus = async (idea: IdeaItem) => {
+    try {
+      await updateIdeaItem.mutateAsync({
+        id: idea.id,
+        status: idea.status === 'done' ? 'active' : 'done',
+      })
+    } catch {
+      toast.error('状態の更新に失敗しました')
+    }
+  }
+
+  const handleDeleteIdea = async () => {
+    if (!editingIdeaId) return
+
+    try {
+      await deleteIdeaItem.mutateAsync(editingIdeaId)
+      setEditingIdeaId(null)
+      setIdeaDialogOpen(false)
+      setIdeaTitle('')
+      setIdeaMemo('')
+      toast.success('やりたいことを削除しました')
+    } catch {
+      toast.error('やりたいことの削除に失敗しました')
     }
   }
 
@@ -232,6 +346,9 @@ export default function TodosPage() {
     )
   }
 
+  const activeIdeas = (ideaItems || []).filter((idea) => idea.status !== 'done')
+  const doneIdeas = (ideaItems || []).filter((idea) => idea.status === 'done')
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -248,10 +365,34 @@ export default function TodosPage() {
             <DialogTitle>{editingTodoId ? 'TODOを編集' : 'TODOを追加'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>タイトル</Label>
-              <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSubmit()} />
-            </div>
+            {!editingTodoId && (
+              <div className="flex items-center gap-2">
+                <input
+                  id="bulk-mode"
+                  type="checkbox"
+                  checked={bulkMode}
+                  onChange={(e) => setBulkMode(e.target.checked)}
+                  className="h-4 w-4 rounded border"
+                />
+                <Label htmlFor="bulk-mode">まとめて追加</Label>
+              </div>
+            )}
+            {bulkMode && !editingTodoId ? (
+              <div className="space-y-2">
+                <Label>TODO一覧</Label>
+                <Textarea
+                  value={bulkTitles}
+                  onChange={(e) => setBulkTitles(e.target.value)}
+                  placeholder={'1行に1件ずつ入力\n例:\n食材を買う\n固定費を見直す\n保険を確認する'}
+                  rows={6}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>タイトル</Label>
+                <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSubmit()} />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>開始日</Label>
@@ -291,8 +432,41 @@ export default function TodosPage() {
                   削除
                 </Button>
               )}
-              <Button onClick={handleSubmit} className="flex-1" disabled={createTodo.isPending || updateTodo.isPending || deleteTodo.isPending}>
-                {editingTodoId ? '更新' : '保存'}
+              <Button onClick={handleSubmit} className="flex-1" disabled={createTodo.isPending || createTodos.isPending || updateTodo.isPending || deleteTodo.isPending}>
+                {editingTodoId ? '更新' : bulkMode ? 'まとめて保存' : '保存'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={ideaDialogOpen} onOpenChange={setIdeaDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingIdeaId ? 'やりたいことを編集' : 'やりたいことを追加'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>やりたいこと</Label>
+              <Input value={ideaTitle} onChange={(e) => setIdeaTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>メモ</Label>
+              <Textarea value={ideaMemo} onChange={(e) => setIdeaMemo(e.target.value)} rows={4} />
+            </div>
+            <div className="flex gap-2">
+              {editingIdeaId && (
+                <Button type="button" variant="outline" className="flex-1" onClick={handleDeleteIdea}>
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  削除
+                </Button>
+              )}
+              <Button
+                onClick={handleIdeaSubmit}
+                className="flex-1"
+                disabled={createIdeaItem.isPending || updateIdeaItem.isPending || deleteIdeaItem.isPending}
+              >
+                {editingIdeaId ? '更新' : '保存'}
               </Button>
             </div>
           </div>
@@ -314,6 +488,60 @@ export default function TodosPage() {
           </TabsContent>
         ))}
       </Tabs>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold">やりたいこと</h2>
+          <Button size="sm" variant="outline" onClick={openCreateIdeaDialog}>
+            <Plus className="mr-1 h-4 w-4" />
+            やりたいことを追加
+          </Button>
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            {activeIdeas.length === 0 && doneIdeas.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">やりたいことはまだありません</p>
+            ) : (
+              <div className="space-y-2">
+                {activeIdeas.map((idea) => (
+                  <div key={idea.id} className="flex items-start gap-3 rounded-md p-3 transition-colors hover:bg-muted/50">
+                    <button onClick={() => toggleIdeaStatus(idea)} className="shrink-0 pt-0.5">
+                      <Circle className="h-5 w-5 text-muted-foreground" />
+                    </button>
+                    <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openEditIdeaDialog(idea)}>
+                      <p className="flex items-center gap-1 truncate text-sm font-medium">
+                        <span>{idea.title}</span>
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </p>
+                      {idea.memo && <p className="text-xs text-muted-foreground">{idea.memo}</p>}
+                    </button>
+                  </div>
+                ))}
+
+                {doneIdeas.length > 0 && (
+                  <details className="px-3 pb-3 pt-1">
+                    <summary className="cursor-pointer text-xs text-muted-foreground">完了済み ({doneIdeas.length}件)</summary>
+                    <div className="mt-2 space-y-1">
+                      {doneIdeas.map((idea) => (
+                        <div key={idea.id} className="flex items-center gap-3 p-2 opacity-50 transition-opacity hover:opacity-80">
+                          <button onClick={() => toggleIdeaStatus(idea)}>
+                            <CheckCircle2 className="h-5 w-5 text-primary" />
+                          </button>
+                          <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openEditIdeaDialog(idea)}>
+                            <p className="text-sm line-through">{idea.title}</p>
+                            {idea.memo && <p className="text-xs text-muted-foreground">{idea.memo}</p>}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

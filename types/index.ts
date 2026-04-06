@@ -17,6 +17,7 @@ export type EventReminder = Tables<'event_reminders'>
 export type ShoppingList = Tables<'shopping_lists'>
 export type ShoppingItem = Tables<'shopping_items'>
 export type Todo = Tables<'todos'>
+export type IdeaItem = Tables<'idea_items'>
 export type Expense = Tables<'expenses'>
 export type ExpenseSplit = Tables<'expense_splits'>
 export type ExpenseCategory = Tables<'expense_categories'>
