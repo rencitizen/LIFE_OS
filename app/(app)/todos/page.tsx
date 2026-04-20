@@ -80,6 +80,8 @@ type TodoTreeRow = {
   todo: Todo
   depth: number
   hasChildren: boolean
+  childCount: number
+  ancestorTitles: string[]
 }
 
 function formatTodoPeriod(startDate?: string | null, endDate?: string | null, dueDate?: string | null) {
@@ -275,6 +277,22 @@ export default function TodosPage() {
     const rows: TodoTreeRow[] = []
     const visited = new Set<string>()
 
+    const getAncestorTitles = (todo: Todo) => {
+      const titles: string[] = []
+      const seen = new Set<string>()
+      let parentId = todo.parent_todo_id
+
+      while (parentId && filteredTodoMap.has(parentId) && !seen.has(parentId)) {
+        seen.add(parentId)
+        const parent = filteredTodoMap.get(parentId)
+        if (!parent) break
+        titles.unshift(parent.title)
+        parentId = parent.parent_todo_id
+      }
+
+      return titles
+    }
+
     const visit = (todo: Todo, depth: number) => {
       if (visited.has(todo.id)) return
       visited.add(todo.id)
@@ -284,6 +302,8 @@ export default function TodosPage() {
         todo,
         depth,
         hasChildren: children.length > 0,
+        childCount: children.length,
+        ancestorTitles: getAncestorTitles(todo),
       })
 
       children.forEach((child) => visit(child, depth + 1))
@@ -298,7 +318,7 @@ export default function TodosPage() {
       .forEach((todo) => visit(todo, 0))
 
     return rows
-  }, [filteredTodos, visibleChildrenMap])
+  }, [filteredTodoMap, filteredTodos, visibleChildrenMap])
 
   const parentOptions = useMemo(() => {
     const childLevel = newTaskLevel
@@ -704,7 +724,7 @@ export default function TodosPage() {
                   ))}
                 </div>
 
-                {treeRows.map(({ todo, depth, hasChildren }) => {
+                {treeRows.map(({ todo, depth, hasChildren, childCount, ancestorTitles }) => {
                   const StatusIcon = statusIcons[todo.status as keyof typeof statusIcons] || Circle
                   const range = getTodoRange(todo)
                   const timelineVisible =
@@ -724,7 +744,28 @@ export default function TodosPage() {
                   return (
                     <div key={todo.id} className="grid border-b last:border-b-0" style={{ gridTemplateColumns }}>
                       <div className="sticky left-0 z-10 flex min-h-[64px] items-center border-r bg-background px-3 py-2 hover:bg-muted/40">
-                        <div className="flex w-full items-start gap-3" style={{ paddingLeft: depth * 18 }}>
+                        <div className="flex w-full items-start gap-3">
+                          <div className="relative mt-0.5 h-5 shrink-0" style={{ width: Math.max(12, depth * 18 + 12) }}>
+                            {Array.from({ length: depth }).map((_, index) => (
+                              <span
+                                key={`${todo.id}-branch-${index}`}
+                                className="absolute top-[-10px] bottom-[-28px] w-px bg-border"
+                                style={{ left: index * 18 + 8 }}
+                              />
+                            ))}
+                            {depth > 0 && (
+                              <>
+                                <span
+                                  className="absolute h-px bg-border"
+                                  style={{ left: (depth - 1) * 18 + 8, top: 10, width: 12 }}
+                                />
+                                <span
+                                  className="absolute w-px bg-border"
+                                  style={{ left: (depth - 1) * 18 + 8, top: -10, height: 20 }}
+                                />
+                              </>
+                            )}
+                          </div>
                           <button
                             type="button"
                             onClick={(event) => {
@@ -746,11 +787,20 @@ export default function TodosPage() {
                           </button>
 
                           <button type="button" onClick={() => openEditDialog(todo)} className="min-w-0 flex-1 text-left">
+                            {ancestorTitles.length > 0 && (
+                              <p className="truncate text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                {ancestorTitles.join(' / ')}
+                              </p>
+                            )}
                             <div className="flex items-center gap-2">
                               <p className={cn('truncate text-sm font-medium', todo.status === 'done' && 'line-through opacity-60')}>
                                 {todo.title}
                               </p>
-                              {hasChildren && <span className="text-xs text-muted-foreground">{depth === 0 ? 'Root' : 'Parent'}</span>}
+                              {hasChildren && (
+                                <span className="text-xs text-muted-foreground">
+                                  {depth === 0 ? 'Root' : 'Parent'} {childCount > 0 ? `(${childCount})` : ''}
+                                </span>
+                              )}
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-1">
                               <Badge className={cn('text-[10px]', taskLevelColors[todo.task_level as TodoTaskLevel])}>
