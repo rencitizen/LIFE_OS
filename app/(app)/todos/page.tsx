@@ -587,7 +587,10 @@ export default function TodosPage() {
 
               <div className="space-y-2">
                 <Label>Parent task</Label>
-                <Select value={newParentTodoId || 'none'} onValueChange={(value) => setNewParentTodoId(value === 'none' ? '' : value)}>
+                <Select
+                  value={newParentTodoId || 'none'}
+                  onValueChange={(value) => setNewParentTodoId(!value || value === 'none' ? '' : value)}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No parent</SelectItem>
@@ -615,7 +618,7 @@ export default function TodosPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Priority</Label>
-                <Select value={newPriority} onValueChange={(value) => setNewPriority(value ?? 'medium')}>
+                <Select value={newPriority} onValueChange={(value) => setNewPriority(value || 'medium')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="high">High</SelectItem>
@@ -627,7 +630,7 @@ export default function TodosPage() {
 
               <div className="space-y-2">
                 <Label>Assignee</Label>
-                <Select value={newAssignee} onValueChange={(value) => setNewAssignee(value ?? 'shared')}>
+                <Select value={newAssignee} onValueChange={(value) => setNewAssignee(value || 'shared')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="shared">Shared</SelectItem>
