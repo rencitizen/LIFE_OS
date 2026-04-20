@@ -6,6 +6,8 @@ export const todoSchema = z.object({
   due_date: z.string().optional(),
   start_date: z.string().optional(),
   end_date: z.string().optional(),
+  parent_todo_id: z.string().uuid().optional(),
+  task_level: z.enum(['large', 'medium', 'small']).default('small'),
   priority: z.enum(['high', 'medium', 'low']).default('medium'),
   assigned_to: z.string().uuid().optional(),
   visibility: z.enum(['shared', 'private']).default('shared'),

@@ -260,11 +260,13 @@ export type Database = {
           couple_id: string
           created_by: string
           assigned_to: string | null
+          parent_todo_id: string | null
           title: string
           description: string | null
           due_date: string | null
           start_date: string | null
           end_date: string | null
+          task_level: string
           priority: string
           status: string
           visibility: string
@@ -279,11 +281,13 @@ export type Database = {
           couple_id: string
           created_by: string
           assigned_to?: string | null
+          parent_todo_id?: string | null
           title: string
           description?: string | null
           due_date?: string | null
           start_date?: string | null
           end_date?: string | null
+          task_level?: string
           priority?: string
           status?: string
           visibility?: string
@@ -298,11 +302,13 @@ export type Database = {
           couple_id?: string
           created_by?: string
           assigned_to?: string | null
+          parent_todo_id?: string | null
           title?: string
           description?: string | null
           due_date?: string | null
           start_date?: string | null
           end_date?: string | null
+          task_level?: string
           priority?: string
           status?: string
           visibility?: string

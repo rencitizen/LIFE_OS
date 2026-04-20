@@ -1,24 +1,32 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { CheckCircle2, Circle, Clock, Pencil, Plus, Trash2 } from 'lucide-react'
-import { format } from 'date-fns'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  addMonths,
+  differenceInCalendarDays,
+  eachDayOfInterval,
+  format,
+  isBefore,
+  isSameDay,
+  startOfToday,
+  subMonths,
+} from 'date-fns'
+import { CheckCircle2, Circle, Clock, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import { normalizeDateRange } from '@/lib/date-utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCreateIdeaItem, useDeleteIdeaItem, useIdeaItems, useUpdateIdeaItem } from '@/lib/hooks/use-idea-items'
 import { useCreateTodo, useCreateTodos, useDeleteTodo, useTodos, useUpdateTodo } from '@/lib/hooks/use-todos'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import type { IdeaItem, InsertTables } from '@/types'
+import type { IdeaItem, InsertTables, Todo, TodoTaskLevel } from '@/types'
 
 const statusIcons = {
   pending: Circle,
@@ -27,9 +35,9 @@ const statusIcons = {
 }
 
 const priorityLabels: Record<string, string> = {
-  high: '高',
-  medium: '中',
-  low: '低',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
 }
 
 const priorityColors: Record<string, string> = {
@@ -38,12 +46,87 @@ const priorityColors: Record<string, string> = {
   low: 'bg-[var(--color-info-soft)] text-[var(--color-info)]',
 }
 
+const taskLevelLabels: Record<TodoTaskLevel, string> = {
+  large: 'Large',
+  medium: 'Medium',
+  small: 'Small',
+}
+
+const taskLevelColors: Record<TodoTaskLevel, string> = {
+  large: 'bg-slate-900 text-white',
+  medium: 'bg-slate-200 text-slate-700',
+  small: 'bg-white text-slate-700 border border-slate-200',
+}
+
+const taskLevelRank: Record<TodoTaskLevel, number> = {
+  large: 0,
+  medium: 1,
+  small: 2,
+}
+
+const filterLabels = {
+  all: 'All',
+  mine: 'Mine',
+  partner: 'Partner',
+  shared: 'Shared',
+} as const
+
+const CELL_WIDTH = 28
+const LEFT_COLUMN_WIDTH = 320
+
+type FilterMode = keyof typeof filterLabels
+
+type TodoTreeRow = {
+  todo: Todo
+  depth: number
+  hasChildren: boolean
+}
+
 function formatTodoPeriod(startDate?: string | null, endDate?: string | null, dueDate?: string | null) {
   const from = startDate ?? dueDate
   const to = endDate ?? dueDate ?? startDate
-  if (!from) return '日付未設定'
+  if (!from) return 'No date'
   if (from === to) return from
   return `${from} - ${to}`
+}
+
+function getTodoRange(todo: Todo) {
+  const start = todo.start_date ?? todo.due_date ?? todo.end_date
+  if (!start) return null
+
+  return normalizeDateRange(start, todo.end_date ?? todo.due_date ?? start)
+}
+
+function compareTodos(a: Todo, b: Todo) {
+  const aRange = getTodoRange(a)
+  const bRange = getTodoRange(b)
+  const aDate = aRange?.startDate ?? '9999-12-31'
+  const bDate = bRange?.startDate ?? '9999-12-31'
+
+  if (a.status === 'done' && b.status !== 'done') return 1
+  if (a.status !== 'done' && b.status === 'done') return -1
+  if (aDate !== bDate) return aDate.localeCompare(bDate)
+  if (taskLevelRank[a.task_level as TodoTaskLevel] !== taskLevelRank[b.task_level as TodoTaskLevel]) {
+    return taskLevelRank[a.task_level as TodoTaskLevel] - taskLevelRank[b.task_level as TodoTaskLevel]
+  }
+
+  return a.created_at.localeCompare(b.created_at)
+}
+
+function canAssignParent(parentLevel: TodoTaskLevel, childLevel: TodoTaskLevel) {
+  if (childLevel === 'large') return false
+  if (childLevel === 'medium') return parentLevel === 'large'
+  return parentLevel === 'large' || parentLevel === 'medium'
+}
+
+function collectDescendantIds(todoId: string, childrenMap: Map<string, Todo[]>, result = new Set<string>()) {
+  const children = childrenMap.get(todoId) || []
+  for (const child of children) {
+    if (result.has(child.id)) continue
+    result.add(child.id)
+    collectDescendantIds(child.id, childrenMap, result)
+  }
+  return result
 }
 
 export default function TodosPage() {
@@ -58,41 +141,82 @@ export default function TodosPage() {
   const updateIdeaItem = useUpdateIdeaItem()
   const deleteIdeaItem = useDeleteIdeaItem()
 
+  const [filterMode, setFilterMode] = useState<FilterMode>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [newDescription, setNewDescription] = useState('')
   const [bulkMode, setBulkMode] = useState(false)
   const [bulkTitles, setBulkTitles] = useState('')
   const [newPriority, setNewPriority] = useState('medium')
   const [newAssignee, setNewAssignee] = useState('shared')
   const [newStartDate, setNewStartDate] = useState('')
   const [newEndDate, setNewEndDate] = useState('')
+  const [newTaskLevel, setNewTaskLevel] = useState<TodoTaskLevel>('small')
+  const [newParentTodoId, setNewParentTodoId] = useState('')
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null)
   const [ideaDialogOpen, setIdeaDialogOpen] = useState(false)
   const [ideaTitle, setIdeaTitle] = useState('')
   const [ideaMemo, setIdeaMemo] = useState('')
   const [editingIdeaId, setEditingIdeaId] = useState<string | null>(null)
 
+  const today = startOfToday()
+  const timelineStart = subMonths(today, 1)
+  const timelineEnd = addMonths(today, 2)
+
+  const timelineDays = useMemo(
+    () => eachDayOfInterval({ start: timelineStart, end: timelineEnd }),
+    [timelineEnd, timelineStart]
+  )
+
+  const monthSegments = useMemo(() => {
+    const result: { key: string; label: string; startIndex: number; span: number }[] = []
+
+    timelineDays.forEach((day, index) => {
+      const key = format(day, 'yyyy-MM')
+      const last = result[result.length - 1]
+      if (!last || last.key !== key) {
+        result.push({
+          key,
+          label: format(day, 'yyyy MMM'),
+          startIndex: index,
+          span: 1,
+        })
+        return
+      }
+
+      last.span += 1
+    })
+
+    return result
+  }, [timelineDays])
+
   const openCreateDialog = () => {
     setEditingTodoId(null)
     setNewTitle('')
+    setNewDescription('')
     setBulkMode(false)
     setBulkTitles('')
     setNewPriority('medium')
     setNewAssignee('shared')
     setNewStartDate('')
     setNewEndDate('')
+    setNewTaskLevel('small')
+    setNewParentTodoId('')
     setDialogOpen(true)
   }
 
-  const openEditDialog = (todo: NonNullable<typeof allTodos>[number]) => {
+  const openEditDialog = (todo: Todo) => {
     setEditingTodoId(todo.id)
     setNewTitle(todo.title)
+    setNewDescription(todo.description || '')
     setBulkMode(false)
     setBulkTitles('')
     setNewPriority(todo.priority)
     setNewAssignee(!todo.assigned_to ? 'shared' : todo.assigned_to === user?.id ? 'me' : 'partner')
     setNewStartDate(todo.start_date || todo.due_date || '')
     setNewEndDate(todo.end_date || todo.due_date || todo.start_date || '')
+    setNewTaskLevel((todo.task_level as TodoTaskLevel) || 'small')
+    setNewParentTodoId(todo.parent_todo_id || '')
     setDialogOpen(true)
   }
 
@@ -110,14 +234,115 @@ export default function TodosPage() {
     setIdeaDialogOpen(true)
   }
 
+  const filteredTodos = useMemo(() => {
+    const rows = allTodos || []
+    if (filterMode === 'mine') return rows.filter((todo) => todo.assigned_to === user?.id)
+    if (filterMode === 'partner') return rows.filter((todo) => todo.assigned_to === partner?.id)
+    if (filterMode === 'shared') return rows.filter((todo) => !todo.assigned_to)
+    return rows
+  }, [allTodos, filterMode, partner?.id, user?.id])
+
+  const filteredTodoMap = useMemo(
+    () => new Map(filteredTodos.map((todo) => [todo.id, todo])),
+    [filteredTodos]
+  )
+
+  const allChildrenMap = useMemo(() => {
+    const map = new Map<string, Todo[]>()
+    for (const todo of allTodos || []) {
+      if (!todo.parent_todo_id) continue
+      const siblings = map.get(todo.parent_todo_id) || []
+      siblings.push(todo)
+      map.set(todo.parent_todo_id, siblings)
+    }
+    return map
+  }, [allTodos])
+
+  const visibleChildrenMap = useMemo(() => {
+    const map = new Map<string | null, Todo[]>()
+
+    for (const todo of filteredTodos) {
+      const visibleParentId = todo.parent_todo_id && filteredTodoMap.has(todo.parent_todo_id) ? todo.parent_todo_id : null
+      const siblings = map.get(visibleParentId) || []
+      siblings.push(todo)
+      map.set(visibleParentId, siblings)
+    }
+
+    return map
+  }, [filteredTodoMap, filteredTodos])
+
+  const treeRows = useMemo(() => {
+    const rows: TodoTreeRow[] = []
+    const visited = new Set<string>()
+
+    const visit = (todo: Todo, depth: number) => {
+      if (visited.has(todo.id)) return
+      visited.add(todo.id)
+
+      const children = [...(visibleChildrenMap.get(todo.id) || [])].sort(compareTodos)
+      rows.push({
+        todo,
+        depth,
+        hasChildren: children.length > 0,
+      })
+
+      children.forEach((child) => visit(child, depth + 1))
+    }
+
+    const roots = [...(visibleChildrenMap.get(null) || [])].sort(compareTodos)
+    roots.forEach((todo) => visit(todo, 0))
+
+    filteredTodos
+      .filter((todo) => !visited.has(todo.id))
+      .sort(compareTodos)
+      .forEach((todo) => visit(todo, 0))
+
+    return rows
+  }, [filteredTodos, visibleChildrenMap])
+
+  const parentOptions = useMemo(() => {
+    const childLevel = newTaskLevel
+    const blockedIds = editingTodoId ? collectDescendantIds(editingTodoId, allChildrenMap) : new Set<string>()
+    if (editingTodoId) blockedIds.add(editingTodoId)
+
+    return (allTodos || [])
+      .filter((todo) => !blockedIds.has(todo.id))
+      .filter((todo) => canAssignParent(todo.task_level as TodoTaskLevel, childLevel))
+      .sort(compareTodos)
+  }, [allChildrenMap, allTodos, editingTodoId, newTaskLevel])
+
+  useEffect(() => {
+    if (!newParentTodoId) return
+    if (!parentOptions.some((todo) => todo.id === newParentTodoId)) {
+      setNewParentTodoId('')
+    }
+  }, [newParentTodoId, parentOptions])
+
+  const todoCounts = useMemo(() => {
+    const rows = filteredTodos
+    return {
+      total: rows.length,
+      done: rows.filter((todo) => todo.status === 'done').length,
+      active: rows.filter((todo) => todo.status !== 'done').length,
+    }
+  }, [filteredTodos])
+
   const handleSubmit = async () => {
-    if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
+    if (!user?.id || !couple?.id) return toast.error('Account context is missing')
     if (editingTodoId) {
-      if (!newTitle.trim()) return toast.error('タイトルを入力してください')
+      if (!newTitle.trim()) return toast.error('Title is required')
     } else if (bulkMode) {
-      if (!bulkTitles.trim()) return toast.error('TODOを1件以上入力してください')
+      if (!bulkTitles.trim()) return toast.error('Enter one task per line')
     } else if (!newTitle.trim()) {
-      return toast.error('タイトルを入力してください')
+      return toast.error('Title is required')
+    }
+
+    const parentTodo = newParentTodoId ? allTodos?.find((todo) => todo.id === newParentTodoId) : null
+    if (newParentTodoId && !parentTodo) {
+      return toast.error('Selected parent task is no longer available')
+    }
+    if (parentTodo && !canAssignParent(parentTodo.task_level as TodoTaskLevel, newTaskLevel)) {
+      return toast.error('The selected parent cannot contain this task level')
     }
 
     const normalizedRange = newStartDate
@@ -126,11 +351,14 @@ export default function TodosPage() {
 
     try {
       const payload = {
+        description: newDescription.trim() || null,
         priority: newPriority,
         assigned_to: newAssignee === 'shared' ? null : newAssignee === 'me' ? user.id : partner?.id || null,
         due_date: normalizedRange?.endDate || null,
         start_date: normalizedRange?.startDate || null,
         end_date: normalizedRange?.endDate || null,
+        task_level: newTaskLevel,
+        parent_todo_id: newParentTodoId || null,
       }
 
       if (editingTodoId) {
@@ -163,13 +391,15 @@ export default function TodosPage() {
       setDialogOpen(false)
       setEditingTodoId(null)
       setNewTitle('')
+      setNewDescription('')
       setBulkMode(false)
       setBulkTitles('')
       setNewStartDate('')
       setNewEndDate('')
-      toast.success(editingTodoId ? 'TODOを更新しました' : bulkMode ? 'TODOをまとめて追加しました' : 'TODOを追加しました')
+      setNewParentTodoId('')
+      toast.success(editingTodoId ? 'Task updated' : bulkMode ? 'Tasks created' : 'Task created')
     } catch {
-      toast.error(editingTodoId ? 'TODOの更新に失敗しました' : 'TODOの追加に失敗しました')
+      toast.error(editingTodoId ? 'Failed to update task' : 'Failed to save task')
     }
   }
 
@@ -183,7 +413,7 @@ export default function TodosPage() {
         completed_at: next === 'done' ? new Date().toISOString() : null,
       })
     } catch {
-      toast.error('ステータス更新に失敗しました')
+      toast.error('Failed to update status')
     }
   }
 
@@ -195,19 +425,21 @@ export default function TodosPage() {
       setEditingTodoId(null)
       setDialogOpen(false)
       setNewTitle('')
+      setNewDescription('')
       setBulkMode(false)
       setBulkTitles('')
       setNewStartDate('')
       setNewEndDate('')
-      toast.success('TODOを削除しました')
+      setNewParentTodoId('')
+      toast.success('Task deleted')
     } catch {
-      toast.error('TODOの削除に失敗しました')
+      toast.error('Failed to delete task')
     }
   }
 
   const handleIdeaSubmit = async () => {
-    if (!ideaTitle.trim()) return toast.error('やりたいことを入力してください')
-    if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
+    if (!ideaTitle.trim()) return toast.error('Title is required')
+    if (!user?.id || !couple?.id) return toast.error('Account context is missing')
 
     try {
       const payload = {
@@ -230,9 +462,9 @@ export default function TodosPage() {
       setEditingIdeaId(null)
       setIdeaTitle('')
       setIdeaMemo('')
-      toast.success(editingIdeaId ? 'やりたいことを更新しました' : 'やりたいことを追加しました')
+      toast.success(editingIdeaId ? 'Idea updated' : 'Idea created')
     } catch {
-      toast.error(editingIdeaId ? 'やりたいことの更新に失敗しました' : 'やりたいことの追加に失敗しました')
+      toast.error(editingIdeaId ? 'Failed to update idea' : 'Failed to create idea')
     }
   }
 
@@ -243,7 +475,7 @@ export default function TodosPage() {
         status: idea.status === 'done' ? 'active' : 'done',
       })
     } catch {
-      toast.error('状態の更新に失敗しました')
+      toast.error('Failed to update idea')
     }
   }
 
@@ -256,113 +488,53 @@ export default function TodosPage() {
       setIdeaDialogOpen(false)
       setIdeaTitle('')
       setIdeaMemo('')
-      toast.success('やりたいことを削除しました')
+      toast.success('Idea deleted')
     } catch {
-      toast.error('やりたいことの削除に失敗しました')
+      toast.error('Failed to delete idea')
     }
-  }
-
-  const filterTodos = (tab: string) => {
-    if (!allTodos) return []
-    switch (tab) {
-      case 'mine':
-        return allTodos.filter((todo) => todo.assigned_to === user?.id)
-      case 'partner':
-        return allTodos.filter((todo) => todo.assigned_to === partner?.id)
-      case 'shared':
-        return allTodos.filter((todo) => !todo.assigned_to)
-      default:
-        return allTodos
-    }
-  }
-
-  const sortedTodos = useMemo(() => {
-    return (todos: typeof allTodos) => {
-      return [...(todos || [])].sort((a, b) => {
-        const aDate = a.start_date || a.due_date || ''
-        const bDate = b.start_date || b.due_date || ''
-        if (a.status === 'done' && b.status !== 'done') return 1
-        if (a.status !== 'done' && b.status === 'done') return -1
-        return aDate.localeCompare(bDate)
-      })
-    }
-  }, [])
-
-  const renderTodoList = (todos: typeof allTodos) => {
-    const rows = sortedTodos(todos)
-    if (!rows.length) {
-      return <p className="p-4 text-sm text-muted-foreground">TODOはありません</p>
-    }
-
-    const pending = rows.filter((todo) => todo.status !== 'done')
-    const done = rows.filter((todo) => todo.status === 'done')
-
-    return (
-      <div className="space-y-2">
-        {pending.map((todo) => {
-          const StatusIcon = statusIcons[todo.status as keyof typeof statusIcons] || Circle
-          return (
-            <div key={todo.id} className="flex items-start gap-3 rounded-md p-3 transition-colors hover:bg-muted/50">
-              <button onClick={() => cycleStatus(todo.id, todo.status)} className="shrink-0 pt-0.5">
-                <StatusIcon className={cn('h-5 w-5', todo.status === 'in_progress' ? 'text-[var(--color-info)]' : 'text-muted-foreground')} />
-              </button>
-              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openEditDialog(todo)}>
-                <p className="flex items-center gap-1 truncate text-sm font-medium">
-                  <span>{todo.title}</span>
-                  <Pencil className="h-3 w-3 text-muted-foreground" />
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatTodoPeriod(todo.start_date, todo.end_date, todo.due_date)}
-                </p>
-              </button>
-              <Badge className={cn('text-xs', priorityColors[todo.priority])}>
-                {priorityLabels[todo.priority]}
-              </Badge>
-            </div>
-          )
-        })}
-
-        {done.length > 0 && (
-          <details className="pt-2">
-            <summary className="cursor-pointer text-xs text-muted-foreground">完了済み ({done.length}件)</summary>
-            <div className="mt-2 space-y-1">
-              {done.map((todo) => (
-                <div key={todo.id} className="flex items-center gap-3 p-2 opacity-50 transition-opacity hover:opacity-80">
-                  <button onClick={() => cycleStatus(todo.id, todo.status)}>
-                    <CheckCircle2 className="h-5 w-5 text-primary" />
-                  </button>
-                  <div>
-                    <p className="text-sm line-through">{todo.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {todo.completed_at ? format(new Date(todo.completed_at), 'yyyy/MM/dd HH:mm') : '完了'}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
-    )
   }
 
   const activeIdeas = (ideaItems || []).filter((idea) => idea.status !== 'done')
   const doneIdeas = (ideaItems || []).filter((idea) => idea.status === 'done')
 
+  const gridTemplateColumns = `${LEFT_COLUMN_WIDTH}px repeat(${timelineDays.length}, ${CELL_WIDTH}px)`
+  const totalGridWidth = LEFT_COLUMN_WIDTH + timelineDays.length * CELL_WIDTH
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">TODO</h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">TODO Timeline</h1>
+          <p className="text-sm text-muted-foreground">
+            {format(timelineStart, 'yyyy/MM/dd')} - {format(timelineEnd, 'yyyy/MM/dd')} centered on today
+          </p>
+        </div>
         <Button size="sm" onClick={openCreateDialog}>
           <Plus className="mr-1 h-4 w-4" />
-          TODOを追加
+          Add task
         </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {(Object.keys(filterLabels) as FilterMode[]).map((mode) => (
+          <Button
+            key={mode}
+            size="sm"
+            variant={filterMode === mode ? 'default' : 'outline'}
+            onClick={() => setFilterMode(mode)}
+          >
+            {filterLabels[mode]}
+          </Button>
+        ))}
+        <Badge variant="outline">{todoCounts.total} tasks</Badge>
+        <Badge variant="outline">{todoCounts.active} active</Badge>
+        <Badge variant="outline">{todoCounts.done} done</Badge>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingTodoId ? 'TODOを編集' : 'TODOを追加'}</DialogTitle>
+            <DialogTitle>{editingTodoId ? 'Edit task' : 'Add task'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {!editingTodoId && (
@@ -371,94 +543,301 @@ export default function TodosPage() {
                   id="bulk-mode"
                   type="checkbox"
                   checked={bulkMode}
-                  onChange={(e) => setBulkMode(e.target.checked)}
+                  onChange={(event) => setBulkMode(event.target.checked)}
                   className="h-4 w-4 rounded border"
                 />
-                <Label htmlFor="bulk-mode">まとめて追加</Label>
+                <Label htmlFor="bulk-mode">Create multiple tasks</Label>
               </div>
             )}
+
             {bulkMode && !editingTodoId ? (
               <div className="space-y-2">
-                <Label>TODO一覧</Label>
+                <Label>Task list</Label>
                 <Textarea
                   value={bulkTitles}
-                  onChange={(e) => setBulkTitles(e.target.value)}
-                  placeholder={'1行に1件ずつ入力\n例:\n食材を買う\n固定費を見直す\n保険を確認する'}
+                  onChange={(event) => setBulkTitles(event.target.value)}
+                  placeholder={'One task per line\nResearch options\nDraft proposal\nReview details'}
                   rows={6}
                 />
               </div>
             ) : (
               <div className="space-y-2">
-                <Label>タイトル</Label>
-                <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSubmit()} />
+                <Label>Title</Label>
+                <Input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} />
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={newDescription} onChange={(event) => setNewDescription(event.target.value)} rows={3} />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>開始日</Label>
-                <Input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} />
+                <Label>Task level</Label>
+                <Select value={newTaskLevel} onValueChange={(value) => setNewTaskLevel(value as TodoTaskLevel)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="large">Large task</SelectItem>
+                    <SelectItem value="medium">Medium task</SelectItem>
+                    <SelectItem value="small">Small task</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Parent task</Label>
+                <Select value={newParentTodoId || 'none'} onValueChange={(value) => setNewParentTodoId(value === 'none' ? '' : value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No parent</SelectItem>
+                    {parentOptions.map((todo) => (
+                      <SelectItem key={todo.id} value={todo.id}>
+                        {taskLevelLabels[todo.task_level as TodoTaskLevel]} / {todo.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Start date</Label>
+                <Input type="date" value={newStartDate} onChange={(event) => setNewStartDate(event.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>終了日</Label>
-                <Input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} />
+                <Label>End date</Label>
+                <Input type="date" value={newEndDate} onChange={(event) => setNewEndDate(event.target.value)} />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>優先度</Label>
-              <Select value={newPriority} onValueChange={(value) => setNewPriority(value ?? 'medium')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">高</SelectItem>
-                  <SelectItem value="medium">中</SelectItem>
-                  <SelectItem value="low">低</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select value={newPriority} onValueChange={(value) => setNewPriority(value ?? 'medium')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Assignee</Label>
+                <Select value={newAssignee} onValueChange={(value) => setNewAssignee(value ?? 'shared')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="shared">Shared</SelectItem>
+                    <SelectItem value="me">{user?.display_name || 'Me'}</SelectItem>
+                    {partner && <SelectItem value="partner">{partner.display_name}</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>担当</Label>
-              <Select value={newAssignee} onValueChange={(value) => setNewAssignee(value ?? 'shared')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="shared">共有</SelectItem>
-                  <SelectItem value="me">{user?.display_name || '自分'}</SelectItem>
-                  {partner && <SelectItem value="partner">{partner.display_name}</SelectItem>}
-                </SelectContent>
-              </Select>
-            </div>
+
             <div className="flex gap-2">
               {editingTodoId && (
                 <Button type="button" variant="outline" className="flex-1" onClick={handleDeleteTodo}>
                   <Trash2 className="mr-1 h-4 w-4" />
-                  削除
+                  Delete
                 </Button>
               )}
-              <Button onClick={handleSubmit} className="flex-1" disabled={createTodo.isPending || createTodos.isPending || updateTodo.isPending || deleteTodo.isPending}>
-                {editingTodoId ? '更新' : bulkMode ? 'まとめて保存' : '保存'}
+              <Button
+                onClick={handleSubmit}
+                className="flex-1"
+                disabled={createTodo.isPending || createTodos.isPending || updateTodo.isPending || deleteTodo.isPending}
+              >
+                {editingTodoId ? 'Update' : bulkMode ? 'Create tasks' : 'Create task'}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Gantt view</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {treeRows.length === 0 ? (
+            <p className="p-4 text-sm text-muted-foreground">No tasks yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="min-w-fit" style={{ width: totalGridWidth }}>
+                <div className="grid border-b bg-muted/30" style={{ gridTemplateColumns }}>
+                  <div className="sticky left-0 z-30 border-r bg-background px-4 py-3 text-sm font-medium">
+                    Task
+                  </div>
+                  {monthSegments.map((segment) => (
+                    <div
+                      key={segment.key}
+                      className="border-r px-2 py-2 text-center text-xs font-medium text-muted-foreground"
+                      style={{ gridColumn: `${segment.startIndex + 2} / span ${segment.span}` }}
+                    >
+                      {segment.label}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid border-b bg-background/80" style={{ gridTemplateColumns }}>
+                  <div className="sticky left-0 z-20 border-r bg-background px-4 py-2 text-xs text-muted-foreground">
+                    Hierarchy
+                  </div>
+                  {timelineDays.map((day, index) => (
+                    <div
+                      key={day.toISOString()}
+                      className={cn(
+                        'border-r px-1 py-2 text-center text-[10px] text-muted-foreground',
+                        isSameDay(day, today) && 'bg-primary/10 font-semibold text-primary'
+                      )}
+                      style={{ gridColumn: index + 2 }}
+                    >
+                      <div>{format(day, 'd')}</div>
+                      <div>{format(day, 'EEEEE')}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {treeRows.map(({ todo, depth, hasChildren }) => {
+                  const StatusIcon = statusIcons[todo.status as keyof typeof statusIcons] || Circle
+                  const range = getTodoRange(todo)
+                  const timelineVisible =
+                    range &&
+                    !(range.endDate < format(timelineStart, 'yyyy-MM-dd') || range.startDate > format(timelineEnd, 'yyyy-MM-dd'))
+                  const startIndex = range
+                    ? Math.max(0, differenceInCalendarDays(new Date(`${range.startDate}T00:00:00`), timelineStart))
+                    : 0
+                  const endIndex = range
+                    ? Math.min(
+                        timelineDays.length - 1,
+                        differenceInCalendarDays(new Date(`${range.endDate}T00:00:00`), timelineStart)
+                      )
+                    : 0
+                  const isOverdue = range && todo.status !== 'done' && isBefore(new Date(`${range.endDate}T23:59:59`), today)
+
+                  return (
+                    <div key={todo.id} className="grid border-b last:border-b-0" style={{ gridTemplateColumns }}>
+                      <div className="sticky left-0 z-10 flex min-h-[64px] items-center border-r bg-background px-3 py-2 hover:bg-muted/40">
+                        <div className="flex w-full items-start gap-3" style={{ paddingLeft: depth * 18 }}>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              cycleStatus(todo.id, todo.status)
+                            }}
+                            className="mt-0.5 shrink-0"
+                          >
+                            <StatusIcon
+                              className={cn(
+                                'h-5 w-5',
+                                todo.status === 'done'
+                                  ? 'text-primary'
+                                  : todo.status === 'in_progress'
+                                    ? 'text-[var(--color-info)]'
+                                    : 'text-muted-foreground'
+                              )}
+                            />
+                          </button>
+
+                          <button type="button" onClick={() => openEditDialog(todo)} className="min-w-0 flex-1 text-left">
+                            <div className="flex items-center gap-2">
+                              <p className={cn('truncate text-sm font-medium', todo.status === 'done' && 'line-through opacity-60')}>
+                                {todo.title}
+                              </p>
+                              {hasChildren && <span className="text-xs text-muted-foreground">{depth === 0 ? 'Root' : 'Parent'}</span>}
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                              <Badge className={cn('text-[10px]', taskLevelColors[todo.task_level as TodoTaskLevel])}>
+                                {taskLevelLabels[todo.task_level as TodoTaskLevel]}
+                              </Badge>
+                              <Badge className={cn('text-[10px]', priorityColors[todo.priority])}>
+                                {priorityLabels[todo.priority]}
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px]">
+                                {todo.assigned_to === user?.id
+                                  ? user?.display_name || 'Me'
+                                  : todo.assigned_to === partner?.id
+                                    ? partner?.display_name || 'Partner'
+                                    : 'Shared'}
+                              </Badge>
+                            </div>
+                            <p className={cn('mt-1 text-xs text-muted-foreground', isOverdue && 'text-destructive')}>
+                              {formatTodoPeriod(todo.start_date, todo.end_date, todo.due_date)}
+                            </p>
+                          </button>
+                        </div>
+                      </div>
+
+                      {timelineDays.map((day, index) => (
+                        <div
+                          key={`${todo.id}-${day.toISOString()}`}
+                          className={cn(
+                            'min-h-[64px] border-r',
+                            isSameDay(day, today) && 'bg-primary/5'
+                          )}
+                          style={{ gridColumn: index + 2 }}
+                        />
+                      ))}
+
+                      {range && timelineVisible ? (
+                        <button
+                          type="button"
+                          onClick={() => openEditDialog(todo)}
+                          className={cn(
+                            'z-[1] mx-0.5 my-3 flex items-center rounded-md px-2 text-left text-[11px] font-medium text-white shadow-sm',
+                            todo.status === 'done' && 'opacity-60'
+                          )}
+                          style={{
+                            gridColumn: `${startIndex + 2} / ${endIndex + 3}`,
+                            backgroundColor:
+                              todo.task_level === 'large'
+                                ? '#0f172a'
+                                : todo.task_level === 'medium'
+                                  ? '#475569'
+                                  : '#64748b',
+                          }}
+                        >
+                          <span className="truncate">{todo.title}</span>
+                        </button>
+                      ) : (
+                        <div
+                          className="z-[1] flex items-center px-3 text-xs text-muted-foreground"
+                          style={{ gridColumn: `2 / span ${timelineDays.length}` }}
+                        >
+                          {range ? 'Outside current window' : 'No date set'}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Dialog open={ideaDialogOpen} onOpenChange={setIdeaDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingIdeaId ? 'やりたいことを編集' : 'やりたいことを追加'}</DialogTitle>
+            <DialogTitle>{editingIdeaId ? 'Edit idea' : 'Add idea'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>やりたいこと</Label>
-              <Input value={ideaTitle} onChange={(e) => setIdeaTitle(e.target.value)} />
+              <Label>Title</Label>
+              <Input value={ideaTitle} onChange={(event) => setIdeaTitle(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>メモ</Label>
-              <Textarea value={ideaMemo} onChange={(e) => setIdeaMemo(e.target.value)} rows={4} />
+              <Label>Memo</Label>
+              <Textarea value={ideaMemo} onChange={(event) => setIdeaMemo(event.target.value)} rows={4} />
             </div>
             <div className="flex gap-2">
               {editingIdeaId && (
                 <Button type="button" variant="outline" className="flex-1" onClick={handleDeleteIdea}>
                   <Trash2 className="mr-1 h-4 w-4" />
-                  削除
+                  Delete
                 </Button>
               )}
               <Button
@@ -466,42 +845,26 @@ export default function TodosPage() {
                 className="flex-1"
                 disabled={createIdeaItem.isPending || updateIdeaItem.isPending || deleteIdeaItem.isPending}
               >
-                {editingIdeaId ? '更新' : '保存'}
+                {editingIdeaId ? 'Update' : 'Create'}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all">すべて</TabsTrigger>
-          <TabsTrigger value="mine">自分</TabsTrigger>
-          <TabsTrigger value="partner">{partner?.display_name || 'パートナー'}</TabsTrigger>
-          <TabsTrigger value="shared">共有</TabsTrigger>
-        </TabsList>
-        {['all', 'mine', 'partner', 'shared'].map((tab) => (
-          <TabsContent key={tab} value={tab}>
-            <Card>
-              <CardContent className="p-0">{renderTodoList(filterTodos(tab))}</CardContent>
-            </Card>
-          </TabsContent>
-        ))}
-      </Tabs>
-
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">やりたいこと</h2>
+          <h2 className="text-xl font-bold">Ideas</h2>
           <Button size="sm" variant="outline" onClick={openCreateIdeaDialog}>
             <Plus className="mr-1 h-4 w-4" />
-            やりたいことを追加
+            Add idea
           </Button>
         </div>
 
         <Card>
           <CardContent className="p-0">
             {activeIdeas.length === 0 && doneIdeas.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">やりたいことはまだありません</p>
+              <p className="p-4 text-sm text-muted-foreground">No ideas yet.</p>
             ) : (
               <div className="space-y-2">
                 {activeIdeas.map((idea) => (
@@ -510,10 +873,7 @@ export default function TodosPage() {
                       <Circle className="h-5 w-5 text-muted-foreground" />
                     </button>
                     <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openEditIdeaDialog(idea)}>
-                      <p className="flex items-center gap-1 truncate text-sm font-medium">
-                        <span>{idea.title}</span>
-                        <Pencil className="h-3 w-3 text-muted-foreground" />
-                      </p>
+                      <p className="truncate text-sm font-medium">{idea.title}</p>
                       {idea.memo && <p className="text-xs text-muted-foreground">{idea.memo}</p>}
                     </button>
                   </div>
@@ -521,7 +881,7 @@ export default function TodosPage() {
 
                 {doneIdeas.length > 0 && (
                   <details className="px-3 pb-3 pt-1">
-                    <summary className="cursor-pointer text-xs text-muted-foreground">完了済み ({doneIdeas.length}件)</summary>
+                    <summary className="cursor-pointer text-xs text-muted-foreground">Done ({doneIdeas.length})</summary>
                     <div className="mt-2 space-y-1">
                       {doneIdeas.map((idea) => (
                         <div key={idea.id} className="flex items-center gap-3 p-2 opacity-50 transition-opacity hover:opacity-80">
