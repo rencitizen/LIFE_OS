@@ -12,6 +12,7 @@ import {
   subMonths,
 } from 'date-fns'
 import { CheckCircle2, Circle, Clock, Plus, Trash2 } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +25,7 @@ import { normalizeDateRange } from '@/lib/date-utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCreateIdeaItem, useDeleteIdeaItem, useIdeaItems, useUpdateIdeaItem } from '@/lib/hooks/use-idea-items'
 import { useCreateTodo, useCreateTodos, useDeleteTodo, useTodos, useUpdateTodo } from '@/lib/hooks/use-todos'
+import { buildTodoProgressSummary } from '@/lib/todo-progress'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { IdeaItem, InsertTables, Todo, TodoTaskLevel } from '@/types'
@@ -348,19 +350,7 @@ export default function TodosPage() {
     }
   }, [filteredTodos])
 
-  const todoMetrics = useMemo(() => {
-    const rows = filteredTodos
-    const completionRate = rows.length > 0 ? Math.round((todoCounts.done / rows.length) * 100) : 0
-    const recentDone = [...rows]
-      .filter((todo) => todo.status === 'done')
-      .sort((a, b) => (b.completed_at || b.created_at).localeCompare(a.completed_at || a.created_at))
-      .slice(0, 5)
-
-    return {
-      completionRate,
-      recentDone,
-    }
-  }, [filteredTodos, todoCounts.done])
+  const todoMetrics = useMemo(() => buildTodoProgressSummary(filteredTodos, today), [filteredTodos, today])
 
   const handleSubmit = async () => {
     if (!user?.id || !couple?.id) return toast.error('Account context is missing')
@@ -595,6 +585,78 @@ export default function TodosPage() {
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Daily completion trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {todoMetrics.doneCount > 0 ? (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={todoMetrics.dailySeries}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#85A392" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Complete a few tasks to start building your daily trend.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Momentum</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Done today</p>
+              <p className="mt-1 text-2xl font-semibold">{todoMetrics.doneToday}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Done this week</p>
+              <p className="mt-1 text-2xl font-semibold">{todoMetrics.doneThisWeek}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Current streak</p>
+              <p className="mt-1 text-2xl font-semibold">{todoMetrics.currentStreak} days</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Done this month</p>
+              <p className="mt-1 text-2xl font-semibold">{todoMetrics.doneThisMonth}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Weekly completion trend</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {todoMetrics.doneCount > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={todoMetrics.weeklySeries}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+                  <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Weekly bars appear after you build up completion history.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

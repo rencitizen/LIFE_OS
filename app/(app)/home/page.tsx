@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react'
 import { format } from 'date-fns'
-import { ja } from 'date-fns/locale'
-import { Calendar, CheckSquare, TrendingUp, Wallet } from 'lucide-react'
+import { Calendar, Flame, CheckSquare, TrendingUp, Wallet } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
@@ -16,14 +16,7 @@ import { useCalendarEvents } from '@/lib/hooks/use-calendar-events'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
 import { useTodos } from '@/lib/hooks/use-todos'
-
-function formatTodoPeriod(startDate?: string | null, endDate?: string | null, dueDate?: string | null) {
-  const from = startDate ?? dueDate
-  const to = endDate ?? from
-  if (!from) return 'No date'
-  if (from === to) return from
-  return `${from} - ${to}`
-}
+import { buildTodoProgressSummary } from '@/lib/todo-progress'
 
 function formatEventTime(startAt: string, endAt?: string | null, allDay?: boolean) {
   if (allDay) return 'All day'
@@ -31,7 +24,7 @@ function formatEventTime(startAt: string, endAt?: string | null, allDay?: boolea
 }
 
 export default function HomePage() {
-  const { user, couple, partner } = useAuth()
+  const { user, couple } = useAuth()
   const today = new Date()
   const monthStr = format(today, 'yyyy-MM')
   const lifePlanConfig = useLifePlanConfig(couple?.id)
@@ -67,214 +60,229 @@ export default function HomePage() {
     [events, weekDateKeys]
   )
 
-  const todoSummary = useMemo(() => {
-    const rows = todos || []
-    const done = rows.filter((todo) => todo.status === 'done')
-    const active = rows.filter((todo) => todo.status !== 'done')
-    const inProgress = rows.filter((todo) => todo.status === 'in_progress')
-
-    return {
-      total: rows.length,
-      active,
-      done,
-      inProgress,
-      completionRate: rows.length > 0 ? Math.round((done.length / rows.length) * 100) : 0,
-      recentDone: [...done]
-        .sort((a, b) => (b.completed_at || b.created_at).localeCompare(a.completed_at || a.created_at))
-        .slice(0, 5),
-    }
-  }, [todos])
+  const todoProgress = useMemo(() => buildTodoProgressSummary(todos || [], today), [today, todos])
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{user?.display_name || 'User'}さん、おかえりなさい</h1>
-          <p className="text-muted-foreground">{format(today, 'yyyy年M月d日 EEEE', { locale: ja })}</p>
+          <h1 className="text-2xl font-bold">Welcome back, {user?.display_name || 'User'}</h1>
+          <p className="text-muted-foreground">{format(today, 'yyyy/MM/dd')}</p>
         </div>
         {couple?.living_mode && (
           <Badge className="border border-[var(--color-info)]/20 bg-[var(--color-info-soft)] text-[var(--color-info)]">
-            {LIVING_MODE_LABELS[couple.living_mode as keyof typeof LIVING_MODE_LABELS] ?? '未設定'}
+            {LIVING_MODE_LABELS[couple.living_mode as keyof typeof LIVING_MODE_LABELS] ?? 'Not set'}
           </Badge>
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Next 7 days</CardTitle>
-            <Calendar className="h-4 w-4 text-[var(--color-info)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{events?.length || 0}件</div>
-            {events?.[0] && <p className="mt-1 truncate text-xs text-muted-foreground">{events[0].title}</p>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">TODO progress</CardTitle>
+            <CardTitle className="text-sm font-medium">Done today</CardTitle>
             <CheckSquare className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todoSummary.total}件</div>
+            <div className="text-2xl font-bold">{todoProgress.doneToday}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Tasks completed today</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Done this week</CardTitle>
+            <TrendingUp className="h-4 w-4 text-[var(--color-info)]" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{todoProgress.doneThisWeek}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Tasks completed this week</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Current streak</CardTitle>
+            <Flame className="h-4 w-4 text-[var(--color-expense)]" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{todoProgress.currentStreak} days</div>
+            <p className="mt-1 text-xs text-muted-foreground">Consecutive days with completed tasks</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Completion rate</CardTitle>
+            <Calendar className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{todoProgress.completionRate}%</div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {todoSummary.active.length} active / {todoSummary.done.length} done
+              {todoProgress.doneCount} done / {todoProgress.total} total
             </p>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${todoSummary.completionRate}%` }} />
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${todoProgress.completionRate}%` }} />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">This month spend</CardTitle>
-            <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatYen(summary?.total || 0)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{summary?.count || 0}件の支出</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Budget left</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            {remainingBudget !== null ? (
-              <>
-                <div className={`text-2xl font-bold ${remainingBudget < 0 ? 'text-destructive' : 'text-primary'}`}>
-                  {formatYen(remainingBudget)}
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-[var(--color-expense)] transition-all"
-                    style={{ width: `${Math.min(100, Math.max(0, ((summary?.total || 0) / budgetLimit) * 100))}%` }}
-                  />
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">予算未設定</p>
-            )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Upcoming schedule</CardTitle>
+            <CardTitle className="text-base">Daily completion trend</CardTitle>
           </CardHeader>
           <CardContent>
-            {groupedUpcomingEvents.length > 0 ? (
-              <div className="space-y-3">
-                {groupedUpcomingEvents.map((group) => (
-                  <div key={group.dateKey} className="rounded-lg border p-3">
-                    <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-semibold">
-                        {format(new Date(`${group.dateKey}T00:00:00+09:00`), 'M月d日 EEE', { locale: ja })}
-                      </p>
-                      <Badge variant="outline">{group.items.length}件</Badge>
-                    </div>
+            {todoProgress.doneCount > 0 ? (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={todoProgress.dailySeries}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#85A392" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Complete a few tasks to start building your daily trend.</p>
+            )}
+          </CardContent>
+        </Card>
 
-                    <div className="space-y-3">
-                      {group.items.map((event) => (
-                        <div key={`${group.dateKey}-${event.id}`} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-                          <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: event.color || '#3B82F6' }} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{event.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatEventTime(event.start_at, event.end_at, event.all_day)}
-                            </p>
-                            {event.location && <p className="mt-1 text-xs text-muted-foreground">{event.location}</p>}
-                          </div>
-                        </div>
-                      ))}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent wins</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {todoProgress.recentDone.length > 0 ? (
+              <div className="space-y-3">
+                {todoProgress.recentDone.map((todo) => (
+                  <div key={todo.id} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium line-through opacity-70">{todo.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {todo.completed_at ? format(new Date(todo.completed_at), 'MM/dd HH:mm') : 'Completed'}
+                        </p>
+                      </div>
+                      <Badge variant="outline">done</Badge>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">直近1週間の予定はありません</p>
+              <p className="text-sm text-muted-foreground">No completed tasks yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Weekly pace</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {todoProgress.doneCount > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={todoProgress.weeklySeries}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Weekly bars appear after you build up completion history.</p>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Task accumulation</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Task momentum</CardTitle>
           </CardHeader>
-          <CardContent>
-            {todoSummary.total > 0 ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <p className="text-xs text-muted-foreground">Active</p>
-                    <p className="mt-1 text-xl font-semibold">{todoSummary.active.length}</p>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <p className="text-xs text-muted-foreground">In progress</p>
-                    <p className="mt-1 text-xl font-semibold">{todoSummary.inProgress.length}</p>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <p className="text-xs text-muted-foreground">Done</p>
-                    <p className="mt-1 text-xl font-semibold">{todoSummary.done.length}</p>
-                  </div>
-                </div>
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">In progress</p>
+              <p className="mt-1 text-2xl font-semibold">{todoProgress.inProgressCount}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Open tasks</p>
+              <p className="mt-1 text-2xl font-semibold">{todoProgress.activeCount}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Done this month</p>
+              <p className="mt-1 text-2xl font-semibold">{todoProgress.doneThisMonth}</p>
+            </div>
+          </CardContent>
+        </Card>
 
-                <div className="space-y-3">
-                  {todoSummary.active.slice(0, 3).map((todo) => (
-                    <div key={todo.id} className="flex items-start gap-3 rounded-lg border p-3">
-                      <div
-                        className={`mt-1 h-2.5 w-2.5 rounded-full ${
-                          todo.priority === 'high'
-                            ? 'bg-destructive'
-                            : todo.priority === 'medium'
-                              ? 'bg-[var(--color-expense)]'
-                              : 'bg-[var(--color-info)]'
-                        }`}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{todo.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatTodoPeriod(todo.start_date, todo.end_date, todo.due_date)}
-                        </p>
-                      </div>
-                      {todo.assigned_to && (
-                        <Badge variant="secondary" className="shrink-0 text-xs">
-                          {todo.assigned_to === user?.id ? '自分' : partner?.display_name || 'パートナー'}
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {todoSummary.recentDone.length > 0 && (
-                  <div className="rounded-lg border border-dashed p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Recent done</p>
-                      <Badge variant="outline">{todoSummary.completionRate}%</Badge>
-                    </div>
-                    <div className="space-y-2">
-                      {todoSummary.recentDone.map((todo) => (
-                        <div key={todo.id} className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <CheckSquare className="h-4 w-4 text-primary" />
-                          <span className="truncate line-through">{todo.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Finance snapshot</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">This month spend</p>
+                <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">まだTODOはありません</p>
-            )}
+              <p className="mt-1 text-xl font-semibold">{formatYen(summary?.total || 0)}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">Budget left</p>
+              <p className={`mt-1 text-xl font-semibold ${remainingBudget !== null && remainingBudget < 0 ? 'text-destructive' : 'text-primary'}`}>
+                {remainingBudget !== null ? formatYen(remainingBudget) : 'Not set'}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Upcoming schedule</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {groupedUpcomingEvents.length > 0 ? (
+            <div className="space-y-3">
+              {groupedUpcomingEvents.map((group) => (
+                <div key={group.dateKey} className="rounded-lg border p-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-semibold">
+                      {format(new Date(`${group.dateKey}T00:00:00+09:00`), 'MM/dd')}
+                    </p>
+                    <Badge variant="outline">{group.items.length}</Badge>
+                  </div>
+
+                  <div className="space-y-3">
+                    {group.items.map((event) => (
+                      <div key={`${group.dateKey}-${event.id}`} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
+                        <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: event.color || '#3B82F6' }} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{event.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatEventTime(event.start_at, event.end_at, event.all_day)}
+                          </p>
+                          {event.location && <p className="mt-1 text-xs text-muted-foreground">{event.location}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No upcoming events in the next 7 days.</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
