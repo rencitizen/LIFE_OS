@@ -115,7 +115,7 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        <Card tone="violet">
+        <Card tone="teal">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Upcoming tasks</CardTitle>
             <CheckSquare className="h-4 w-4 text-primary" />
@@ -195,7 +195,7 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        <Card tone="violet">
+        <Card tone="teal">
           <CardHeader>
             <CardTitle className="text-base">Upcoming tasks</CardTitle>
           </CardHeader>

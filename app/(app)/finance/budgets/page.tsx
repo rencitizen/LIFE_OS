@@ -567,7 +567,7 @@ export default function BudgetsPage() {
         </Card>
       </div>
 
-      <Card tone="violet">
+      <Card tone="teal">
         <CardHeader>
           <CardTitle className="text-base">月次予算サマリー</CardTitle>
         </CardHeader>
@@ -730,7 +730,7 @@ export default function BudgetsPage() {
       </Card>
 
       {!editing && (
-        <Card tone="violet">
+        <Card tone="teal">
           <CardHeader>
             <CardTitle className="text-base">予算ステータス</CardTitle>
           </CardHeader>

@@ -2,7 +2,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-type CardTone = "default" | "mint" | "sky" | "amber" | "rose" | "violet"
+type CardTone = "default" | "mint" | "sky" | "amber" | "rose" | "teal"
 
 const toneStyles: Record<CardTone, string> = {
   default: "",
@@ -10,7 +10,7 @@ const toneStyles: Record<CardTone, string> = {
   sky: "before:bg-gradient-to-r before:from-[var(--color-sky)] before:to-[var(--color-info)]",
   amber: "before:bg-gradient-to-r before:from-[var(--color-amber)] before:to-[var(--color-expense)]",
   rose: "before:bg-gradient-to-r before:from-[var(--color-rose)] before:to-[var(--destructive)]",
-  violet: "before:bg-gradient-to-r before:from-[var(--color-violet)] before:to-[var(--chart-5)]",
+  teal: "before:bg-gradient-to-r before:from-[var(--color-teal)] before:to-[var(--chart-5)]",
 }
 
 function Card({

@@ -124,7 +124,7 @@ export default function AnalysisPage() {
             <p className="text-2xl font-bold">{formatYen(actualExpense)}</p>
           </CardContent>
         </Card>
-        <Card tone="violet">
+        <Card tone="teal">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Balance</CardTitle>
           </CardHeader>

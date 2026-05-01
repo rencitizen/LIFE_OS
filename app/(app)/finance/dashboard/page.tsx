@@ -26,7 +26,7 @@ import { useExpenses } from '@/lib/hooks/use-expenses'
 import { useIncomes } from '@/lib/hooks/use-incomes'
 import { useFinanceStore } from '@/stores/finance-store'
 
-const PIE_COLORS = ['#1F5C4D', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#14B8A6']
+const PIE_COLORS = ['#1d6a57', '#3f7cf6', '#f39b2f', '#ef5b6c', '#14b8a6', '#0f766e']
 
 function formatSignedYen(value: number) {
   const sign = value >= 0 ? '+' : '-'

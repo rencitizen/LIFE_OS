@@ -70,7 +70,7 @@
   --chart-2: #20b16c;
   --chart-3: #3f7cf6;
   --chart-4: #f39b2f;
-  --chart-5: #8b5cf6;
+  --chart-5: #14b8a6;
   --radius: 0.625rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #163128;
@@ -90,7 +90,7 @@
   --color-sky: #3f7cf6;
   --color-amber: #f39b2f;
   --color-rose: #ef5b6c;
-  --color-violet: #8b5cf6;
+  --color-teal: #0f766e;
 }
 
 .dark {
@@ -116,7 +116,8 @@
   --chart-2: #2ac37d;
   --chart-3: #4f8dff;
   --chart-4: #7a9a8a;
-  --chart-5: #b997ff;
+  --chart-5: #2dd4bf;
+  --color-teal: #5eead4;
   --sidebar: #132720;
   --sidebar-foreground: #e8f0ec;
   --sidebar-primary: #8dc6a9;

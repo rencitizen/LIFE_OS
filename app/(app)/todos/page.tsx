@@ -575,7 +575,7 @@ export default function TodosPage() {
             <p className="mt-1 text-2xl font-semibold">{todoCounts.inProgress}</p>
           </CardContent>
         </Card>
-        <Card tone="violet">
+        <Card tone="teal">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Completion</p>
             <p className="mt-1 text-2xl font-semibold">{todoMetrics.completionRate}%</p>
@@ -980,7 +980,7 @@ export default function TodosPage() {
       </Card>
 
       {todoMetrics.recentDone.length > 0 && (
-        <Card tone="violet">
+        <Card tone="teal">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Completed log</CardTitle>
           </CardHeader>

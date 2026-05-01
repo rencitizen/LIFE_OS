@@ -59,7 +59,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card tone="violet">
+        <Card tone="teal">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Completion rate</CardTitle>
             <Calendar className="h-4 w-4 text-primary" />
@@ -152,7 +152,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card tone="violet">
+        <Card tone="teal">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Momentum</CardTitle>
           </CardHeader>

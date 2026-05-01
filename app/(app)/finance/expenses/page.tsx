@@ -626,7 +626,7 @@ export default function TransactionsPage() {
             <p className="mt-1 text-xl font-semibold text-[var(--color-expense)]">{formatYen(monthSummary.expense)}</p>
           </CardContent>
         </Card>
-        <Card tone="violet">
+        <Card tone="teal">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">差額</p>
             <p className={`mt-1 text-xl font-semibold ${monthSummary.income - monthSummary.expense >= 0 ? 'text-primary' : 'text-destructive'}`}>
