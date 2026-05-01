@@ -24,7 +24,7 @@ const categoryLabels: Record<string, string> = {
 
 const priorityColors: Record<string, string> = {
   high: 'text-destructive',
-  medium: 'text-[#85B59B]',
+  medium: 'text-[var(--color-blue)]',
   low: 'text-muted-foreground',
 }
 
