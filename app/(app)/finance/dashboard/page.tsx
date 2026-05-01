@@ -139,7 +139,7 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card tone="sky">
+        <Card tone="cyan">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Balance</CardTitle>
             <Wallet className="h-4 w-4 text-primary" />
@@ -154,7 +154,7 @@ export default function FinanceDashboardPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.35fr_0.95fr]">
-        <Card tone="sky">
+        <Card tone="cyan">
           <CardHeader>
             <CardTitle className="text-base">Monthly PL graph</CardTitle>
           </CardHeader>
