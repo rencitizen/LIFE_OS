@@ -34,6 +34,10 @@ function formatSignedYen(value: number) {
   return `${sign}${formatYen(Math.abs(value))}`
 }
 
+function formatTooltipCurrency(value: number | string | undefined) {
+  return formatYen(Number(value || 0))
+}
+
 function buildDailyPlSeries(
   selectedMonth: string,
   incomes: Array<{ income_date: string; amount: number | string }>,
@@ -170,7 +174,7 @@ export default function FinanceDashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} minTickGap={18} />
                     <YAxis tickLine={false} axisLine={false} fontSize={12} width={64} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} />
-                    <Tooltip formatter={(value: number) => formatYen(Number(value))} />
+                    <Tooltip formatter={formatTooltipCurrency} />
                     <Legend />
                     <Bar dataKey="income" name="Income" fill={UI_ACCENT_COLORS.income} radius={[6, 6, 0, 0]} />
                     <Bar dataKey="expense" name="Expense" fill={UI_ACCENT_COLORS.expense} radius={[6, 6, 0, 0]} />
@@ -206,7 +210,7 @@ export default function FinanceDashboardPage() {
                           <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => formatYen(Number(value))} />
+                      <Tooltip formatter={formatTooltipCurrency} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
