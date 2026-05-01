@@ -67,13 +67,13 @@ export function useYearIncomeHistory(coupleId: string | undefined, year: number)
     queryFn: async () => {
       const { data, error } = await supabase
         .from('incomes')
-        .select('amount, income_date, income_type')
+        .select('amount, income_date, income_type, user_id')
         .eq('couple_id', coupleId!)
         .gte('income_date', `${year}-01-01`)
         .lt('income_date', `${year + 1}-01-01`)
       if (error) throw error
 
-      return data as unknown as Pick<Income, 'amount' | 'income_date' | 'income_type'>[]
+      return data as unknown as Pick<Income, 'amount' | 'income_date' | 'income_type' | 'user_id'>[]
     },
     enabled: !!coupleId,
   })

@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { INCOME_TYPE_LABELS, TRANSACTION_FILTER_LABELS, TRANSACTION_SOURCE_LABELS, UI_ACCENT_COLORS } from '@/lib/finance/constants'
+import { FINANCE_SCOPE_LABELS, matchesFinanceScope } from '@/lib/finance/scope'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCreateCategory, useExpenseCategories } from '@/lib/hooks/use-categories'
@@ -67,7 +68,7 @@ function loadImageSize(file: File) {
 
 export default function TransactionsPage() {
   const { user, couple, partner } = useAuth()
-  const { selectedMonth, setSelectedMonth } = useFinanceStore()
+  const { selectedMonth, setSelectedMonth, financeScope } = useFinanceStore()
   const { data: transactions } = useTransactions(couple?.id, selectedMonth)
   const { data: categories } = useExpenseCategories(couple?.id)
   const createCategory = useCreateCategory()
@@ -79,7 +80,6 @@ export default function TransactionsPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
-  const [ownerFilter, setOwnerFilter] = useState<'all' | 'mine' | 'partner'>('all')
   const [sourceFilter, setSourceFilter] = useState<'all' | 'manual' | 'imported'>('all')
   const [editingTransaction, setEditingTransaction] = useState<UnifiedTransaction | null>(null)
 
@@ -353,10 +353,7 @@ export default function TransactionsPage() {
   const filteredTransactions = useMemo(() => {
     return (transactions || []).filter((transaction) => {
       const matchesFilter = filter === 'all' || transaction.transactionType === filter
-      const matchesOwner =
-        ownerFilter === 'all' ||
-        (ownerFilter === 'mine' && transaction.ownerId === user?.id) ||
-        (ownerFilter === 'partner' && transaction.ownerId === partner?.id)
+      const matchesOwner = matchesFinanceScope(financeScope, transaction.ownerId, user?.id, partner?.id)
       const isImportedSource = transaction.source !== 'manual'
       const matchesSource =
         sourceFilter === 'all' ||
@@ -366,7 +363,7 @@ export default function TransactionsPage() {
       const matchesSearch = !searchQuery || text.includes(searchQuery.toLowerCase())
       return matchesFilter && matchesOwner && matchesSource && matchesSearch
     })
-  }, [filter, ownerFilter, partner?.id, searchQuery, sourceFilter, transactions, user?.id])
+  }, [filter, financeScope, partner?.id, searchQuery, sourceFilter, transactions, user?.id])
 
   const [displayYear, displayMonth] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(displayYear, displayMonth - 1, 1)
@@ -387,6 +384,7 @@ export default function TransactionsPage() {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">収入・支出</h1>
         <div className="flex items-center gap-2">
+          <Badge variant="outline">{FINANCE_SCOPE_LABELS[financeScope]}</Badge>
           <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -399,7 +397,7 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto]">
+      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="カテゴリやメモで検索" className="pl-9" />
@@ -411,16 +409,6 @@ export default function TransactionsPage() {
             </Button>
           ))}
         </div>
-        <Select value={ownerFilter} onValueChange={(value) => setOwnerFilter((value as 'all' | 'mine' | 'partner') ?? 'all')}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="所有者" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全員</SelectItem>
-            <SelectItem value="mine">{user?.display_name || '自分'}</SelectItem>
-            {partner && <SelectItem value="partner">{partner.display_name}</SelectItem>}
-          </SelectContent>
-        </Select>
         <Select value={sourceFilter} onValueChange={(value) => setSourceFilter((value as 'all' | 'manual' | 'imported') ?? 'all')}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="入力元" />

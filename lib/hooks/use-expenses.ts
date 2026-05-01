@@ -115,14 +115,14 @@ export function useYearExpenseHistory(coupleId: string | undefined, year: number
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expenses')
-        .select('amount, expense_date, category_id, expense_categories(name, icon, color)')
+        .select('amount, expense_date, category_id, paid_by, expense_categories(name, icon, color)')
         .eq('couple_id', coupleId!)
         .gte('expense_date', `${year}-01-01`)
         .lt('expense_date', `${year + 1}-01-01`)
       if (error) throw error
 
       return data as unknown as Array<
-        Pick<Expense, 'amount' | 'expense_date' | 'category_id'> & {
+        Pick<Expense, 'amount' | 'expense_date' | 'category_id' | 'paid_by'> & {
           expense_categories: { name: string; icon: string | null; color: string | null } | null
         }
       >

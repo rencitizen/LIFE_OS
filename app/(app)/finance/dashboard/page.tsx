@@ -19,9 +19,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { UI_ACCENT_COLORS } from '@/lib/finance/constants'
+import { FINANCE_SCOPE_LABELS, filterByFinanceScope } from '@/lib/finance/scope'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useExpenses, useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
+import { useExpenses } from '@/lib/hooks/use-expenses'
 import { useIncomes } from '@/lib/hooks/use-incomes'
 import { useFinanceStore } from '@/stores/finance-store'
 
@@ -38,20 +39,31 @@ function formatTooltipCurrency(value: number | string | ReadonlyArray<number | s
 }
 
 export default function FinanceDashboardPage() {
-  const { couple } = useAuth()
-  const { selectedMonth, setSelectedMonth } = useFinanceStore()
-  const { data: monthExpenses } = useMonthlyExpenseSummary(couple?.id, selectedMonth)
+  const { couple, user, partner } = useAuth()
+  const { selectedMonth, setSelectedMonth, financeScope } = useFinanceStore()
   const { data: expenseRows } = useExpenses(couple?.id, selectedMonth)
   const { data: monthIncomes } = useIncomes(couple?.id, selectedMonth)
 
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
 
-  const actualIncome = useMemo(
-    () => (monthIncomes || []).reduce((sum, row) => sum + Number(row.amount), 0),
-    [monthIncomes]
+  const scopedExpenseRows = useMemo(
+    () => filterByFinanceScope(expenseRows || [], financeScope, user?.id, partner?.id, (row) => row.paid_by),
+    [expenseRows, financeScope, partner?.id, user?.id]
   )
-  const actualExpense = monthExpenses?.total || 0
+  const scopedIncomes = useMemo(
+    () => filterByFinanceScope(monthIncomes || [], financeScope, user?.id, partner?.id, (row) => row.user_id),
+    [financeScope, monthIncomes, partner?.id, user?.id]
+  )
+
+  const actualIncome = useMemo(
+    () => scopedIncomes.reduce((sum, row) => sum + Number(row.amount), 0),
+    [scopedIncomes]
+  )
+  const actualExpense = useMemo(
+    () => scopedExpenseRows.reduce((sum, row) => sum + Number(row.amount), 0),
+    [scopedExpenseRows]
+  )
   const actualBalance = actualIncome - actualExpense
 
   const monthlyPlSeries = useMemo(
@@ -64,15 +76,19 @@ export default function FinanceDashboardPage() {
   )
 
   const expensePieData = useMemo(() => {
-    const rows = Object.values(monthExpenses?.byCategory || {})
-      .map((row) => ({
-        name: row.name,
-        value: row.total,
-      }))
+    const totals = new Map<string, number>()
+
+    for (const row of scopedExpenseRows) {
+      const name = row.expense_categories?.name || 'Uncategorized'
+      totals.set(name, (totals.get(name) || 0) + Number(row.amount))
+    }
+
+    const rows = Array.from(totals.entries())
+      .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
 
     return rows
-  }, [monthExpenses?.byCategory])
+  }, [scopedExpenseRows])
 
   const navigateMonth = (direction: number) => {
     const nextDate = addMonths(displayDate, direction)
@@ -84,7 +100,9 @@ export default function FinanceDashboardPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold">Monthly overview</h1>
-          <p className="text-sm text-muted-foreground">PL cockpit focused on income, expense, and monthly balance.</p>
+          <p className="text-sm text-muted-foreground">
+            PL cockpit focused on income, expense, and monthly balance for {FINANCE_SCOPE_LABELS[financeScope]}.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -106,7 +124,7 @@ export default function FinanceDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-[var(--color-income)]">{formatYen(actualIncome)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{monthIncomes?.length || 0} income entries</p>
+            <p className="mt-1 text-xs text-muted-foreground">{scopedIncomes.length} income entries</p>
           </CardContent>
         </Card>
 
@@ -117,7 +135,7 @@ export default function FinanceDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-[var(--color-expense)]">{formatYen(actualExpense)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{monthExpenses?.count || 0} expense entries</p>
+            <p className="mt-1 text-xs text-muted-foreground">{scopedExpenseRows.length} expense entries</p>
           </CardContent>
         </Card>
 
