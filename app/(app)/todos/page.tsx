@@ -344,8 +344,23 @@ export default function TodosPage() {
       total: rows.length,
       done: rows.filter((todo) => todo.status === 'done').length,
       active: rows.filter((todo) => todo.status !== 'done').length,
+      inProgress: rows.filter((todo) => todo.status === 'in_progress').length,
     }
   }, [filteredTodos])
+
+  const todoMetrics = useMemo(() => {
+    const rows = filteredTodos
+    const completionRate = rows.length > 0 ? Math.round((todoCounts.done / rows.length) * 100) : 0
+    const recentDone = [...rows]
+      .filter((todo) => todo.status === 'done')
+      .sort((a, b) => (b.completed_at || b.created_at).localeCompare(a.completed_at || a.created_at))
+      .slice(0, 5)
+
+    return {
+      completionRate,
+      recentDone,
+    }
+  }, [filteredTodos, todoCounts.done])
 
   const handleSubmit = async () => {
     if (!user?.id || !couple?.id) return toast.error('Account context is missing')
@@ -549,6 +564,36 @@ export default function TodosPage() {
         <Badge variant="outline">{todoCounts.total} tasks</Badge>
         <Badge variant="outline">{todoCounts.active} active</Badge>
         <Badge variant="outline">{todoCounts.done} done</Badge>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Total</p>
+            <p className="mt-1 text-2xl font-semibold">{todoCounts.total}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Active</p>
+            <p className="mt-1 text-2xl font-semibold">{todoCounts.active}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">In progress</p>
+            <p className="mt-1 text-2xl font-semibold">{todoCounts.inProgress}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Completion</p>
+            <p className="mt-1 text-2xl font-semibold">{todoMetrics.completionRate}%</p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${todoMetrics.completionRate}%` }} />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -871,6 +916,27 @@ export default function TodosPage() {
           )}
         </CardContent>
       </Card>
+
+      {todoMetrics.recentDone.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Completed log</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {todoMetrics.recentDone.map((todo) => (
+              <div key={todo.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium line-through opacity-70">{todo.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {todo.completed_at ? format(new Date(todo.completed_at), 'yyyy/MM/dd HH:mm') : 'Completed'}
+                  </p>
+                </div>
+                <Badge variant="outline">done</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={ideaDialogOpen} onOpenChange={setIdeaDialogOpen}>
         <DialogContent>
