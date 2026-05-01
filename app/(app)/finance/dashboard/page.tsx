@@ -34,8 +34,9 @@ function formatSignedYen(value: number) {
   return `${sign}${formatYen(Math.abs(value))}`
 }
 
-function formatTooltipCurrency(value: number | string | undefined) {
-  return formatYen(Number(value || 0))
+function formatTooltipCurrency(value: number | string | ReadonlyArray<number | string> | undefined) {
+  const normalized = Array.isArray(value) ? value[0] : value
+  return formatYen(Number(normalized || 0))
 }
 
 function buildDailyPlSeries(
