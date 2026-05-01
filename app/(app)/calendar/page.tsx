@@ -234,9 +234,9 @@ export default function CalendarPage() {
   const selectedDayEvents = getEventsForDay(selectedDate)
 
   const getEventColor = (event: CalendarEvent) => {
-    if (event.created_by === user?.id) return user?.color || '#1F5C4D'
-    if (event.created_by === partner?.id) return partner?.color || '#3B82F6'
-    return event.color || '#1F5C4D'
+    if (event.created_by === user?.id) return user?.color || '#093C5D'
+    if (event.created_by === partner?.id) return partner?.color || '#3B7597'
+    return event.color || '#093C5D'
   }
 
   const resetForm = (date = selectedDate) => {
@@ -300,7 +300,7 @@ export default function CalendarPage() {
         all_day: newAllDay,
         location: newLocation || undefined,
         visibility: newVisibility,
-        color: user.color || '#1F5C4D',
+        color: user.color || '#093C5D',
       }
 
       const buildEvent = (startDate: string, endDate: string): InsertTables<'calendar_events'> => ({
@@ -532,7 +532,7 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
 
-      <Card tone="sky">
+      <Card tone="cyan">
         <CardHeader className="flex flex-row items-center justify-between py-3">
           <Button
             variant="ghost"

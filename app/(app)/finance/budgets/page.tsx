@@ -433,7 +433,7 @@ export default function BudgetsPage() {
         </div>
       </div>
 
-      <Card tone="sky" className="border-primary/20 bg-[linear-gradient(135deg,rgba(29,106,87,0.08),rgba(63,124,246,0.08))]">
+      <Card tone="cyan" className="border-primary/20 bg-[linear-gradient(135deg,rgba(9,60,93,0.08),rgba(107,209,215,0.08))]">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
@@ -515,7 +515,7 @@ export default function BudgetsPage() {
           </CardContent>
         </Card>
 
-        <Card tone="amber">
+        <Card tone="blue">
           <CardHeader>
             <CardTitle className="text-base">生活費予算と実績</CardTitle>
           </CardHeader>
@@ -567,7 +567,7 @@ export default function BudgetsPage() {
         </Card>
       </div>
 
-      <Card tone="teal">
+      <Card tone="navy">
         <CardHeader>
           <CardTitle className="text-base">月次予算サマリー</CardTitle>
         </CardHeader>
@@ -623,7 +623,7 @@ export default function BudgetsPage() {
         </CardContent>
       </Card>
 
-      <Card tone="sky">
+      <Card tone="cyan">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="text-base">生活費予算</CardTitle>
@@ -730,7 +730,7 @@ export default function BudgetsPage() {
       </Card>
 
       {!editing && (
-        <Card tone="teal">
+        <Card tone="navy">
           <CardHeader>
             <CardTitle className="text-base">予算ステータス</CardTitle>
           </CardHeader>

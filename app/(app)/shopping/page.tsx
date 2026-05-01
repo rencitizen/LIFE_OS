@@ -189,7 +189,7 @@ export default function ShoppingPage() {
                   selectedListId === list.id && 'ring-1 ring-primary'
                 )}
                 onClick={() => setSelectedListId(list.id)}
-                tone="amber"
+                tone="blue"
               >
                 <CardContent className="flex items-center justify-between p-4">
                   <div>
@@ -239,7 +239,7 @@ export default function ShoppingPage() {
         {/* Items */}
         <div className="lg:col-span-2">
           {selectedListId ? (
-            <Card tone="sky">
+            <Card tone="cyan">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">

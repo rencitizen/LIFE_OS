@@ -416,7 +416,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-lg border bg-[#F7F7F7] p-4">
               <p className="text-xs text-muted-foreground">年額実績</p>
-              <p className="mt-1 text-xl font-semibold text-[#2563eb]">{yen(activeActual?.total ?? 0)}</p>
+              <p className="mt-1 text-xl font-semibold text-[#3B7597]">{yen(activeActual?.total ?? 0)}</p>
             </div>
             <div className="rounded-lg border bg-[#F7F7F7] p-4">
               <p className="text-xs text-muted-foreground">内訳</p>
@@ -585,7 +585,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-lg border bg-[#F7F7F7] p-4">
               <p className="text-xs text-muted-foreground">年額実績</p>
-              <p className="mt-1 text-xl font-semibold text-[#2563eb]">{yen(activeActual?.total ?? 0)}</p>
+              <p className="mt-1 text-xl font-semibold text-[#3B7597]">{yen(activeActual?.total ?? 0)}</p>
             </div>
             <div className="rounded-lg border bg-[#F7F7F7] p-4">
               <p className="text-xs text-muted-foreground">内訳</p>
@@ -648,7 +648,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-lg border bg-[#F7F7F7] p-4">
               <p className="text-xs text-muted-foreground">年額実績</p>
-              <p className="mt-1 text-xl font-semibold text-[#2563eb]">{yen(activeActual?.total ?? 0)}</p>
+              <p className="mt-1 text-xl font-semibold text-[#3B7597]">{yen(activeActual?.total ?? 0)}</p>
             </div>
             <div className="rounded-lg border bg-[#F7F7F7] p-4">
               <p className="text-xs text-muted-foreground">内訳</p>
@@ -787,7 +787,7 @@ function IncomeTab({
                     <td className="p-2 text-right"><Computed>{yen(entry.ren.gross + entry.hikaru.gross)}</Computed></td>
                     <td className="p-2 text-right font-medium text-[#1E5945]">{yen(entry.ren.net + entry.hikaru.net)}</td>
                     <td className="p-2 text-right">
-                      <div className="font-medium text-[#2563eb]">{yen(actual?.total ?? 0)}</div>
+                      <div className="font-medium text-[#3B7597]">{yen(actual?.total ?? 0)}</div>
                       <div className="text-[10px] text-muted-foreground">{actual?.monthsRecorded ?? 0}/12ヶ月</div>
                     </td>
                     <td className="p-2 text-right">

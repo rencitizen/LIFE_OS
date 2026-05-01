@@ -21,12 +21,10 @@ import { toast } from 'sonner'
 import type { LivingMode } from '@/types'
 
 const PROFILE_COLORS = [
-  { value: '#1F5C4D', label: 'Forest' },
-  { value: '#22C55E', label: 'Green' },
-  { value: '#3B82F6', label: 'Blue' },
-  { value: '#F59E0B', label: 'Amber' },
-  { value: '#B95C74', label: 'Rose' },
-  { value: '#6B7280', label: 'Slate' },
+  { value: '#093C5D', label: 'Navy' },
+  { value: '#3B7597', label: 'Blue' },
+  { value: '#6FD1D7', label: 'Cyan' },
+  { value: '#5DF8D8', label: 'Mint' },
 ] as const
 
 export default function SettingsPage() {
@@ -39,7 +37,7 @@ export default function SettingsPage() {
   const { data: accountSummary } = useAccountBalanceSummary(couple?.id)
 
   const [editName, setEditName] = useState('')
-  const [editColor, setEditColor] = useState('#1F5C4D')
+  const [editColor, setEditColor] = useState('#093C5D')
   const [editingProfile, setEditingProfile] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
 
@@ -77,7 +75,7 @@ export default function SettingsPage() {
 
   const startEditProfile = () => {
     setEditName(user?.display_name ?? '')
-    setEditColor(user?.color ?? '#1F5C4D')
+    setEditColor(user?.color ?? '#093C5D')
     setEditingProfile(true)
   }
 
@@ -216,8 +214,8 @@ export default function SettingsPage() {
               <AvatarFallback
                 className="text-lg"
                 style={{
-                  backgroundColor: `${editingProfile ? editColor : user?.color || '#1F5C4D'}20`,
-                  color: editingProfile ? editColor : user?.color || '#1F5C4D',
+                  backgroundColor: `${editingProfile ? editColor : user?.color || '#093C5D'}20`,
+                  color: editingProfile ? editColor : user?.color || '#093C5D',
                 }}
               >
                 {(editingProfile ? editName : user?.display_name)?.[0] || '?'}
@@ -258,8 +256,8 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-md border px-3 py-2">
-                  <span className="h-4 w-4 rounded-full border" style={{ backgroundColor: user?.color ?? '#1F5C4D' }} />
-                  <span className="text-sm">{PROFILE_COLORS.find((color) => color.value === (user?.color ?? '#1F5C4D'))?.label || 'Custom'}</span>
+                  <span className="h-4 w-4 rounded-full border" style={{ backgroundColor: user?.color ?? '#093C5D' }} />
+                  <span className="text-sm">{PROFILE_COLORS.find((color) => color.value === (user?.color ?? '#093C5D'))?.label || 'Custom'}</span>
                 </div>
               )}
             </div>

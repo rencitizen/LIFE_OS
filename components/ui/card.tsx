@@ -2,15 +2,14 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-type CardTone = "default" | "mint" | "sky" | "amber" | "rose" | "teal"
+type CardTone = "default" | "mint" | "cyan" | "blue" | "navy"
 
 const toneStyles: Record<CardTone, string> = {
   default: "",
-  mint: "before:bg-gradient-to-r before:from-[var(--color-mint)] before:to-[var(--color-income)]",
-  sky: "before:bg-gradient-to-r before:from-[var(--color-sky)] before:to-[var(--color-info)]",
-  amber: "before:bg-gradient-to-r before:from-[var(--color-amber)] before:to-[var(--color-expense)]",
-  rose: "before:bg-gradient-to-r before:from-[var(--color-rose)] before:to-[var(--destructive)]",
-  teal: "before:bg-gradient-to-r before:from-[var(--color-teal)] before:to-[var(--chart-5)]",
+  mint: "before:bg-gradient-to-r before:from-[var(--color-mint)] before:to-[var(--color-cyan)]",
+  cyan: "before:bg-gradient-to-r before:from-[var(--color-cyan)] before:to-[var(--color-blue)]",
+  blue: "before:bg-gradient-to-r before:from-[var(--color-blue)] before:to-[var(--color-navy)]",
+  navy: "before:bg-gradient-to-r before:from-[var(--color-navy)] before:to-[var(--color-mint)]",
 }
 
 function Card({

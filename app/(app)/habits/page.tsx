@@ -37,7 +37,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card tone="sky">
+        <Card tone="cyan">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Done this week</CardTitle>
             <TrendingUp className="h-4 w-4 text-[var(--color-info)]" />
@@ -48,7 +48,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card tone="amber">
+        <Card tone="blue">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Current streak</CardTitle>
             <Flame className="h-4 w-4 text-[var(--color-expense)]" />
@@ -59,7 +59,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card tone="teal">
+        <Card tone="navy">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Completion rate</CardTitle>
             <Calendar className="h-4 w-4 text-primary" />
@@ -77,7 +77,7 @@ export default function HabitsPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-        <Card tone="sky">
+        <Card tone="cyan">
           <CardHeader>
             <CardTitle className="text-base">Daily completion trend</CardTitle>
           </CardHeader>
@@ -90,7 +90,7 @@ export default function HabitsPage() {
                     <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                     <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="#85A392" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="count" fill="#6FD1D7" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -129,7 +129,7 @@ export default function HabitsPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-        <Card tone="amber">
+        <Card tone="blue">
           <CardHeader>
             <CardTitle className="text-base">Weekly pace</CardTitle>
           </CardHeader>
@@ -142,7 +142,7 @@ export default function HabitsPage() {
                     <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                     <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="count" fill="#3B7597" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -152,7 +152,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card tone="teal">
+        <Card tone="navy">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Momentum</CardTitle>
           </CardHeader>

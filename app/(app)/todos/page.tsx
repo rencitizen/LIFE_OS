@@ -563,19 +563,19 @@ export default function TodosPage() {
             <p className="mt-1 text-2xl font-semibold">{todoCounts.total}</p>
           </CardContent>
         </Card>
-        <Card tone="sky">
+        <Card tone="cyan">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Active</p>
             <p className="mt-1 text-2xl font-semibold">{todoCounts.active}</p>
           </CardContent>
         </Card>
-        <Card tone="amber">
+        <Card tone="blue">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">In progress</p>
             <p className="mt-1 text-2xl font-semibold">{todoCounts.inProgress}</p>
           </CardContent>
         </Card>
-        <Card tone="teal">
+        <Card tone="navy">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Completion</p>
             <p className="mt-1 text-2xl font-semibold">{todoMetrics.completionRate}%</p>
@@ -587,7 +587,7 @@ export default function TodosPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-        <Card tone="sky">
+        <Card tone="cyan">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Daily completion trend</CardTitle>
           </CardHeader>
@@ -600,7 +600,7 @@ export default function TodosPage() {
                     <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                     <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="#85A392" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="count" fill="#6FD1D7" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -648,7 +648,7 @@ export default function TodosPage() {
                   <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                   <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="count" fill="#3B7597" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -980,7 +980,7 @@ export default function TodosPage() {
       </Card>
 
       {todoMetrics.recentDone.length > 0 && (
-        <Card tone="teal">
+        <Card tone="navy">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Completed log</CardTitle>
           </CardHeader>
@@ -1042,7 +1042,7 @@ export default function TodosPage() {
           </Button>
         </div>
 
-        <Card tone="amber">
+        <Card tone="blue">
           <CardContent className="p-0">
             {activeIdeas.length === 0 && doneIdeas.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">No ideas yet.</p>

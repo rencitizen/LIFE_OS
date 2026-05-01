@@ -620,13 +620,13 @@ export default function TransactionsPage() {
             <p className="mt-1 text-xl font-semibold text-[var(--color-income)]">{formatYen(monthSummary.income)}</p>
           </CardContent>
         </Card>
-        <Card tone="amber">
+        <Card tone="blue">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">支出合計</p>
             <p className="mt-1 text-xl font-semibold text-[var(--color-expense)]">{formatYen(monthSummary.expense)}</p>
           </CardContent>
         </Card>
-        <Card tone="teal">
+        <Card tone="navy">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">差額</p>
             <p className={`mt-1 text-xl font-semibold ${monthSummary.income - monthSummary.expense >= 0 ? 'text-primary' : 'text-destructive'}`}>
@@ -689,7 +689,7 @@ export default function TransactionsPage() {
             </Card>
           ))
         ) : (
-          <Card tone="sky">
+          <Card tone="cyan">
             <CardContent className="p-8 text-center text-sm text-muted-foreground">
               該当する取引はありません
             </CardContent>

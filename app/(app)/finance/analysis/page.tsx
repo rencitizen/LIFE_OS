@@ -116,7 +116,7 @@ export default function AnalysisPage() {
             <p className="text-2xl font-bold">{formatYen(actualIncome)}</p>
           </CardContent>
         </Card>
-        <Card tone="amber">
+        <Card tone="blue">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Expense</CardTitle>
           </CardHeader>
@@ -124,7 +124,7 @@ export default function AnalysisPage() {
             <p className="text-2xl font-bold">{formatYen(actualExpense)}</p>
           </CardContent>
         </Card>
-        <Card tone="teal">
+        <Card tone="navy">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Balance</CardTitle>
           </CardHeader>
@@ -135,7 +135,7 @@ export default function AnalysisPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card tone="sky">
+        <Card tone="cyan">
           <CardHeader>
             <CardTitle className="text-base">Top expense categories</CardTitle>
           </CardHeader>
@@ -179,7 +179,7 @@ export default function AnalysisPage() {
         </Card>
       </div>
 
-      <Card tone="sky">
+        <Card tone="cyan">
         <CardHeader>
           <CardTitle className="text-base">{selectedYear} totals</CardTitle>
         </CardHeader>
