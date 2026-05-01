@@ -117,7 +117,7 @@ export default function FinanceDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card tone="mint">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Income</CardTitle>
             <TrendingUp className="h-4 w-4 text-[var(--color-income)]" />
@@ -128,7 +128,7 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="amber">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Expense</CardTitle>
             <TrendingDown className="h-4 w-4 text-[var(--color-expense)]" />
@@ -139,7 +139,7 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="sky">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Balance</CardTitle>
             <Wallet className="h-4 w-4 text-primary" />
@@ -154,7 +154,7 @@ export default function FinanceDashboardPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.35fr_0.95fr]">
-        <Card>
+        <Card tone="sky">
           <CardHeader>
             <CardTitle className="text-base">Monthly PL graph</CardTitle>
           </CardHeader>
@@ -187,7 +187,7 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="amber">
           <CardHeader>
             <CardTitle className="text-base">Expense mix</CardTitle>
           </CardHeader>
@@ -237,15 +237,15 @@ export default function FinanceDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/finance/expenses" className="rounded-xl border bg-background p-4 transition-colors hover:bg-muted/40">
+        <Link href="/finance/expenses" className="rounded-xl border bg-[var(--color-info-soft)] p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
           <p className="text-sm font-medium">Open transactions</p>
           <p className="mt-1 text-xs text-muted-foreground">Review and edit monthly income and expense entries.</p>
         </Link>
-        <Link href="/finance/analysis" className="rounded-xl border bg-background p-4 transition-colors hover:bg-muted/40">
+        <Link href="/finance/analysis" className="rounded-xl border bg-[var(--color-success-soft)] p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
           <p className="text-sm font-medium">Open analysis</p>
           <p className="mt-1 text-xs text-muted-foreground">Dive deeper into category and year-over-year detail.</p>
         </Link>
-        <Link href="/finance/budgets" className="rounded-xl border bg-background p-4 transition-colors hover:bg-muted/40">
+        <Link href="/finance/budgets" className="rounded-xl border bg-[var(--color-expense-soft)] p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
           <p className="text-sm font-medium">Open budgets</p>
           <p className="mt-1 text-xs text-muted-foreground">Adjust the monthly budget baseline used across finance views.</p>
         </Link>

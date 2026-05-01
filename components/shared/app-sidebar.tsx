@@ -45,7 +45,7 @@ export function AppSidebar() {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 border-r bg-card transform transition-transform lg:translate-x-0 lg:static lg:z-auto',
+          'fixed inset-y-0 left-0 z-50 w-64 border-r border-border/80 bg-card/95 transform transition-transform backdrop-blur supports-[backdrop-filter]:bg-card/85 lg:translate-x-0 lg:static lg:z-auto',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >

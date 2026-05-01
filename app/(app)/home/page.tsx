@@ -104,7 +104,7 @@ export default function HomePage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card tone="sky">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Upcoming events</CardTitle>
             <Calendar className="h-4 w-4 text-[var(--color-info)]" />
@@ -115,7 +115,7 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="violet">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Upcoming tasks</CardTitle>
             <CheckSquare className="h-4 w-4 text-primary" />
@@ -126,7 +126,7 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="amber">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">This month spend</CardTitle>
             <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
@@ -137,7 +137,7 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="mint">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Budget left</CardTitle>
             <TrendingUp className="h-4 w-4 text-primary" />
@@ -156,7 +156,7 @@ export default function HomePage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card tone="sky">
           <CardHeader>
             <CardTitle className="text-base">Upcoming schedule</CardTitle>
           </CardHeader>
@@ -195,7 +195,7 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="violet">
           <CardHeader>
             <CardTitle className="text-base">Upcoming tasks</CardTitle>
           </CardHeader>

@@ -18,7 +18,7 @@ export function AppHeader() {
   const { user, partner, signOut } = useAuth()
 
   return (
-    <header className="flex h-14 items-center justify-between border-b px-4">
+    <header className="flex h-14 items-center justify-between border-b border-border/80 bg-card/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/75">
       <Button variant="ghost" size="icon" className="lg:hidden" onClick={toggleSidebar}>
         <Menu className="h-5 w-5" />
       </Button>

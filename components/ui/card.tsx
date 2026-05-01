@@ -2,17 +2,33 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+type CardTone = "default" | "mint" | "sky" | "amber" | "rose" | "violet"
+
+const toneStyles: Record<CardTone, string> = {
+  default: "",
+  mint: "before:bg-gradient-to-r before:from-[var(--color-mint)] before:to-[var(--color-income)]",
+  sky: "before:bg-gradient-to-r before:from-[var(--color-sky)] before:to-[var(--color-info)]",
+  amber: "before:bg-gradient-to-r before:from-[var(--color-amber)] before:to-[var(--color-expense)]",
+  rose: "before:bg-gradient-to-r before:from-[var(--color-rose)] before:to-[var(--destructive)]",
+  violet: "before:bg-gradient-to-r before:from-[var(--color-violet)] before:to-[var(--chart-5)]",
+}
+
 function Card({
   className,
   size = "default",
+  tone = "default",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & { size?: "default" | "sm"; tone?: CardTone }) {
   return (
     <div
       data-slot="card"
       data-size={size}
+      data-tone={tone}
       className={cn(
-        "group/card flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground ring-1 ring-foreground/10 has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card relative flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground shadow-sm shadow-foreground/5 ring-1 ring-foreground/10 has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        tone !== "default" &&
+          "before:absolute before:inset-x-0 before:top-0 before:h-1 before:content-['']",
+        toneStyles[tone],
         className
       )}
       {...props}
