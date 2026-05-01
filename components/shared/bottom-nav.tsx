@@ -29,7 +29,7 @@ export function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card pb-[env(safe-area-inset-bottom)] lg:hidden">
       <div className="grid grid-cols-5 items-stretch">
         {tabs.map((tab) => {
-          const activePrefix = 'activePrefix' in tab ? tab.activePrefix : tab.href
+          const activePrefix = tab.activePrefix ?? tab.href
           const isActive = pathname === tab.href || pathname.startsWith(activePrefix)
           return (
             <Link
