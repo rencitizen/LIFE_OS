@@ -639,7 +639,7 @@ export default function TransactionsPage() {
       <div className="space-y-2">
         {filteredTransactions.length > 0 ? (
           filteredTransactions.map((transaction) => (
-            <Card key={`${transaction.transactionType}-${transaction.id}`} tone={transaction.transactionType === 'income' ? 'mint' : 'amber'}>
+            <Card key={`${transaction.transactionType}-${transaction.id}`} tone={transaction.transactionType === 'income' ? 'mint' : 'blue'}>
               <CardContent className="cursor-pointer p-4 transition-colors hover:bg-muted/30" onClick={() => openEditDialog(transaction)}>
                 <div className="flex items-start gap-3">
                   <div
