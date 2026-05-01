@@ -8,6 +8,7 @@ import {
   Calendar,
   ShoppingCart,
   CheckSquare,
+  Flame,
   Wallet,
   BarChart3,
   Settings,
@@ -19,18 +20,19 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useUIStore } from '@/stores/ui-store'
 
 const navigation = [
-  { name: 'ホーム', href: '/home', icon: Home },
-  { name: 'カレンダー', href: '/calendar', icon: Calendar },
-  { name: '買い物リスト', href: '/shopping', icon: ShoppingCart },
+  { name: 'Home', href: '/home', icon: Home },
+  { name: 'Calendar', href: '/calendar', icon: Calendar },
+  { name: 'Shopping', href: '/shopping', icon: ShoppingCart },
   { name: 'TODO', href: '/todos', icon: CheckSquare },
+  { name: 'Habits', href: '/habits', icon: Flame },
 ]
 
 const financeNavigation = [
-  { name: '概要', href: '/finance/dashboard', icon: BarChart3 },
-  { name: '月次実績', href: '/finance/analysis', icon: LineChart },
-  { name: '収入・支出入力', href: '/finance/expenses', icon: Wallet },
-  { name: '予算', href: '/finance/budgets', icon: Target },
-  { name: '5年計画', href: '/finance/life-plan', icon: TrendingUp },
+  { name: 'Overview', href: '/finance/dashboard', icon: BarChart3 },
+  { name: 'Monthly analysis', href: '/finance/analysis', icon: LineChart },
+  { name: 'Transactions', href: '/finance/expenses', icon: Wallet },
+  { name: 'Budgets', href: '/finance/budgets', icon: Target },
+  { name: '5 year plan', href: '/finance/life-plan', icon: TrendingUp },
 ]
 
 export function AppSidebar() {
@@ -39,21 +41,16 @@ export function AppSidebar() {
 
   return (
     <>
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transform transition-transform lg:translate-x-0 lg:static lg:z-auto',
+          'fixed inset-y-0 left-0 z-50 w-64 border-r bg-card transform transition-transform lg:translate-x-0 lg:static lg:z-auto',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="flex h-14 items-center border-b px-4">
-          <Link href="/home" className="flex items-center gap-2 font-bold text-lg">
+          <Link href="/home" className="flex items-center gap-2 text-lg font-bold">
             Couple OS
           </Link>
         </div>
@@ -78,9 +75,7 @@ export function AppSidebar() {
             ))}
 
             <div className="pb-2 pt-4">
-              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                家計管理
-              </p>
+              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Finance</p>
             </div>
 
             {financeNavigation.map((item) => (
@@ -112,7 +107,7 @@ export function AppSidebar() {
                 )}
               >
                 <Settings className="h-4 w-4" />
-                設定
+                Settings
               </Link>
             </div>
           </nav>

@@ -2,8 +2,7 @@
 
 import { useMemo } from 'react'
 import { format } from 'date-fns'
-import { Calendar, Flame, CheckSquare, TrendingUp, Wallet } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Calendar, CheckSquare, TrendingUp, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
@@ -16,7 +15,18 @@ import { useCalendarEvents } from '@/lib/hooks/use-calendar-events'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
 import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
 import { useTodos } from '@/lib/hooks/use-todos'
-import { buildTodoProgressSummary } from '@/lib/todo-progress'
+
+function getTaskAnchorDate(startDate?: string | null, dueDate?: string | null, endDate?: string | null) {
+  return startDate ?? dueDate ?? endDate ?? null
+}
+
+function formatTaskWindow(startDate?: string | null, dueDate?: string | null, endDate?: string | null) {
+  const from = startDate ?? dueDate ?? endDate
+  const to = endDate ?? dueDate ?? startDate
+  if (!from) return 'No date'
+  if (from === to) return from
+  return `${from} - ${to}`
+}
 
 function formatEventTime(startAt: string, endAt?: string | null, allDay?: boolean) {
   if (allDay) return 'All day'
@@ -60,7 +70,24 @@ export default function HomePage() {
     [events, weekDateKeys]
   )
 
-  const todoProgress = useMemo(() => buildTodoProgressSummary(todos || [], today), [today, todos])
+  const upcomingTasks = useMemo(() => {
+    const start = todayKey
+    const end = weekDateKeys[weekDateKeys.length - 1]
+
+    return (todos || [])
+      .filter((todo) => todo.status !== 'done')
+      .filter((todo) => {
+        const anchor = getTaskAnchorDate(todo.start_date, todo.due_date, todo.end_date)
+        return !!anchor && anchor >= start && anchor <= end
+      })
+      .sort((a, b) => {
+        const left = getTaskAnchorDate(a.start_date, a.due_date, a.end_date) || '9999-12-31'
+        const right = getTaskAnchorDate(b.start_date, b.due_date, b.end_date) || '9999-12-31'
+        if (left !== right) return left.localeCompare(right)
+        return a.created_at.localeCompare(b.created_at)
+      })
+      .slice(0, 6)
+  }, [todayKey, todos, weekDateKeys])
 
   return (
     <div className="space-y-6">
@@ -79,210 +106,120 @@ export default function HomePage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Done today</CardTitle>
+            <CardTitle className="text-sm font-medium">Upcoming events</CardTitle>
+            <Calendar className="h-4 w-4 text-[var(--color-info)]" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{events?.length || 0}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Events in the next 7 days</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming tasks</CardTitle>
             <CheckSquare className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todoProgress.doneToday}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Tasks completed today</p>
+            <div className="text-2xl font-bold">{upcomingTasks.length}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Tasks scheduled from today through the next 7 days</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Done this week</CardTitle>
-            <TrendingUp className="h-4 w-4 text-[var(--color-info)]" />
+            <CardTitle className="text-sm font-medium">This month spend</CardTitle>
+            <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todoProgress.doneThisWeek}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Tasks completed this week</p>
+            <div className="text-2xl font-bold">{formatYen(summary?.total || 0)}</div>
+            <p className="mt-1 text-xs text-muted-foreground">{summary?.count || 0} transactions this month</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Current streak</CardTitle>
-            <Flame className="h-4 w-4 text-[var(--color-expense)]" />
+            <CardTitle className="text-sm font-medium">Budget left</CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todoProgress.currentStreak} days</div>
-            <p className="mt-1 text-xs text-muted-foreground">Consecutive days with completed tasks</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Completion rate</CardTitle>
-            <Calendar className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{todoProgress.completionRate}%</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {todoProgress.doneCount} done / {todoProgress.total} total
-            </p>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${todoProgress.completionRate}%` }} />
-            </div>
+            {remainingBudget !== null ? (
+              <div className={`text-2xl font-bold ${remainingBudget < 0 ? 'text-destructive' : 'text-primary'}`}>
+                {formatYen(remainingBudget)}
+              </div>
+            ) : (
+              <div className="text-2xl font-bold">Not set</div>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">Budget remaining this month</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Daily completion trend</CardTitle>
+            <CardTitle className="text-base">Upcoming schedule</CardTitle>
           </CardHeader>
           <CardContent>
-            {todoProgress.doneCount > 0 ? (
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={todoProgress.dailySeries}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
-                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#85A392" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Complete a few tasks to start building your daily trend.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent wins</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {todoProgress.recentDone.length > 0 ? (
+            {groupedUpcomingEvents.length > 0 ? (
               <div className="space-y-3">
-                {todoProgress.recentDone.map((todo) => (
-                  <div key={todo.id} className="rounded-lg border p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium line-through opacity-70">{todo.title}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {todo.completed_at ? format(new Date(todo.completed_at), 'MM/dd HH:mm') : 'Completed'}
-                        </p>
-                      </div>
-                      <Badge variant="outline">done</Badge>
+                {groupedUpcomingEvents.map((group) => (
+                  <div key={group.dateKey} className="rounded-lg border p-3">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold">
+                        {format(new Date(`${group.dateKey}T00:00:00+09:00`), 'MM/dd')}
+                      </p>
+                      <Badge variant="outline">{group.items.length}</Badge>
+                    </div>
+
+                    <div className="space-y-3">
+                      {group.items.map((event) => (
+                        <div key={`${group.dateKey}-${event.id}`} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
+                          <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: event.color || '#3B82F6' }} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{event.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatEventTime(event.start_at, event.end_at, event.all_day)}
+                            </p>
+                            {event.location && <p className="mt-1 text-xs text-muted-foreground">{event.location}</p>}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No completed tasks yet.</p>
+              <p className="text-sm text-muted-foreground">No upcoming events in the next 7 days.</p>
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Weekly pace</CardTitle>
+            <CardTitle className="text-base">Upcoming tasks</CardTitle>
           </CardHeader>
-          <CardContent>
-            {todoProgress.doneCount > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={todoProgress.weeklySeries}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
-                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#F59E0B" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+          <CardContent className="space-y-3">
+            {upcomingTasks.length > 0 ? (
+              upcomingTasks.map((todo) => (
+                <div key={todo.id} className="rounded-lg border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{todo.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{formatTaskWindow(todo.start_date, todo.due_date, todo.end_date)}</p>
+                    </div>
+                    <Badge variant={todo.status === 'in_progress' ? 'default' : 'outline'}>
+                      {todo.status === 'in_progress' ? 'in progress' : 'pending'}
+                    </Badge>
+                  </div>
+                </div>
+              ))
             ) : (
-              <p className="text-sm text-muted-foreground">Weekly bars appear after you build up completion history.</p>
+              <p className="text-sm text-muted-foreground">No tasks scheduled between today and the next 7 days.</p>
             )}
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Task momentum</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <p className="text-xs text-muted-foreground">In progress</p>
-              <p className="mt-1 text-2xl font-semibold">{todoProgress.inProgressCount}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <p className="text-xs text-muted-foreground">Open tasks</p>
-              <p className="mt-1 text-2xl font-semibold">{todoProgress.activeCount}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <p className="text-xs text-muted-foreground">Done this month</p>
-              <p className="mt-1 text-2xl font-semibold">{todoProgress.doneThisMonth}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Finance snapshot</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">This month spend</p>
-                <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
-              </div>
-              <p className="mt-1 text-xl font-semibold">{formatYen(summary?.total || 0)}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <p className="text-xs text-muted-foreground">Budget left</p>
-              <p className={`mt-1 text-xl font-semibold ${remainingBudget !== null && remainingBudget < 0 ? 'text-destructive' : 'text-primary'}`}>
-                {remainingBudget !== null ? formatYen(remainingBudget) : 'Not set'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Upcoming schedule</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {groupedUpcomingEvents.length > 0 ? (
-            <div className="space-y-3">
-              {groupedUpcomingEvents.map((group) => (
-                <div key={group.dateKey} className="rounded-lg border p-3">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-sm font-semibold">
-                      {format(new Date(`${group.dateKey}T00:00:00+09:00`), 'MM/dd')}
-                    </p>
-                    <Badge variant="outline">{group.items.length}</Badge>
-                  </div>
-
-                  <div className="space-y-3">
-                    {group.items.map((event) => (
-                      <div key={`${group.dateKey}-${event.id}`} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-                        <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: event.color || '#3B82F6' }} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{event.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatEventTime(event.start_at, event.end_at, event.all_day)}
-                          </p>
-                          {event.location && <p className="mt-1 text-xs text-muted-foreground">{event.location}</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No upcoming events in the next 7 days.</p>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -3,14 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, Calendar, ShoppingCart, CheckSquare, Wallet } from 'lucide-react'
+import { Home, Calendar, ShoppingCart, CheckSquare, Flame } from 'lucide-react'
 
 const tabs = [
-  { name: 'ホーム', href: '/home', icon: Home },
-  { name: 'カレンダー', href: '/calendar', icon: Calendar },
-  { name: '買い物', href: '/shopping', icon: ShoppingCart },
+  { name: 'Home', href: '/home', icon: Home },
+  { name: 'Calendar', href: '/calendar', icon: Calendar },
+  { name: 'Shopping', href: '/shopping', icon: ShoppingCart },
   { name: 'TODO', href: '/todos', icon: CheckSquare },
-  { name: '家計', href: '/finance/dashboard', icon: Wallet },
+  { name: 'Habits', href: '/habits', icon: Flame },
 ]
 
 export function BottomNav() {
