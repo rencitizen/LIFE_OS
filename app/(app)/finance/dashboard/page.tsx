@@ -128,7 +128,7 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card tone="amber">
+        <Card tone="blue">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Expense</CardTitle>
             <TrendingDown className="h-4 w-4 text-[var(--color-expense)]" />

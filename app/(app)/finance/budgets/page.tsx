@@ -462,7 +462,7 @@ export default function BudgetsPage() {
           </div>
           <div className="rounded-lg border bg-background/85 p-4">
             <p className="text-xs text-muted-foreground">5年計画の月次収入目安</p>
-            <p className="mt-1 text-xl font-semibold text-[#22C55E]">{formatYen(lifePlanIncomeReference)}</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--color-mint)]">{formatYen(lifePlanIncomeReference)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               選択年の年手取りを 12 で割った参考値です。
             </p>
@@ -485,24 +485,24 @@ export default function BudgetsPage() {
               <>
                 <div className="rounded-lg border p-4">
                   <p className="text-xs text-muted-foreground">{user?.display_name || '自分'}</p>
-                  <p className="mt-1 text-lg font-semibold text-[#22C55E]">{formatYen(lifePlanIncomeByMember.mine)}</p>
+                  <p className="mt-1 text-lg font-semibold text-[var(--color-mint)]">{formatYen(lifePlanIncomeByMember.mine)}</p>
                   <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(actualIncomeByMember.mine)}</p>
                 </div>
                 <div className="rounded-lg border p-4">
                   <p className="text-xs text-muted-foreground">{partner?.display_name || '相手'}</p>
-                  <p className="mt-1 text-lg font-semibold text-[#22C55E]">{formatYen(lifePlanIncomeByMember.partner)}</p>
+                  <p className="mt-1 text-lg font-semibold text-[var(--color-mint)]">{formatYen(lifePlanIncomeByMember.partner)}</p>
                   <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(actualIncomeByMember.partner)}</p>
                 </div>
                 <div className="rounded-lg border p-4">
                   <p className="text-xs text-muted-foreground">合算</p>
-                  <p className="mt-1 text-lg font-semibold text-[#22C55E]">{formatYen(lifePlanIncomeReference)}</p>
+                  <p className="mt-1 text-lg font-semibold text-[var(--color-mint)]">{formatYen(lifePlanIncomeReference)}</p>
                   <p className="mt-1 text-xs text-muted-foreground">実績 {formatYen(incomeActualTotal)}</p>
                 </div>
               </>
             )}
             <div className="rounded-lg border p-4">
               <p className="text-xs text-muted-foreground">5年計画の月次収入目安</p>
-              <p className="mt-1 text-lg font-semibold text-[#22C55E]">{formatYen(lifePlanIncomeReference)}</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--color-mint)]">{formatYen(lifePlanIncomeReference)}</p>
             </div>
             <div className="rounded-lg border p-4">
               <p className="text-xs text-muted-foreground">収入予算</p>
@@ -510,7 +510,7 @@ export default function BudgetsPage() {
             </div>
             <div className="rounded-lg border p-4">
               <p className="text-xs text-muted-foreground">収入実績</p>
-              <p className="mt-1 text-lg font-semibold text-[#22C55E]">{formatYen(incomeActualTotal)}</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--color-mint)]">{formatYen(incomeActualTotal)}</p>
             </div>
           </CardContent>
         </Card>
