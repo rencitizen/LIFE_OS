@@ -557,25 +557,25 @@ export default function TodosPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card tone="mint">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total</p>
             <p className="mt-1 text-2xl font-semibold">{todoCounts.total}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card tone="sky">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Active</p>
             <p className="mt-1 text-2xl font-semibold">{todoCounts.active}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card tone="amber">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">In progress</p>
             <p className="mt-1 text-2xl font-semibold">{todoCounts.inProgress}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card tone="violet">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Completion</p>
             <p className="mt-1 text-2xl font-semibold">{todoMetrics.completionRate}%</p>
@@ -587,7 +587,7 @@ export default function TodosPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-        <Card>
+        <Card tone="sky">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Daily completion trend</CardTitle>
           </CardHeader>
@@ -610,7 +610,7 @@ export default function TodosPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="mint">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Momentum</CardTitle>
           </CardHeader>
@@ -980,7 +980,7 @@ export default function TodosPage() {
       </Card>
 
       {todoMetrics.recentDone.length > 0 && (
-        <Card>
+        <Card tone="violet">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Completed log</CardTitle>
           </CardHeader>
@@ -1042,7 +1042,7 @@ export default function TodosPage() {
           </Button>
         </div>
 
-        <Card>
+        <Card tone="amber">
           <CardContent className="p-0">
             {activeIdeas.length === 0 && doneIdeas.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">No ideas yet.</p>

@@ -108,7 +108,7 @@ export default function AnalysisPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card tone="mint">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Income</CardTitle>
           </CardHeader>
@@ -116,7 +116,7 @@ export default function AnalysisPage() {
             <p className="text-2xl font-bold">{formatYen(actualIncome)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card tone="amber">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Expense</CardTitle>
           </CardHeader>
@@ -124,7 +124,7 @@ export default function AnalysisPage() {
             <p className="text-2xl font-bold">{formatYen(actualExpense)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card tone="violet">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Balance</CardTitle>
           </CardHeader>
@@ -135,7 +135,7 @@ export default function AnalysisPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card>
+        <Card tone="sky">
           <CardHeader>
             <CardTitle className="text-base">Top expense categories</CardTitle>
           </CardHeader>
@@ -158,7 +158,7 @@ export default function AnalysisPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="mint">
           <CardHeader>
             <CardTitle className="text-base">Reading notes</CardTitle>
           </CardHeader>
@@ -179,7 +179,7 @@ export default function AnalysisPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card tone="sky">
         <CardHeader>
           <CardTitle className="text-base">{selectedYear} totals</CardTitle>
         </CardHeader>

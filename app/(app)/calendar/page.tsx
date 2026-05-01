@@ -532,7 +532,7 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
 
-      <Card>
+      <Card tone="sky">
         <CardHeader className="flex flex-row items-center justify-between py-3">
           <Button
             variant="ghost"
@@ -695,7 +695,7 @@ export default function CalendarPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card tone="mint">
         <CardHeader className="flex flex-row items-center justify-between py-3">
           <CardTitle className="text-base">{format(selectedDate, 'M月d日 (E)', { locale: ja })} の予定</CardTitle>
           <Button size="sm" variant="ghost" onClick={() => openCreateDialog(selectedDate)}>

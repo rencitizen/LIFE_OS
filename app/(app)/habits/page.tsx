@@ -26,7 +26,7 @@ export default function HabitsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card tone="mint">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Done today</CardTitle>
             <CheckSquare className="h-4 w-4 text-primary" />
@@ -37,7 +37,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="sky">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Done this week</CardTitle>
             <TrendingUp className="h-4 w-4 text-[var(--color-info)]" />
@@ -48,7 +48,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="amber">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Current streak</CardTitle>
             <Flame className="h-4 w-4 text-[var(--color-expense)]" />
@@ -59,7 +59,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="violet">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Completion rate</CardTitle>
             <Calendar className="h-4 w-4 text-primary" />
@@ -77,7 +77,7 @@ export default function HabitsPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-        <Card>
+        <Card tone="sky">
           <CardHeader>
             <CardTitle className="text-base">Daily completion trend</CardTitle>
           </CardHeader>
@@ -100,7 +100,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="mint">
           <CardHeader>
             <CardTitle className="text-base">Recent wins</CardTitle>
           </CardHeader>
@@ -129,7 +129,7 @@ export default function HabitsPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-        <Card>
+        <Card tone="amber">
           <CardHeader>
             <CardTitle className="text-base">Weekly pace</CardTitle>
           </CardHeader>
@@ -152,7 +152,7 @@ export default function HabitsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="violet">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Momentum</CardTitle>
           </CardHeader>

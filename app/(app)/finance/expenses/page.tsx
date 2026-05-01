@@ -614,19 +614,19 @@ export default function TransactionsPage() {
       </Dialog>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <Card>
+        <Card tone="mint">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">収入合計</p>
             <p className="mt-1 text-xl font-semibold text-[var(--color-income)]">{formatYen(monthSummary.income)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card tone="amber">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">支出合計</p>
             <p className="mt-1 text-xl font-semibold text-[var(--color-expense)]">{formatYen(monthSummary.expense)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card tone="violet">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">差額</p>
             <p className={`mt-1 text-xl font-semibold ${monthSummary.income - monthSummary.expense >= 0 ? 'text-primary' : 'text-destructive'}`}>
@@ -639,7 +639,7 @@ export default function TransactionsPage() {
       <div className="space-y-2">
         {filteredTransactions.length > 0 ? (
           filteredTransactions.map((transaction) => (
-            <Card key={`${transaction.transactionType}-${transaction.id}`}>
+            <Card key={`${transaction.transactionType}-${transaction.id}`} tone={transaction.transactionType === 'income' ? 'mint' : 'amber'}>
               <CardContent className="cursor-pointer p-4 transition-colors hover:bg-muted/30" onClick={() => openEditDialog(transaction)}>
                 <div className="flex items-start gap-3">
                   <div
@@ -689,7 +689,7 @@ export default function TransactionsPage() {
             </Card>
           ))
         ) : (
-          <Card>
+          <Card tone="sky">
             <CardContent className="p-8 text-center text-sm text-muted-foreground">
               該当する取引はありません
             </CardContent>

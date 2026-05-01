@@ -433,7 +433,7 @@ export default function BudgetsPage() {
         </div>
       </div>
 
-      <Card className="border-primary/20 bg-[linear-gradient(135deg,rgba(31,92,77,0.08),rgba(59,130,246,0.08))]">
+      <Card tone="sky" className="border-primary/20 bg-[linear-gradient(135deg,rgba(29,106,87,0.08),rgba(63,124,246,0.08))]">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
@@ -476,7 +476,7 @@ export default function BudgetsPage() {
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card tone="mint">
           <CardHeader>
             <CardTitle className="text-base">収入予算と実績</CardTitle>
           </CardHeader>
@@ -515,7 +515,7 @@ export default function BudgetsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card tone="amber">
           <CardHeader>
             <CardTitle className="text-base">生活費予算と実績</CardTitle>
           </CardHeader>
@@ -567,7 +567,7 @@ export default function BudgetsPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card tone="violet">
         <CardHeader>
           <CardTitle className="text-base">月次予算サマリー</CardTitle>
         </CardHeader>
@@ -623,7 +623,7 @@ export default function BudgetsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card tone="sky">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="text-base">生活費予算</CardTitle>
@@ -696,7 +696,7 @@ export default function BudgetsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card tone="mint">
         <CardHeader>
           <CardTitle className="text-base">収入予算</CardTitle>
         </CardHeader>
@@ -730,7 +730,7 @@ export default function BudgetsPage() {
       </Card>
 
       {!editing && (
-        <Card>
+        <Card tone="violet">
           <CardHeader>
             <CardTitle className="text-base">予算ステータス</CardTitle>
           </CardHeader>
