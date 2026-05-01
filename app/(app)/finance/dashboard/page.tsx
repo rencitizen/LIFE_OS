@@ -2,15 +2,13 @@
 
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { addMonths, eachDayOfInterval, endOfMonth, format, startOfMonth } from 'date-fns'
+import { addMonths, format } from 'date-fns'
 import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
-  Legend,
-  Line,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -39,35 +37,6 @@ function formatTooltipCurrency(value: number | string | ReadonlyArray<number | s
   return formatYen(Number(normalized || 0))
 }
 
-function buildDailyPlSeries(
-  selectedMonth: string,
-  incomes: Array<{ income_date: string; amount: number | string }>,
-  expenses: Array<{ expense_date: string; amount: number | string }>
-) {
-  const [year, month] = selectedMonth.split('-').map(Number)
-  const days = eachDayOfInterval({
-    start: startOfMonth(new Date(year, month - 1, 1)),
-    end: endOfMonth(new Date(year, month - 1, 1)),
-  })
-
-  return days.map((day) => {
-    const dayKey = format(day, 'yyyy-MM-dd')
-    const income = incomes
-      .filter((row) => row.income_date === dayKey)
-      .reduce((sum, row) => sum + Number(row.amount), 0)
-    const expense = expenses
-      .filter((row) => row.expense_date === dayKey)
-      .reduce((sum, row) => sum + Number(row.amount), 0)
-
-    return {
-      label: format(day, 'MM/dd'),
-      income,
-      expense,
-      balance: income - expense,
-    }
-  })
-}
-
 export default function FinanceDashboardPage() {
   const { couple } = useAuth()
   const { selectedMonth, setSelectedMonth } = useFinanceStore()
@@ -85,9 +54,13 @@ export default function FinanceDashboardPage() {
   const actualExpense = monthExpenses?.total || 0
   const actualBalance = actualIncome - actualExpense
 
-  const dailyPlSeries = useMemo(
-    () => buildDailyPlSeries(selectedMonth, monthIncomes || [], expenseRows || []),
-    [expenseRows, monthIncomes, selectedMonth]
+  const monthlyPlSeries = useMemo(
+    () => [
+      { label: 'Income', value: actualIncome, fill: UI_ACCENT_COLORS.income },
+      { label: 'Expense', value: actualExpense, fill: UI_ACCENT_COLORS.expense },
+      { label: 'Balance', value: Math.abs(actualBalance), fill: actualBalance >= 0 ? UI_ACCENT_COLORS.primary : '#EF4444' },
+    ],
+    [actualBalance, actualExpense, actualIncome]
   )
 
   const expensePieData = useMemo(() => {
@@ -165,22 +138,29 @@ export default function FinanceDashboardPage() {
       <div className="grid gap-4 xl:grid-cols-[1.35fr_0.95fr]">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Daily PL graph</CardTitle>
+            <CardTitle className="text-base">Monthly PL graph</CardTitle>
           </CardHeader>
           <CardContent>
-            {dailyPlSeries.some((row) => row.income > 0 || row.expense > 0) ? (
-              <div className="h-80">
+            {monthlyPlSeries.some((row) => row.value > 0) ? (
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={dailyPlSeries}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} minTickGap={18} />
-                    <YAxis tickLine={false} axisLine={false} fontSize={12} width={64} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} />
+                  <BarChart data={monthlyPlSeries} layout="vertical" margin={{ left: 8, right: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      fontSize={12}
+                      tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`}
+                    />
+                    <YAxis dataKey="label" type="category" tickLine={false} axisLine={false} fontSize={12} width={56} />
                     <Tooltip formatter={formatTooltipCurrency} />
-                    <Legend />
-                    <Bar dataKey="income" name="Income" fill={UI_ACCENT_COLORS.income} radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="expense" name="Expense" fill={UI_ACCENT_COLORS.expense} radius={[6, 6, 0, 0]} />
-                    <Line type="monotone" dataKey="balance" name="Balance" stroke={UI_ACCENT_COLORS.primary} strokeWidth={3} dot={false} />
-                  </ComposedChart>
+                    <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                      {monthlyPlSeries.map((row) => (
+                        <Cell key={row.label} fill={row.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
