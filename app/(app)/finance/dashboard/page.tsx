@@ -187,7 +187,7 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card tone="amber">
+        <Card tone="cyan">
           <CardHeader>
             <CardTitle className="text-base">Expense mix</CardTitle>
           </CardHeader>
