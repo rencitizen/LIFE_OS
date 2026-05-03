@@ -158,26 +158,26 @@ export default function HomePage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card tone="cyan">
           <CardHeader>
-            <CardTitle className="text-base">Upcoming schedule</CardTitle>
+            <CardTitle className="text-base text-primary">Upcoming schedule</CardTitle>
           </CardHeader>
           <CardContent>
             {groupedUpcomingEvents.length > 0 ? (
               <div className="space-y-3">
                 {groupedUpcomingEvents.map((group) => (
-                  <div key={group.dateKey} className="rounded-lg border p-3">
+                  <div key={group.dateKey} className="rounded-lg border border-primary/40 bg-background p-3">
                     <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-semibold">
+                      <p className="text-sm font-semibold text-primary">
                         {format(new Date(`${group.dateKey}T00:00:00+09:00`), 'MM/dd')}
                       </p>
-                      <Badge variant="outline">{group.items.length}</Badge>
+                      <Badge className="border-secondary bg-secondary text-secondary-foreground">{group.items.length}</Badge>
                     </div>
 
                     <div className="space-y-3">
                       {group.items.map((event) => (
-                        <div key={`${group.dateKey}-${event.id}`} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-                          <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: event.color || '#3B82F6' }} />
+                        <div key={`${group.dateKey}-${event.id}`} className="flex items-start gap-3 rounded-lg border border-accent/40 bg-accent/20 p-3">
+                          <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: 'var(--primary)' }} />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{event.title}</p>
+                            <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
                             <p className="text-xs text-muted-foreground">
                               {formatEventTime(event.start_at, event.end_at, event.all_day)}
                             </p>
@@ -197,18 +197,22 @@ export default function HomePage() {
 
         <Card tone="navy">
           <CardHeader>
-            <CardTitle className="text-base">Upcoming tasks</CardTitle>
+            <CardTitle className="text-base text-primary">Upcoming tasks</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {upcomingTasks.length > 0 ? (
               upcomingTasks.map((todo) => (
-                <div key={todo.id} className="rounded-lg border p-3">
+                <div key={todo.id} className="rounded-lg border border-primary/40 bg-background p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{todo.title}</p>
+                      <p className="truncate text-sm font-medium text-foreground">{todo.title}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{formatTaskWindow(todo.start_date, todo.due_date, todo.end_date)}</p>
                     </div>
-                    <Badge variant={todo.status === 'in_progress' ? 'default' : 'outline'}>
+                    <Badge
+                      className={todo.status === 'in_progress'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'border-secondary bg-secondary text-secondary-foreground'}
+                    >
                       {todo.status === 'in_progress' ? 'in progress' : 'pending'}
                     </Badge>
                   </div>

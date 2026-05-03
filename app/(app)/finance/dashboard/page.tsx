@@ -26,7 +26,7 @@ import { useExpenses } from '@/lib/hooks/use-expenses'
 import { useIncomes } from '@/lib/hooks/use-incomes'
 import { useFinanceStore } from '@/stores/finance-store'
 
-const PIE_COLORS = ['#093C5D', '#3B7597', '#6FD1D7', '#5DF8D8']
+const PIE_COLORS = ['#105666', '#839958', '#d3968c', '#0a3323', '#f7f4d5']
 
 function formatSignedYen(value: number) {
   const sign = value >= 0 ? '+' : '-'
@@ -70,7 +70,7 @@ export default function FinanceDashboardPage() {
     () => [
       { label: 'Income', value: actualIncome, fill: UI_ACCENT_COLORS.income },
       { label: 'Expense', value: actualExpense, fill: UI_ACCENT_COLORS.expense },
-      { label: 'Balance', value: Math.abs(actualBalance), fill: actualBalance >= 0 ? UI_ACCENT_COLORS.primary : '#EF4444' },
+      { label: 'Balance', value: Math.abs(actualBalance), fill: actualBalance >= 0 ? UI_ACCENT_COLORS.primary : UI_ACCENT_COLORS.info },
     ],
     [actualBalance, actualExpense, actualIncome]
   )
@@ -163,7 +163,7 @@ export default function FinanceDashboardPage() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyPlSeries} layout="vertical" margin={{ left: 8, right: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
                     <XAxis
                       type="number"
                       tickLine={false}
@@ -237,15 +237,15 @@ export default function FinanceDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/finance/expenses" className="rounded-xl border bg-[var(--color-info-soft)] p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
+        <Link href="/finance/expenses" className="rounded-xl border bg-background p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
           <p className="text-sm font-medium">Open transactions</p>
           <p className="mt-1 text-xs text-muted-foreground">Review and edit monthly income and expense entries.</p>
         </Link>
-        <Link href="/finance/analysis" className="rounded-xl border bg-[var(--color-success-soft)] p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
+        <Link href="/finance/analysis" className="rounded-xl border bg-accent p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
           <p className="text-sm font-medium">Open analysis</p>
           <p className="mt-1 text-xs text-muted-foreground">Dive deeper into category and year-over-year detail.</p>
         </Link>
-        <Link href="/finance/budgets" className="rounded-xl border bg-[var(--color-expense-soft)] p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
+        <Link href="/finance/budgets" className="rounded-xl border bg-primary p-4 text-primary-foreground transition-all hover:-translate-y-0.5 hover:shadow-sm">
           <p className="text-sm font-medium">Open budgets</p>
           <p className="mt-1 text-xs text-muted-foreground">Adjust the monthly budget baseline used across finance views.</p>
         </Link>

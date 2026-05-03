@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   addMonths,
   differenceInCalendarDays,
@@ -333,12 +333,8 @@ export default function TodosPage() {
       .sort(compareTodos)
   }, [allChildrenMap, allTodos, editingTodoId, newTaskLevel])
 
-  useEffect(() => {
-    if (!newParentTodoId) return
-    if (!parentOptions.some((todo) => todo.id === newParentTodoId)) {
-      setNewParentTodoId('')
-    }
-  }, [newParentTodoId, parentOptions])
+  const selectedParentTodoId =
+    newParentTodoId && parentOptions.some((todo) => todo.id === newParentTodoId) ? newParentTodoId : ''
 
   const todoCounts = useMemo(() => {
     const rows = filteredTodos
@@ -362,7 +358,7 @@ export default function TodosPage() {
       return toast.error('Title is required')
     }
 
-    const parentTodo = newParentTodoId ? allTodos?.find((todo) => todo.id === newParentTodoId) : null
+    const parentTodo = selectedParentTodoId ? allTodos?.find((todo) => todo.id === selectedParentTodoId) : null
     if (newParentTodoId && !parentTodo) {
       return toast.error('Selected parent task is no longer available')
     }
@@ -383,7 +379,7 @@ export default function TodosPage() {
         start_date: normalizedRange?.startDate || null,
         end_date: normalizedRange?.endDate || null,
         task_level: newTaskLevel,
-        parent_todo_id: newParentTodoId || null,
+        parent_todo_id: selectedParentTodoId || null,
       }
 
       if (editingTodoId) {
@@ -600,7 +596,7 @@ export default function TodosPage() {
                     <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                     <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="#6FD1D7" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="count" fill="var(--accent)" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -648,7 +644,7 @@ export default function TodosPage() {
                   <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                   <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#3B7597" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="count" fill="var(--primary)" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -715,7 +711,7 @@ export default function TodosPage() {
               <div className="space-y-2">
                 <Label>Parent task</Label>
                 <Select
-                  value={newParentTodoId || 'none'}
+                  value={selectedParentTodoId || 'none'}
                   onValueChange={(value) => setNewParentTodoId(!value || value === 'none' ? '' : value)}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -954,10 +950,10 @@ export default function TodosPage() {
                             gridColumn: `${startIndex + 2} / ${endIndex + 3}`,
                             backgroundColor:
                               todo.task_level === 'large'
-                                ? '#0f172a'
+                                ? 'var(--foreground)'
                                 : todo.task_level === 'medium'
-                                  ? '#475569'
-                                  : '#64748b',
+                                  ? 'var(--primary)'
+                                  : 'var(--accent)',
                           }}
                         >
                           <span className="truncate">{todo.title}</span>

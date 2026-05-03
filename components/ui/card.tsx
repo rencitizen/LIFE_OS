@@ -6,10 +6,10 @@ type CardTone = "default" | "mint" | "cyan" | "blue" | "navy"
 
 const toneStyles: Record<CardTone, string> = {
   default: "",
-  mint: "before:bg-gradient-to-r before:from-[var(--color-mint)] before:to-[var(--color-cyan)]",
-  cyan: "before:bg-gradient-to-r before:from-[var(--color-cyan)] before:to-[var(--color-blue)]",
-  blue: "before:bg-gradient-to-r before:from-[var(--color-blue)] before:to-[var(--color-navy)]",
-  navy: "before:bg-gradient-to-r before:from-[var(--color-navy)] before:to-[var(--color-mint)]",
+  mint: "before:bg-[var(--chart-2)]",
+  cyan: "before:bg-[var(--chart-3)]",
+  blue: "before:bg-[var(--chart-1)]",
+  navy: "before:bg-[var(--chart-4)]",
 }
 
 function Card({

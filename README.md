@@ -37,6 +37,42 @@
    npm run dev
    ```
 
+## Environment Variables
+
+The app requires these variables in local development and production:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_APP_URL=
+NEXT_PUBLIC_APP_NAME=
+```
+
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Public anon key used by the client and server helpers
+- `SUPABASE_SERVICE_ROLE_KEY`: Reserved for server-side admin operations
+- `NEXT_PUBLIC_APP_URL`: Base URL of the deployed app, for example `https://life-os.vercel.app`
+- `NEXT_PUBLIC_APP_NAME`: Display name shown in the UI
+
+If a required variable is missing, the app now fails fast with a clear error message during startup.
+
+## Deploy
+
+The simplest deployment target is Vercel.
+
+1. Import the repository into Vercel.
+2. In Project Settings -> Environment Variables, add every variable from `.env.local.example`.
+3. Set `NEXT_PUBLIC_APP_URL` to the production URL that Vercel assigns to the project.
+4. Run the deployment.
+
+For local production verification:
+
+```bash
+npm run build
+npm run start
+```
+
 ## Project Structure
 
 ```

@@ -433,7 +433,7 @@ export default function BudgetsPage() {
         </div>
       </div>
 
-      <Card tone="cyan" className="border-primary/20 bg-[linear-gradient(135deg,rgba(9,60,93,0.08),rgba(107,209,215,0.08))]">
+      <Card tone="cyan" className="border-primary bg-background">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
@@ -447,7 +447,7 @@ export default function BudgetsPage() {
             </div>
             <Link
               href="/finance/life-plan"
-              className="inline-flex h-9 items-center rounded-md border border-primary/30 bg-white/80 px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:bg-white"
+              className="inline-flex h-9 items-center rounded-md border border-primary bg-background px-3 text-sm font-medium text-foreground shadow-xs transition-colors hover:bg-muted"
             >
               ライフプラン詳細
               <ArrowRight className="ml-1 h-4 w-4" />

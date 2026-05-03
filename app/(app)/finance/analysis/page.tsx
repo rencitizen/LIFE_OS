@@ -148,7 +148,7 @@ export default function AnalysisPage() {
                     <span className="shrink-0 font-medium">{formatYen(row.total)}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-slate-700" style={{ width: `${Math.min(100, row.ratio)}%` }} />
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, row.ratio)}%` }} />
                   </div>
                 </div>
               ))

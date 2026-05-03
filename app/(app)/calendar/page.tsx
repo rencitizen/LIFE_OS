@@ -191,7 +191,7 @@ export default function CalendarPage() {
   const calendarStart = startOfWeek(monthStart)
   const calendarEnd = endOfWeek(monthEnd)
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
-  const monthWeeks = useMemo(() => chunkDays(days, 7), [days])
+  const monthWeeks = chunkDays(days, 7)
 
   const weekStart = startOfWeek(selectedDate)
   const weekEnd = endOfWeek(selectedDate)
@@ -215,14 +215,11 @@ export default function CalendarPage() {
     })
   }, [events, filter, user?.id, partner?.id])
 
-  const monthEventRows = useMemo(
-    () => monthWeeks.map((week) => buildMonthEventRows(week, filteredEvents)),
-    [filteredEvents, monthWeeks]
-  )
+  const monthEventRows = monthWeeks.map((week) => buildMonthEventRows(week, filteredEvents))
 
-  const visibleHolidayMap = useMemo(
-    () => getJapaneseHolidayMap(view === 'week' ? weekStart : calendarStart, view === 'week' ? weekEnd : calendarEnd),
-    [calendarEnd, calendarStart, view, weekEnd, weekStart]
+  const visibleHolidayMap = getJapaneseHolidayMap(
+    view === 'week' ? weekStart : calendarStart,
+    view === 'week' ? weekEnd : calendarEnd
   )
   const selectedHolidayName = useMemo(() => getJapaneseHolidayName(selectedDate), [selectedDate])
 
@@ -234,9 +231,9 @@ export default function CalendarPage() {
   const selectedDayEvents = getEventsForDay(selectedDate)
 
   const getEventColor = (event: CalendarEvent) => {
-    if (event.created_by === user?.id) return user?.color || '#093C5D'
-    if (event.created_by === partner?.id) return partner?.color || '#3B7597'
-    return event.color || '#093C5D'
+    if (event.created_by === user?.id) return '#105666'
+    if (event.created_by === partner?.id) return '#d3968c'
+    return '#0a3323'
   }
 
   const resetForm = (date = selectedDate) => {
@@ -300,7 +297,7 @@ export default function CalendarPage() {
         all_day: newAllDay,
         location: newLocation || undefined,
         visibility: newVisibility,
-        color: user.color || '#093C5D',
+        color: '#105666',
       }
 
       const buildEvent = (startDate: string, endDate: string): InsertTables<'calendar_events'> => ({

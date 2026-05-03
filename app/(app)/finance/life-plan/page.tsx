@@ -18,11 +18,11 @@ import { toast } from 'sonner'
 
 /*
   Color Palette:
-  #1E5945  dark forest green  → headers, emphasis, strong borders
-  #133929  deepest green      → bold text, total rows
-  #85B59B  sage green         → editable cell bg, accents
-  #F7F7F7  near white         → computed cell bg
-  #D9D9D9  light gray         → borders, muted elements
+  #0a3323  foreground
+  #839958  secondary
+  #f7f4d5  background
+  #d3968c  accent
+  #105666  primary
 */
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
@@ -50,7 +50,7 @@ function Computed({ children, className = '' }: { children: React.ReactNode; cla
 
 /** Strong computed value — for totals and key metrics */
 function ComputedBold({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <span className={`tabular-nums font-bold text-[#133929] ${className}`}>{children}</span>
+  return <span className={`tabular-nums font-bold text-foreground ${className}`}>{children}</span>
 }
 
 /** Editable number input — sage green bg with green border */
@@ -69,7 +69,7 @@ function NumInput({
     <Input
       type="number"
       step={step}
-      className={`h-7 text-right text-sm bg-[#85B59B]/10 border-[#85B59B]/40 text-[#133929] focus:border-[#1E5945] focus:ring-[#1E5945]/20 ${className}`}
+      className={`h-7 text-right text-sm bg-accent border-accent text-accent-foreground focus:border-primary focus:ring-primary ${className}`}
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
     />
@@ -90,7 +90,7 @@ function TextInput({
 }) {
   return (
     <Input
-      className={`h-7 text-sm bg-[#85B59B]/10 border-[#85B59B]/40 text-[#133929] focus:border-[#1E5945] focus:ring-[#1E5945]/20 ${className}`}
+      className={`h-7 text-sm bg-accent border-accent text-accent-foreground focus:border-primary focus:ring-primary ${className}`}
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
@@ -100,10 +100,10 @@ function TextInput({
 
 /** Section header badge for editable/computed distinction */
 function EditableBadge() {
-  return <Badge className="text-[10px] ml-2 bg-[#85B59B]/20 text-[#1E5945] border-[#85B59B]/40"><Pencil className="h-2.5 w-2.5 mr-0.5" />編集可能</Badge>
+  return <Badge className="ml-2 border-accent bg-accent text-[10px] text-accent-foreground"><Pencil className="mr-0.5 h-2.5 w-2.5" />編集可能</Badge>
 }
 function ComputedBadge() {
-  return <Badge className="text-[10px] ml-2 bg-[#F7F7F7] text-muted-foreground border-[#D9D9D9]">自動計算</Badge>
+  return <Badge className="ml-2 border-border bg-background text-[10px] text-muted-foreground">自動計算</Badge>
 }
 
 export default function LifePlanPage() {
@@ -202,14 +202,14 @@ export default function LifePlanPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <h2 className="text-lg font-bold text-[#133929]">人生キャッシュフロー</h2>
+          <h2 className="text-lg font-bold text-foreground">人生キャッシュフロー</h2>
           <div className="flex items-center gap-3 text-[11px] mt-1">
             <span className="flex items-center gap-1">
-              <span className="inline-block w-4 h-3 rounded-sm bg-[#85B59B]/15 border border-[#85B59B]/50" />
-              <span className="text-[#1E5945]">編集可能</span>
+              <span className="inline-block h-3 w-4 rounded-sm border border-accent bg-accent" />
+              <span className="text-primary">編集可能</span>
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block w-4 h-3 rounded-sm bg-[#F7F7F7] border border-[#D9D9D9]" />
+              <span className="inline-block h-3 w-4 rounded-sm border border-border bg-background" />
               <span className="text-muted-foreground">自動計算</span>
             </span>
           </div>
@@ -217,14 +217,14 @@ export default function LifePlanPage() {
         <div className="flex gap-2">
           {!lifePlan && (
             <Button size="sm" variant="outline" onClick={handleInit} disabled={initPlan.isPending}
-              className="border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10">
+              className="border-accent text-primary hover:bg-accent">
               <Download className="h-4 w-4 mr-1" />
               Excelデータ反映
             </Button>
           )}
           {localConfig && (
             <Button size="sm" onClick={handleSave} disabled={savePlan.isPending}
-              className="bg-[#1E5945] hover:bg-[#133929] text-white">
+              className="bg-primary text-primary-foreground hover:bg-secondary">
               <Save className="h-4 w-4 mr-1" />
               保存
             </Button>
@@ -233,13 +233,13 @@ export default function LifePlanPage() {
       </div>
 
       <Tabs defaultValue="dashboard">
-        <TabsList className="flex-wrap h-auto bg-[#F7F7F7] border border-[#D9D9D9]">
-          <TabsTrigger value="dashboard" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><TrendingUp className="h-3 w-3 mr-1" />総合</TabsTrigger>
-          <TabsTrigger value="assets" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Users className="h-3 w-3 mr-1" />資産推移</TabsTrigger>
-          <TabsTrigger value="income" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Wallet className="h-3 w-3 mr-1" />収入</TabsTrigger>
-          <TabsTrigger value="living" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Home className="h-3 w-3 mr-1" />生活費</TabsTrigger>
-          <TabsTrigger value="events" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Calendar className="h-3 w-3 mr-1" />イベント</TabsTrigger>
-          <TabsTrigger value="assumptions" className="data-[state=active]:bg-[#1E5945] data-[state=active]:text-white"><Settings2 className="h-3 w-3 mr-1" />前提条件</TabsTrigger>
+        <TabsList className="h-auto flex-wrap border border-border bg-background">
+          <TabsTrigger value="dashboard" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><TrendingUp className="mr-1 h-3 w-3" />総合</TabsTrigger>
+          <TabsTrigger value="assets" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><Users className="mr-1 h-3 w-3" />資産推移</TabsTrigger>
+          <TabsTrigger value="income" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><Wallet className="mr-1 h-3 w-3" />収入</TabsTrigger>
+          <TabsTrigger value="living" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><Home className="mr-1 h-3 w-3" />生活費</TabsTrigger>
+          <TabsTrigger value="events" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><Calendar className="mr-1 h-3 w-3" />イベント</TabsTrigger>
+          <TabsTrigger value="assumptions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"><Settings2 className="mr-1 h-3 w-3" />前提条件</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
@@ -296,10 +296,10 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
               { label: '資産年収倍率', value: `${latest.assetIncomeRatio.toFixed(2)}倍` },
               { label: `資産成長 (${first.year}→${latest.year})`, value: yen(latest.householdTotalAssets - first.householdTotalAssets) },
             ].map((card) => (
-              <Card key={card.label} className="border-[#D9D9D9]">
+              <Card key={card.label} className="border-border">
                 <CardContent className="p-4">
                   <p className="text-[11px] text-muted-foreground">{card.label}</p>
-                  <p className="text-lg font-bold text-[#133929]">{card.value}</p>
+                  <p className="text-lg font-bold text-foreground">{card.value}</p>
                   {card.sub && <p className="text-[11px] text-muted-foreground">{card.sub}</p>}
                 </CardContent>
               </Card>
@@ -309,14 +309,14 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
       })()}
 
       {false && (
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-[#133929]">年度別ダッシュボード <ComputedBadge /></CardTitle>
+          <CardTitle className="text-base text-foreground">年度別ダッシュボード <ComputedBadge /></CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-[#1E5945] text-white">
+              <tr className="bg-primary text-primary-foreground">
                 <th className="text-left p-2 whitespace-nowrap font-medium">年度</th>
                 <th className="text-left p-2 font-medium">年齢</th>
                 <th className="text-right p-2 whitespace-nowrap font-medium">Ren手取</th>
@@ -332,12 +332,12 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             </thead>
             <tbody>
               {sim.household.map((row, i) => (
-                <tr key={row.year} className={`border-b border-[#D9D9D9] ${i % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'}`}>
-                  <td className="p-2 font-bold text-[#133929]">{row.year}</td>
+                <tr key={row.year} className={`border-b border-border ${i % 2 === 0 ? 'bg-background' : 'bg-accent'}`}>
+                  <td className="p-2 font-bold text-foreground">{row.year}</td>
                   <td className="p-2 text-muted-foreground">{row.age}</td>
                   <td className="p-2 text-right"><Computed>{yen(row.renNet)}</Computed></td>
                   <td className="p-2 text-right"><Computed>{yen(row.hikaruNet)}</Computed></td>
-                  <td className="p-2 text-right font-medium text-[#1E5945]">{yen(row.householdNet)}</td>
+                  <td className="p-2 text-right font-medium text-primary">{yen(row.householdNet)}</td>
                   <td className="p-2 text-right"><Computed>{yen(row.householdCash)}</Computed></td>
                   <td className="p-2 text-right"><Computed>{yen(row.householdNisa)}</Computed></td>
                   <td className="p-2 text-right"><Computed>{yen(row.householdTaxable)}</Computed></td>
@@ -353,9 +353,9 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
       )}
 
       {/* Asset composition bar chart */}
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-[#133929]">資産構成推移</CardTitle>
+          <CardTitle className="text-base text-foreground">資産構成推移</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2.5">
           {sim.household.map((row) => {
@@ -365,34 +365,34 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             const taxW = max > 0 ? (row.householdTaxable / max) * 100 : 0
             return (
               <div key={row.year} className="flex items-center gap-2">
-                <span className="text-xs w-10 shrink-0 font-medium text-[#133929]">{row.year}</span>
-                <div className="flex-1 flex h-6 rounded-md overflow-hidden bg-[#F7F7F7] border border-[#D9D9D9]">
-                  <div className="bg-[#85B59B] h-full transition-all" style={{ width: `${cashW}%` }} title={`Cash: ${yen(row.householdCash)}`} />
-                  <div className="bg-[#1E5945] h-full transition-all" style={{ width: `${nisaW}%` }} title={`NISA: ${yen(row.householdNisa)}`} />
-                  <div className="bg-[#133929] h-full transition-all" style={{ width: `${taxW}%` }} title={`課税: ${yen(row.householdTaxable)}`} />
+                <span className="w-10 shrink-0 text-xs font-medium text-foreground">{row.year}</span>
+                <div className="flex h-6 flex-1 overflow-hidden rounded-md border border-border bg-background">
+                  <div className="h-full bg-accent transition-all" style={{ width: `${cashW}%` }} title={`Cash: ${yen(row.householdCash)}`} />
+                  <div className="h-full bg-primary transition-all" style={{ width: `${nisaW}%` }} title={`NISA: ${yen(row.householdNisa)}`} />
+                  <div className="h-full bg-foreground transition-all" style={{ width: `${taxW}%` }} title={`課税: ${yen(row.householdTaxable)}`} />
                 </div>
-                <span className="text-xs w-28 text-right shrink-0 font-bold text-[#133929]">{yen(row.householdTotalAssets)}</span>
+                <span className="w-28 shrink-0 text-right text-xs font-bold text-foreground">{yen(row.householdTotalAssets)}</span>
               </div>
             )
           })}
           <div className="flex gap-4 text-xs pt-2">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#85B59B]" /><span className="text-muted-foreground">キャッシュ</span></span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#1E5945]" /><span className="text-muted-foreground">NISA</span></span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[#133929]" /><span className="text-muted-foreground">課税資産</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-accent" /><span className="text-muted-foreground">キャッシュ</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-primary" /><span className="text-muted-foreground">NISA</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-foreground" /><span className="text-muted-foreground">課税資産</span></span>
           </div>
         </CardContent>
       </Card>
 
       {false && (
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
           <div>
-            <CardTitle className="text-base text-[#133929]">月別の収入実績</CardTitle>
+            <CardTitle className="text-base text-foreground">月別の収入実績</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">月ごとの入力実績を積み上げて、その年の実績手取りとして表示します。</p>
           </div>
           <Link
             href="/finance/budgets"
-            className="inline-flex h-8 items-center rounded-md border border-[#85B59B] px-3 text-xs font-medium text-[#1E5945] transition-colors hover:bg-[#85B59B]/10"
+            className="inline-flex h-8 items-center rounded-md border border-accent px-3 text-xs font-medium text-primary transition-colors hover:bg-accent"
           >
             月次実績を入力
             <ArrowRight className="ml-1 h-3.5 w-3.5" />
@@ -406,7 +406,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
                 size="sm"
                 variant={activeYear === entry.year ? 'default' : 'outline'}
                 onClick={() => setSelectedActualYear(entry.year)}
-                className={activeYear === entry.year ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10'}
+                className={activeYear === entry.year ? 'bg-primary text-primary-foreground hover:bg-secondary' : 'border-accent text-primary hover:bg-accent'}
               >
                 {entry.year}年
               </Button>
@@ -414,19 +414,19 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+            <div className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">年額実績</p>
-              <p className="mt-1 text-xl font-semibold text-[#3B7597]">{yen(activeActual?.total ?? 0)}</p>
+              <p className="mt-1 text-xl font-semibold text-primary">{yen(activeActual?.total ?? 0)}</p>
             </div>
-            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+            <div className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">内訳</p>
-              <p className="mt-1 text-sm font-medium text-[#133929]">
+              <p className="mt-1 text-sm font-medium text-foreground">
                 {userLabel} {yen(activeActual?.mine ?? 0)} / {partnerLabel} {yen(activeActual?.partner ?? 0)}
               </p>
             </div>
-            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+            <div className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">入力済み月数</p>
-              <p className="mt-1 text-xl font-semibold text-[#133929]">{activeActual?.monthsRecorded ?? 0}ヶ月</p>
+              <p className="mt-1 text-xl font-semibold text-foreground">{activeActual?.monthsRecorded ?? 0}ヶ月</p>
             </div>
           </div>
 
@@ -435,7 +435,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
               {activeActual.monthly.map((month) => (
                 <div key={month.month} className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">{month.label}</p>
-                  <p className="mt-1 font-semibold text-[#133929]">{yen(month.total)}</p>
+                  <p className="mt-1 font-semibold text-foreground">{yen(month.total)}</p>
                 </div>
               ))}
             </div>
@@ -468,18 +468,18 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
     <div className="space-y-4">
       <div className="flex gap-1">
         <Button size="sm" onClick={() => setPerson('ren')}
-          className={person === 'ren' ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'bg-white text-[#1E5945] border-[#85B59B] hover:bg-[#85B59B]/10'}>
+          className={person === 'ren' ? 'bg-primary text-primary-foreground hover:bg-secondary' : 'bg-background text-primary border-accent hover:bg-accent'}>
           Ren
         </Button>
         <Button size="sm" onClick={() => setPerson('hikaru')}
-          className={person === 'hikaru' ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'bg-white text-[#1E5945] border-[#85B59B] hover:bg-[#85B59B]/10'}>
+          className={person === 'hikaru' ? 'bg-primary text-primary-foreground hover:bg-secondary' : 'bg-background text-primary border-accent hover:bg-accent'}>
           Hikaru
         </Button>
       </div>
 
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-[#133929]">
+          <CardTitle className="text-base text-foreground">
             {person === 'ren' ? 'Ren' : 'Hikaru'} 資産推移
             <ComputedBadge />
           </CardTitle>
@@ -487,7 +487,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
         <CardContent className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-[#1E5945] text-white">
+              <tr className="bg-primary text-primary-foreground">
                 <th className="text-left p-2 font-medium">年度</th>
                 <th className="text-right p-2 font-medium">手取り</th>
                 <th className="text-right p-2 font-medium">生活費</th>
@@ -506,19 +506,19 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             </thead>
             <tbody>
               {data.map((row, i) => (
-                <tr key={row.year} className={`border-b border-[#D9D9D9] ${i % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'}`}>
-                  <td className="p-2 font-bold text-[#133929]">{row.year}</td>
+                <tr key={row.year} className={`border-b border-border ${i % 2 === 0 ? 'bg-background' : 'bg-accent'}`}>
+                  <td className="p-2 font-bold text-foreground">{row.year}</td>
                   <td className="p-2 text-right"><Computed>{yen(row.net)}</Computed></td>
                   <td className="p-2 text-right"><Computed>{yen(row.livingCost)}</Computed></td>
                   <td className="p-2 text-right"><Computed>{yen(row.disposable)}</Computed></td>
-                  <td className="p-2 text-right">{row.eventCost > 0 ? <span className="text-[#d94f4f] font-medium">{yen(row.eventCost)}</span> : <Computed>-</Computed>}</td>
+                  <td className="p-2 text-right">{row.eventCost > 0 ? <span className="font-medium text-accent">{yen(row.eventCost)}</span> : <Computed>-</Computed>}</td>
                   <td className="p-2 text-right"><Computed>{yen(row.cashReserve)}</Computed></td>
-                  <td className="p-2 text-right font-medium text-[#1E5945]">{yen(row.cashBalance)}</td>
+                  <td className="p-2 text-right font-medium text-primary">{yen(row.cashBalance)}</td>
                   <td className="p-2 text-right"><Computed>{yen(row.investable)}</Computed></td>
                   <td className="p-2 text-right"><Computed>{yen(row.nisaInvestment)}</Computed></td>
-                  <td className="p-2 text-right font-medium text-[#1E5945]">{yen(row.nisaBalance)}</td>
+                  <td className="p-2 text-right font-medium text-primary">{yen(row.nisaBalance)}</td>
                   <td className="p-2 text-right"><Computed>{yen(row.nonNisaInvestment)}</Computed></td>
-                  <td className="p-2 text-right font-medium text-[#1E5945]">{yen(row.taxableBalance)}</td>
+                  <td className="p-2 text-right font-medium text-primary">{yen(row.taxableBalance)}</td>
                   <td className="p-2 text-right"><ComputedBold>{yen(row.totalAssets)}</ComputedBold></td>
                   <td className="p-2 text-right"><Computed>{row.assetGrowthRate ? pct(row.assetGrowthRate) : '-'}</Computed></td>
                 </tr>
@@ -528,9 +528,9 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
         </CardContent>
       </Card>
 
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-[#133929]">{person === 'ren' ? 'Ren' : 'Hikaru'} 資産構成</CardTitle>
+          <CardTitle className="text-base text-foreground">{person === 'ren' ? 'Ren' : 'Hikaru'} 資産構成</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2.5">
           {data.map((row) => {
@@ -540,28 +540,28 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             const taxW = max > 0 ? (row.taxableBalance / max) * 100 : 0
             return (
               <div key={row.year} className="flex items-center gap-2">
-                <span className="text-xs w-10 shrink-0 font-medium text-[#133929]">{row.year}</span>
-                <div className="flex-1 flex h-6 rounded-md overflow-hidden bg-[#F7F7F7] border border-[#D9D9D9]">
-                  <div className="bg-[#85B59B] h-full" style={{ width: `${cashW}%` }} />
-                  <div className="bg-[#1E5945] h-full" style={{ width: `${nisaW}%` }} />
-                  <div className="bg-[#133929] h-full" style={{ width: `${taxW}%` }} />
+                <span className="w-10 shrink-0 text-xs font-medium text-foreground">{row.year}</span>
+                <div className="flex h-6 flex-1 overflow-hidden rounded-md border border-border bg-background">
+                  <div className="h-full bg-secondary" style={{ width: `${cashW}%` }} />
+                  <div className="h-full bg-primary" style={{ width: `${nisaW}%` }} />
+                  <div className="h-full bg-foreground" style={{ width: `${taxW}%` }} />
                 </div>
-                <span className="text-xs w-28 text-right shrink-0 font-bold text-[#133929]">{yen(row.totalAssets)}</span>
+                <span className="w-28 shrink-0 text-right text-xs font-bold text-foreground">{yen(row.totalAssets)}</span>
               </div>
             )
           })}
         </CardContent>
       </Card>
 
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
           <div>
-            <CardTitle className="text-base text-[#133929]">月別の収入実績</CardTitle>
+            <CardTitle className="text-base text-foreground">月別の収入実績</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">月ごとの入力実績を積み上げて、その年の実績手取りとして表示します。</p>
           </div>
           <Link
             href="/finance/budgets"
-            className="inline-flex h-8 items-center rounded-md border border-[#85B59B] px-3 text-xs font-medium text-[#1E5945] transition-colors hover:bg-[#85B59B]/10"
+            className="inline-flex h-8 items-center rounded-md border border-accent px-3 text-xs font-medium text-primary transition-colors hover:bg-accent"
           >
             月次実績を入力
             <ArrowRight className="ml-1 h-3.5 w-3.5" />
@@ -575,7 +575,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
                 size="sm"
                 variant={activeYear === entry.year ? 'default' : 'outline'}
                 onClick={() => setSelectedActualYear(entry.year)}
-                className={activeYear === entry.year ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10'}
+                className={activeYear === entry.year ? 'bg-primary text-primary-foreground hover:bg-secondary' : 'border-accent text-primary hover:bg-accent'}
               >
                 {entry.year}年
               </Button>
@@ -583,19 +583,19 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+            <div className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">年額実績</p>
-              <p className="mt-1 text-xl font-semibold text-[#3B7597]">{yen(activeActual?.total ?? 0)}</p>
+              <p className="mt-1 text-xl font-semibold text-primary">{yen(activeActual?.total ?? 0)}</p>
             </div>
-            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+            <div className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">内訳</p>
-              <p className="mt-1 text-sm font-medium text-[#133929]">
+              <p className="mt-1 text-sm font-medium text-foreground">
                 {userLabel} {yen(activeActual?.mine ?? 0)} / {partnerLabel} {yen(activeActual?.partner ?? 0)}
               </p>
             </div>
-            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+            <div className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">入力済み月数</p>
-              <p className="mt-1 text-xl font-semibold text-[#133929]">{activeActual?.monthsRecorded ?? 0}ヶ月</p>
+              <p className="mt-1 text-xl font-semibold text-foreground">{activeActual?.monthsRecorded ?? 0}ヶ月</p>
             </div>
           </div>
 
@@ -604,7 +604,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
               {activeActual.monthly.map((month) => (
                 <div key={month.month} className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">{month.label}</p>
-                  <p className="mt-1 font-semibold text-[#133929]">{yen(month.total)}</p>
+                  <p className="mt-1 font-semibold text-foreground">{yen(month.total)}</p>
                 </div>
               ))}
             </div>
@@ -616,15 +616,15 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
         </CardContent>
       </Card>
 
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
           <div>
-            <CardTitle className="text-base text-[#133929]">月別の収入実績</CardTitle>
+            <CardTitle className="text-base text-foreground">月別の収入実績</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">月ごとの入力実績を積み上げて、その年の実績手取りとして表示します。</p>
           </div>
           <Link
             href="/finance/budgets"
-            className="inline-flex h-8 items-center rounded-md border border-[#85B59B] px-3 text-xs font-medium text-[#1E5945] transition-colors hover:bg-[#85B59B]/10"
+            className="inline-flex h-8 items-center rounded-md border border-accent px-3 text-xs font-medium text-primary transition-colors hover:bg-accent"
           >
             月次実績を入力
             <ArrowRight className="ml-1 h-3.5 w-3.5" />
@@ -638,7 +638,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
                 size="sm"
                 variant={activeYear === entry.year ? 'default' : 'outline'}
                 onClick={() => setSelectedActualYear(entry.year)}
-                className={activeYear === entry.year ? 'bg-[#1E5945] text-white hover:bg-[#133929]' : 'border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10'}
+                className={activeYear === entry.year ? 'bg-primary text-primary-foreground hover:bg-secondary' : 'border-accent text-primary hover:bg-accent'}
               >
                 {entry.year}年
               </Button>
@@ -646,19 +646,19 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+            <div className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">年額実績</p>
-              <p className="mt-1 text-xl font-semibold text-[#3B7597]">{yen(activeActual?.total ?? 0)}</p>
+              <p className="mt-1 text-xl font-semibold text-primary">{yen(activeActual?.total ?? 0)}</p>
             </div>
-            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+            <div className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">内訳</p>
-              <p className="mt-1 text-sm font-medium text-[#133929]">
+              <p className="mt-1 text-sm font-medium text-foreground">
                 {userLabel} {yen(activeActual?.mine ?? 0)} / {partnerLabel} {yen(activeActual?.partner ?? 0)}
               </p>
             </div>
-            <div className="rounded-lg border bg-[#F7F7F7] p-4">
+            <div className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">入力済み月数</p>
-              <p className="mt-1 text-xl font-semibold text-[#133929]">{activeActual?.monthsRecorded ?? 0}ヶ月</p>
+              <p className="mt-1 text-xl font-semibold text-foreground">{activeActual?.monthsRecorded ?? 0}ヶ月</p>
             </div>
           </div>
 
@@ -667,7 +667,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
               {activeActual.monthly.map((month) => (
                 <div key={month.month} className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">{month.label}</p>
-                  <p className="mt-1 font-semibold text-[#133929]">{yen(month.total)}</p>
+                  <p className="mt-1 font-semibold text-foreground">{yen(month.total)}</p>
                 </div>
               ))}
             </div>
@@ -740,23 +740,23 @@ function IncomeTab({
 
   return (
     <div className="space-y-4">
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base text-[#133929]">年度別収入 <EditableBadge /></CardTitle>
+          <CardTitle className="text-base text-foreground">年度別収入 <EditableBadge /></CardTitle>
           <Button size="sm" variant="outline" onClick={addYear}
-            className="border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10">
+            className="border-accent text-primary hover:bg-accent">
             <Plus className="h-3 w-3 mr-1" />年度追加
           </Button>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#1E5945] text-white text-xs">
+              <tr className="bg-primary text-xs text-primary-foreground">
                 <th className="text-left p-2 font-medium">年度</th>
-                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Ren額面</th>
-                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Ren手取</th>
-                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Hikaru額面</th>
-                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Hikaru手取</th>
+                <th className="bg-secondary text-right p-2 font-medium">Ren額面</th>
+                <th className="bg-secondary text-right p-2 font-medium">Ren手取</th>
+                <th className="bg-secondary text-right p-2 font-medium">Hikaru額面</th>
+                <th className="bg-secondary text-right p-2 font-medium">Hikaru手取</th>
                 <th className="text-right p-2 font-medium">世帯額面</th>
                 <th className="text-right p-2 font-medium">世帯手取</th>
                 <th className="text-right p-2 font-medium">世帯可処分</th>
@@ -770,24 +770,24 @@ function IncomeTab({
                 const hikaruResult = sim.hikaru[i]
                 const actual = incomeActualsByYear.get(entry.year)
                 return (
-                  <tr key={entry.year} className={`border-b border-[#D9D9D9] ${i % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'}`}>
-                    <td className="p-2 font-bold text-[#133929]">{entry.year}</td>
-                    <td className="p-2 bg-[#85B59B]/8">
+                  <tr key={entry.year} className={`border-b border-border ${i % 2 === 0 ? 'bg-background' : 'bg-accent'}`}>
+                    <td className="p-2 font-bold text-foreground">{entry.year}</td>
+                    <td className="bg-secondary p-2">
                       <NumInput value={entry.ren.gross} onChange={(v) => updateIncome(i, 'ren.gross', v)} className="w-28" />
                     </td>
-                    <td className="p-2 bg-[#85B59B]/8">
+                    <td className="bg-secondary p-2">
                       <NumInput value={entry.ren.net} onChange={(v) => updateIncome(i, 'ren.net', v)} className="w-28" />
                     </td>
-                    <td className="p-2 bg-[#85B59B]/8">
+                    <td className="bg-secondary p-2">
                       <NumInput value={entry.hikaru.gross} onChange={(v) => updateIncome(i, 'hikaru.gross', v)} className="w-28" />
                     </td>
-                    <td className="p-2 bg-[#85B59B]/8">
+                    <td className="bg-secondary p-2">
                       <NumInput value={entry.hikaru.net} onChange={(v) => updateIncome(i, 'hikaru.net', v)} className="w-28" />
                     </td>
                     <td className="p-2 text-right"><Computed>{yen(entry.ren.gross + entry.hikaru.gross)}</Computed></td>
-                    <td className="p-2 text-right font-medium text-[#1E5945]">{yen(entry.ren.net + entry.hikaru.net)}</td>
+                    <td className="p-2 text-right font-medium text-primary">{yen(entry.ren.net + entry.hikaru.net)}</td>
                     <td className="p-2 text-right">
-                      <div className="font-medium text-[#3B7597]">{yen(actual?.total ?? 0)}</div>
+                      <div className="font-medium text-primary">{yen(actual?.total ?? 0)}</div>
                       <div className="text-[10px] text-muted-foreground">{actual?.monthsRecorded ?? 0}/12ヶ月</div>
                     </td>
                     <td className="p-2 text-right">
@@ -795,8 +795,8 @@ function IncomeTab({
                     </td>
                     <td className="p-2">
                       {config.incomeData.length > 1 && (
-                        <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-red-50" onClick={() => removeYear(i)}>
-                          <X className="h-3 w-3 text-[#d94f4f]" />
+                        <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-accent" onClick={() => removeYear(i)}>
+                          <X className="h-3 w-3 text-accent-foreground" />
                         </Button>
                       )}
                     </td>
@@ -843,9 +843,9 @@ function LivingCostTab({
 
   const ownerLabels: Record<string, string> = { shared: '共有', ren: 'Ren', hikaru: 'Hikaru' }
   const ownerStyles: Record<string, string> = {
-    shared: 'bg-[#1E5945] text-white',
-    ren: 'bg-[#85B59B]/20 text-[#133929] border border-[#85B59B]/40',
-    hikaru: 'bg-[#F7F7F7] text-[#133929] border border-[#D9D9D9]',
+    shared: 'bg-primary text-primary-foreground',
+    ren: 'border border-secondary bg-secondary text-secondary-foreground',
+    hikaru: 'border border-border bg-background text-foreground',
   }
 
   return (
@@ -854,36 +854,36 @@ function LivingCostTab({
         {(Object.keys(templateLabels) as (keyof typeof templateLabels)[]).map((key) => (
           <Button key={key} size="sm" onClick={() => setTemplate(key)} className={`text-xs ${
             template === key
-              ? 'bg-[#1E5945] text-white hover:bg-[#133929]'
-              : 'bg-white text-[#1E5945] border-[#85B59B] hover:bg-[#85B59B]/10'
+              ? 'bg-primary text-primary-foreground hover:bg-secondary'
+              : 'border-accent bg-background text-primary hover:bg-accent'
           }`}>
             {templateLabels[key]}
           </Button>
         ))}
       </div>
 
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-[#133929]">{templateLabels[template]}の生活費 <EditableBadge /></CardTitle>
+          <CardTitle className="text-base text-foreground">{templateLabels[template]}の生活費 <EditableBadge /></CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
             {items.map((item, i) => (
               <div key={`${item.item}-${item.owner}-${i}`} className="grid grid-cols-[auto_1fr_auto_auto] gap-2 items-center">
                 <Badge className={`text-[10px] ${ownerStyles[item.owner]}`}>{ownerLabels[item.owner]}</Badge>
-                <span className="text-sm truncate text-[#133929]">{item.category} / {item.item}</span>
+                <span className="truncate text-sm text-foreground">{item.category} / {item.item}</span>
                 <NumInput value={item.monthly} onChange={(v) => updateItem(i, v)} className="w-24" />
                 <span className="text-[11px] text-muted-foreground w-8">/月</span>
               </div>
             ))}
           </div>
 
-          <div className="border-t border-[#D9D9D9] mt-4 pt-3 space-y-1.5 text-sm">
+          <div className="mt-4 space-y-1.5 border-t border-border pt-3 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">共有合計</span><Computed className="font-medium">{yen(summary.shared)}/月</Computed></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Ren個人</span><Computed className="font-medium">{yen(summary.ren)}/月</Computed></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Hikaru個人</span><Computed className="font-medium">{yen(summary.hikaru)}/月</Computed></div>
-            <div className="flex justify-between border-t border-[#1E5945]/20 pt-2">
-              <span className="font-bold text-[#133929]">合計</span>
+            <div className="flex justify-between border-t border-primary pt-2">
+              <span className="font-bold text-foreground">合計</span>
               <ComputedBold>{yen(summary.total)}/月（年間 {yen(summary.total * 12)}）</ComputedBold>
             </div>
           </div>
@@ -933,62 +933,62 @@ function EventsTab({
 
   return (
     <div className="space-y-4">
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base text-[#133929]">ライフイベント <EditableBadge /></CardTitle>
+          <CardTitle className="text-base text-foreground">ライフイベント <EditableBadge /></CardTitle>
           <Button size="sm" variant="outline" onClick={addEvent}
-            className="border-[#85B59B] text-[#1E5945] hover:bg-[#85B59B]/10">
+            className="border-accent text-primary hover:bg-accent">
             <Plus className="h-3 w-3 mr-1" />追加
           </Button>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#1E5945] text-white text-xs">
-                <th className="text-left p-2 font-medium bg-[#85B59B]/30">年度</th>
-                <th className="text-left p-2 font-medium bg-[#85B59B]/30">イベント</th>
-                <th className="text-left p-2 font-medium bg-[#85B59B]/30">カテゴリ</th>
-                <th className="text-right p-2 font-medium bg-[#85B59B]/30">支出額</th>
-                <th className="text-right p-2 font-medium bg-[#85B59B]/30">Ren比率</th>
+              <tr className="bg-primary text-xs text-primary-foreground">
+                <th className="bg-secondary text-left p-2 font-medium">年度</th>
+                <th className="bg-secondary text-left p-2 font-medium">イベント</th>
+                <th className="bg-secondary text-left p-2 font-medium">カテゴリ</th>
+                <th className="bg-secondary text-right p-2 font-medium">支出額</th>
+                <th className="bg-secondary text-right p-2 font-medium">Ren比率</th>
                 <th className="text-right p-2 font-medium">Ren負担</th>
                 <th className="text-right p-2 font-medium">Hikaru負担</th>
-                <th className="text-left p-2 font-medium bg-[#85B59B]/30">メモ</th>
+                <th className="bg-secondary text-left p-2 font-medium">メモ</th>
                 <th className="p-2"></th>
               </tr>
             </thead>
             <tbody>
               {config.lifeEvents.map((event, i) => (
-                <tr key={i} className={`border-b border-[#D9D9D9] ${i % 2 === 0 ? 'bg-white' : 'bg-[#F7F7F7]'}`}>
-                  <td className="p-2 bg-[#85B59B]/8">
+                <tr key={i} className={`border-b border-border ${i % 2 === 0 ? 'bg-background' : 'bg-accent'}`}>
+                  <td className="bg-secondary p-2">
                     <NumInput value={event.year} onChange={(v) => updateEvent(i, 'year', v)} className="w-16" />
                   </td>
-                  <td className="p-2 bg-[#85B59B]/8">
+                  <td className="bg-secondary p-2">
                     <TextInput value={event.title} onChange={(v) => updateEvent(i, 'title', v)} className="w-24" placeholder="名前" />
                   </td>
-                  <td className="p-2 bg-[#85B59B]/8">
+                  <td className="bg-secondary p-2">
                     <TextInput value={event.category} onChange={(v) => updateEvent(i, 'category', v)} className="w-16" />
                   </td>
-                  <td className="p-2 bg-[#85B59B]/8">
+                  <td className="bg-secondary p-2">
                     <NumInput value={event.amount} onChange={(v) => updateEvent(i, 'amount', v)} className="w-28" />
                   </td>
-                  <td className="p-2 bg-[#85B59B]/8">
+                  <td className="bg-secondary p-2">
                     <NumInput value={event.renRatio} onChange={(v) => updateEvent(i, 'renRatio', v)} className="w-16" step="0.01" />
                   </td>
                   <td className="p-2 text-right"><Computed>{yen(event.amount * event.renRatio)}</Computed></td>
                   <td className="p-2 text-right"><Computed>{yen(event.amount * event.hikaruRatio)}</Computed></td>
-                  <td className="p-2 bg-[#85B59B]/8">
+                  <td className="bg-secondary p-2">
                     <TextInput value={event.memo} onChange={(v) => updateEvent(i, 'memo', v)} className="w-28" />
                   </td>
                   <td className="p-2">
-                    <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-red-50" onClick={() => removeEvent(i)}>
-                      <X className="h-3 w-3 text-[#d94f4f]" />
+                    <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-accent" onClick={() => removeEvent(i)}>
+                      <X className="h-3 w-3 text-accent-foreground" />
                     </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="border-t border-[#1E5945]/20 mt-2 pt-2 text-sm text-right">
+          <div className="mt-2 border-t border-primary pt-2 text-right text-sm">
             <span className="text-muted-foreground">合計: </span>
             <ComputedBold>{yen(totalCost)}</ComputedBold>
           </div>
@@ -1021,14 +1021,14 @@ function AssumptionsTab({
 
   return (
     <div className="space-y-4">
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-[#133929]">前提条件 <EditableBadge /></CardTitle>
+          <CardTitle className="text-base text-foreground">前提条件 <EditableBadge /></CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-[#133929] font-medium">キャッシュ確保率</Label>
+              <Label className="font-medium text-foreground">キャッシュ確保率</Label>
               <div className="flex items-center gap-2">
                 <NumInput value={config.assumptions.cashReserveRatio} onChange={(v) => updateAssumption('cashReserveRatio', v)} className="w-24" step="0.01" />
                 <Computed>= {pct(config.assumptions.cashReserveRatio)}</Computed>
@@ -1036,21 +1036,21 @@ function AssumptionsTab({
               <p className="text-[11px] text-muted-foreground">手取りの何割をキャッシュとして確保するか</p>
             </div>
             <div className="space-y-2">
-              <Label className="text-[#133929] font-medium">目標防衛資金（月数）</Label>
+              <Label className="font-medium text-foreground">目標防衛資金（月数）</Label>
               <div className="flex items-center gap-2">
                 <NumInput value={config.assumptions.defenseMonths} onChange={(v) => updateAssumption('defenseMonths', v)} className="w-24" />
                 <span className="text-sm text-muted-foreground">ヶ月分の生活費</span>
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-[#133929] font-medium">想定投資利回り</Label>
+              <Label className="font-medium text-foreground">想定投資利回り</Label>
               <div className="flex items-center gap-2">
                 <NumInput value={config.assumptions.returnRate} onChange={(v) => updateAssumption('returnRate', v)} className="w-24" step="0.01" />
                 <Computed>= 年{pct(config.assumptions.returnRate)}</Computed>
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-[#133929] font-medium">NISA年間投入枠</Label>
+              <Label className="font-medium text-foreground">NISA年間投入枠</Label>
               <div className="flex items-center gap-2">
                 <NumInput value={config.assumptions.nisaAnnualLimit} onChange={(v) => updateAssumption('nisaAnnualLimit', v)} className="w-32" />
                 <span className="text-sm text-muted-foreground">円/年</span>
@@ -1060,15 +1060,15 @@ function AssumptionsTab({
         </CardContent>
       </Card>
 
-      <Card className="border-[#D9D9D9]">
+      <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-[#133929]">初期資産 <EditableBadge /></CardTitle>
+          <CardTitle className="text-base text-foreground">初期資産 <EditableBadge /></CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {(['ren', 'hikaru'] as const).map((person) => (
-              <div key={person} className="space-y-3 p-3 rounded-lg bg-[#F7F7F7] border border-[#D9D9D9]">
-                <h4 className="font-bold text-[#133929]">{person === 'ren' ? 'Ren' : 'Hikaru'}</h4>
+              <div key={person} className="space-y-3 rounded-lg border border-border bg-background p-3">
+                <h4 className="font-bold text-foreground">{person === 'ren' ? 'Ren' : 'Hikaru'}</h4>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Label className="w-20 text-xs text-muted-foreground">キャッシュ</Label>
@@ -1082,7 +1082,7 @@ function AssumptionsTab({
                     <Label className="w-20 text-xs text-muted-foreground">課税資産</Label>
                     <NumInput value={config.initialAssets[person].taxable} onChange={(v) => updateInitialAssets(person, 'taxable', v)} className="w-32" />
                   </div>
-                  <div className="border-t border-[#D9D9D9] pt-2">
+                  <div className="border-t border-border pt-2">
                     <span className="text-xs text-muted-foreground">合計: </span>
                     <ComputedBold className="text-sm">{yen(config.initialAssets[person].cash + config.initialAssets[person].nisa + config.initialAssets[person].taxable)}</ComputedBold>
                   </div>

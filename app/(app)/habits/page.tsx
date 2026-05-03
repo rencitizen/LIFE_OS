@@ -90,7 +90,7 @@ export default function HabitsPage() {
                     <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                     <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="#6FD1D7" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="count" fill="var(--accent)" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -142,7 +142,7 @@ export default function HabitsPage() {
                     <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                     <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
                     <Tooltip />
-                  <Bar dataKey="count" fill="#3B7597" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="count" fill="var(--primary)" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
