@@ -48,48 +48,51 @@
 }
 
 :root {
+  --surface-base: #ffffff;
+  --surface-muted: #f4f7f8;
+  --surface-border: #d3dde0;
   --chart-1: #105666;
   --chart-2: #839958;
   --chart-3: #d3968c;
   --chart-4: #0a3323;
   --chart-5: #f7f4d5;
-  --background: var(--chart-5);
+  --background: var(--surface-base);
   --foreground: var(--chart-4);
-  --card: var(--chart-5);
+  --card: var(--surface-base);
   --card-foreground: var(--chart-4);
-  --popover: var(--chart-5);
+  --popover: var(--surface-base);
   --popover-foreground: var(--chart-4);
   --primary: var(--chart-1);
   --primary-foreground: var(--chart-5);
   --secondary: var(--chart-2);
   --secondary-foreground: var(--chart-5);
-  --muted: var(--chart-5);
+  --muted: var(--surface-muted);
   --muted-foreground: var(--chart-4);
   --accent: var(--chart-3);
   --accent-foreground: var(--chart-4);
   --destructive: var(--chart-3);
-  --border: var(--chart-4);
-  --input: var(--chart-4);
+  --border: var(--surface-border);
+  --input: var(--surface-border);
   --ring: var(--chart-1);
   --radius: 0.625rem;
-  --sidebar: var(--chart-5);
+  --sidebar: var(--surface-base);
   --sidebar-foreground: var(--chart-4);
   --sidebar-primary: var(--chart-1);
   --sidebar-primary-foreground: var(--chart-5);
   --sidebar-accent: var(--chart-3);
   --sidebar-accent-foreground: var(--chart-4);
-  --sidebar-border: var(--chart-4);
+  --sidebar-border: var(--surface-border);
   --sidebar-ring: var(--chart-1);
   --color-income: var(--chart-2);
   --color-expense: var(--chart-3);
   --color-info: var(--chart-1);
   --color-success-soft: var(--chart-2);
   --color-expense-soft: var(--chart-3);
-  --color-info-soft: var(--chart-5);
+  --color-info-soft: #eef5f7;
   --color-navy: var(--chart-4);
   --color-blue: var(--chart-1);
   --color-cyan: var(--chart-3);
-  --color-mint: var(--chart-5);
+  --color-mint: var(--surface-base);
 }
 
 .dark {
