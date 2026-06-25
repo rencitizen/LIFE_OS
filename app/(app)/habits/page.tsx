@@ -19,55 +19,55 @@ export default function HabitsPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold">Habit view</h1>
+        <h1 className="text-2xl font-bold">習慣ビュー</h1>
         <p className="text-sm text-muted-foreground">
-          Progress built from completed TODOs for {user?.display_name || 'User'}
+          完了したタスクから作成した進捗: {user?.display_name || 'ユーザー'}
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card tone="mint">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Done today</CardTitle>
+            <CardTitle className="text-sm font-medium">今日完了</CardTitle>
             <CheckSquare className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{progress.doneToday}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Tasks completed today</p>
+            <p className="mt-1 text-xs text-muted-foreground">今日完了したタスク</p>
           </CardContent>
         </Card>
 
         <Card tone="cyan">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Done this week</CardTitle>
+            <CardTitle className="text-sm font-medium">今週完了</CardTitle>
             <TrendingUp className="h-4 w-4 text-[var(--color-info)]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{progress.doneThisWeek}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Tasks completed this week</p>
+            <p className="mt-1 text-xs text-muted-foreground">今週完了したタスク</p>
           </CardContent>
         </Card>
 
         <Card tone="blue">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Current streak</CardTitle>
+            <CardTitle className="text-sm font-medium">連続達成</CardTitle>
             <Flame className="h-4 w-4 text-[var(--color-expense)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{progress.currentStreak} days</div>
-            <p className="mt-1 text-xs text-muted-foreground">Consecutive days with completed tasks</p>
+            <div className="text-2xl font-bold">{progress.currentStreak}日</div>
+            <p className="mt-1 text-xs text-muted-foreground">タスク完了が続いている日数</p>
           </CardContent>
         </Card>
 
         <Card tone="navy">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Completion rate</CardTitle>
+            <CardTitle className="text-sm font-medium">完了率</CardTitle>
             <Calendar className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{progress.completionRate}%</div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {progress.doneCount} done / {progress.total} total
+              {progress.doneCount}件完了 / {progress.total}件合計
             </p>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress.completionRate}%` }} />
@@ -79,7 +79,7 @@ export default function HabitsPage() {
       <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
         <Card tone="cyan">
           <CardHeader>
-            <CardTitle className="text-base">Daily completion trend</CardTitle>
+            <CardTitle className="text-base">日別の完了推移</CardTitle>
           </CardHeader>
           <CardContent>
             {progress.doneCount > 0 ? (
@@ -95,14 +95,14 @@ export default function HabitsPage() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Complete a few tasks to start building your daily trend.</p>
+              <p className="text-sm text-muted-foreground">タスクを完了すると日別の推移が表示されます。</p>
             )}
           </CardContent>
         </Card>
 
         <Card tone="mint">
           <CardHeader>
-            <CardTitle className="text-base">Recent wins</CardTitle>
+            <CardTitle className="text-base">最近の完了</CardTitle>
           </CardHeader>
           <CardContent>
             {progress.recentDone.length > 0 ? (
@@ -113,16 +113,16 @@ export default function HabitsPage() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium line-through opacity-70">{todo.title}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {todo.completed_at ? format(new Date(todo.completed_at), 'MM/dd HH:mm') : 'Completed'}
+                          {todo.completed_at ? format(new Date(todo.completed_at), 'MM/dd HH:mm') : '完了'}
                         </p>
                       </div>
-                      <Badge variant="outline">done</Badge>
+                      <Badge variant="outline">完了</Badge>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No completed tasks yet.</p>
+              <p className="text-sm text-muted-foreground">完了したタスクはまだありません。</p>
             )}
           </CardContent>
         </Card>
@@ -131,7 +131,7 @@ export default function HabitsPage() {
       <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
         <Card tone="blue">
           <CardHeader>
-            <CardTitle className="text-base">Weekly pace</CardTitle>
+            <CardTitle className="text-base">週別ペース</CardTitle>
           </CardHeader>
           <CardContent>
             {progress.doneCount > 0 ? (
@@ -147,26 +147,26 @@ export default function HabitsPage() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Weekly bars appear after you build up completion history.</p>
+              <p className="text-sm text-muted-foreground">完了履歴が増えると週別の棒グラフが表示されます。</p>
             )}
           </CardContent>
         </Card>
 
         <Card tone="navy">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Momentum</CardTitle>
+            <CardTitle className="text-base">進捗</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="rounded-lg border bg-muted/20 p-3">
-              <p className="text-xs text-muted-foreground">In progress</p>
+              <p className="text-xs text-muted-foreground">進行中</p>
               <p className="mt-1 text-2xl font-semibold">{progress.inProgressCount}</p>
             </div>
             <div className="rounded-lg border bg-muted/20 p-3">
-              <p className="text-xs text-muted-foreground">Open tasks</p>
+              <p className="text-xs text-muted-foreground">未完了タスク</p>
               <p className="mt-1 text-2xl font-semibold">{progress.activeCount}</p>
             </div>
             <div className="rounded-lg border bg-muted/20 p-3">
-              <p className="text-xs text-muted-foreground">Done this month</p>
+              <p className="text-xs text-muted-foreground">今月完了</p>
               <p className="mt-1 text-2xl font-semibold">{progress.doneThisMonth}</p>
             </div>
           </CardContent>

@@ -90,11 +90,11 @@ export default function AnalysisPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <Badge variant="outline">Analysis</Badge>
+            <Badge variant="outline">分析</Badge>
             <span className="text-sm text-muted-foreground">{FINANCE_SCOPE_LABELS[financeScope]}</span>
           </div>
-          <h1 className="text-2xl font-bold">{format(displayDate, 'yyyy/MM')} analysis</h1>
-          <p className="text-sm text-muted-foreground">Focused monthly and yearly breakdown for the selected finance scope.</p>
+          <h1 className="text-2xl font-bold">{format(displayDate, 'yyyy/MM')} の分析</h1>
+          <p className="text-sm text-muted-foreground">選択中の家計範囲について、月次と年次の内訳を確認できます。</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)}>
@@ -110,7 +110,7 @@ export default function AnalysisPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card tone="mint">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Income</CardTitle>
+            <CardTitle className="text-sm font-medium">収入</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatYen(actualIncome)}</p>
@@ -118,7 +118,7 @@ export default function AnalysisPage() {
         </Card>
         <Card tone="blue">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Expense</CardTitle>
+            <CardTitle className="text-sm font-medium">支出</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatYen(actualExpense)}</p>
@@ -126,7 +126,7 @@ export default function AnalysisPage() {
         </Card>
         <Card tone="navy">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">収支</CardTitle>
           </CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold ${actualBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>{formatSignedYen(actualBalance)}</p>
@@ -137,7 +137,7 @@ export default function AnalysisPage() {
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card tone="cyan">
           <CardHeader>
-            <CardTitle className="text-base">Top expense categories</CardTitle>
+            <CardTitle className="text-base">支出カテゴリ上位</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {topCategoryRows.length > 0 ? (
@@ -153,27 +153,27 @@ export default function AnalysisPage() {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No expense categories yet for this scope.</p>
+              <p className="text-sm text-muted-foreground">この範囲の支出カテゴリはまだありません。</p>
             )}
           </CardContent>
         </Card>
 
         <Card tone="mint">
           <CardHeader>
-            <CardTitle className="text-base">Reading notes</CardTitle>
+            <CardTitle className="text-base">見方のメモ</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="rounded-xl border p-4">
-              <p className="font-medium">Start with balance</p>
-              <p className="mt-1 text-muted-foreground">Use the monthly balance to judge whether this scope landed positive or negative.</p>
+              <p className="font-medium">まず収支を見る</p>
+              <p className="mt-1 text-muted-foreground">月次収支で、この範囲が黒字か赤字かを確認します。</p>
             </div>
             <div className="rounded-xl border p-4">
-              <p className="font-medium">Then inspect category weight</p>
-              <p className="mt-1 text-muted-foreground">The top category list shows where this scope is concentrating most of its spending.</p>
+              <p className="font-medium">次にカテゴリ比率を見る</p>
+              <p className="mt-1 text-muted-foreground">上位カテゴリで支出が集中している場所を確認できます。</p>
             </div>
             <div className="rounded-xl border p-4">
-              <p className="font-medium">Use yearly totals for context</p>
-              <p className="mt-1 text-muted-foreground">The year summary below tells you whether the current month is part of a longer trend.</p>
+              <p className="font-medium">年次合計で流れを見る</p>
+              <p className="mt-1 text-muted-foreground">下の年次サマリーで、今月が長期的な傾向の一部か確認できます。</p>
             </div>
           </CardContent>
         </Card>
@@ -181,19 +181,19 @@ export default function AnalysisPage() {
 
         <Card tone="cyan">
         <CardHeader>
-          <CardTitle className="text-base">{selectedYear} totals</CardTitle>
+          <CardTitle className="text-base">{selectedYear}年 合計</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div className="rounded-xl border p-4">
-            <p className="text-xs text-muted-foreground">Year income</p>
+            <p className="text-xs text-muted-foreground">年間収入</p>
             <p className="mt-1 text-xl font-semibold">{formatYen(yearIncome)}</p>
           </div>
           <div className="rounded-xl border p-4">
-            <p className="text-xs text-muted-foreground">Year expense</p>
+            <p className="text-xs text-muted-foreground">年間支出</p>
             <p className="mt-1 text-xl font-semibold">{formatYen(yearExpense)}</p>
           </div>
           <div className="rounded-xl border p-4">
-            <p className="text-xs text-muted-foreground">Year balance</p>
+            <p className="text-xs text-muted-foreground">年間収支</p>
             <p className={`mt-1 text-xl font-semibold ${yearBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
               {formatSignedYen(yearBalance)}
             </p>

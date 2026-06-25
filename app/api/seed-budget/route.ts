@@ -149,7 +149,7 @@ export async function POST() {
         event_type: 'financial',
         visibility: 'shared',
         linked_amount: event.amount,
-        color: '#105666',
+        color: '#15a83a',
       })
 
     if (!eventError) results.events++

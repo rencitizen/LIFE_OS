@@ -15,10 +15,10 @@ type BottomTab = {
 }
 
 const tabs: BottomTab[] = [
-  { name: 'Home', href: '/home', icon: Home },
-  { name: 'Finance', href: '/finance/dashboard', activePrefix: '/finance', icon: Wallet },
-  { name: 'Calendar', href: '/calendar', icon: Calendar },
-  { name: 'Shopping', href: '/shopping', icon: ShoppingCart },
+  { name: 'ホーム', href: '/home', icon: Home },
+  { name: '家計', href: '/finance/dashboard', activePrefix: '/finance', icon: Wallet },
+  { name: 'カレンダー', href: '/calendar', icon: Calendar },
+  { name: '買い物', href: '/shopping', icon: ShoppingCart },
 ]
 
 export function BottomNav() {
@@ -55,7 +55,7 @@ export function BottomNav() {
           )}
         >
           <Menu className="h-5 w-5" />
-          Menu
+          メニュー
         </Button>
       </div>
     </nav>
