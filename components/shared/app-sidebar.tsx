@@ -8,11 +8,9 @@ import {
   Calendar,
   ShoppingCart,
   CheckSquare,
-  Flame,
   Wallet,
   BarChart3,
   Settings,
-  Target,
   TrendingUp,
   LineChart,
 } from 'lucide-react'
@@ -20,19 +18,17 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useUIStore } from '@/stores/ui-store'
 
 const navigation = [
-  { name: 'Home', href: '/home', icon: Home },
-  { name: 'Calendar', href: '/calendar', icon: Calendar },
-  { name: 'Shopping', href: '/shopping', icon: ShoppingCart },
-  { name: 'TODO', href: '/todos', icon: CheckSquare },
-  { name: 'Habits', href: '/habits', icon: Flame },
+  { name: 'ホーム', href: '/home', icon: Home },
+  { name: 'カレンダー', href: '/calendar', icon: Calendar },
+  { name: '買い物', href: '/shopping', icon: ShoppingCart },
+  { name: 'タスク', href: '/todos', icon: CheckSquare },
 ]
 
 const financeNavigation = [
-  { name: 'Overview', href: '/finance/dashboard', icon: BarChart3 },
-  { name: 'Monthly analysis', href: '/finance/analysis', icon: LineChart },
-  { name: 'Transactions', href: '/finance/expenses', icon: Wallet },
-  { name: 'Budgets', href: '/finance/budgets', icon: Target },
-  { name: '5 year plan', href: '/finance/life-plan', icon: TrendingUp },
+  { name: '概要', href: '/finance/dashboard', icon: BarChart3 },
+  { name: '月次分析', href: '/finance/analysis', icon: LineChart },
+  { name: '収入・支出', href: '/finance/expenses', icon: Wallet },
+  { name: '5年計画', href: '/finance/life-plan', icon: TrendingUp },
 ]
 
 export function AppSidebar() {
@@ -75,7 +71,7 @@ export function AppSidebar() {
             ))}
 
             <div className="pb-2 pt-4">
-              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Finance</p>
+              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">家計</p>
             </div>
 
             {financeNavigation.map((item) => (
@@ -106,9 +102,7 @@ export function AppSidebar() {
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
+                <Settings className="h-4 w-4" />設定</Link>
             </div>
           </nav>
         </ScrollArea>

@@ -1,19 +1,17 @@
 'use client'
 
 import { useMemo } from 'react'
-import { format } from 'date-fns'
+import { format, subMonths } from 'date-fns'
 import { Calendar, CheckSquare, TrendingUp, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getBudgetLimitTotal, getLifePlanMonthlyBudget } from '@/lib/budget-utils'
 import { enumerateDateKeys, eventOverlapsDateRange, getJstDayRange, getTodayJstDateKey } from '@/lib/date-utils'
 import { LIVING_MODE_LABELS } from '@/lib/finance/constants'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useBudget, useBudgetMemberLimits } from '@/lib/hooks/use-budgets'
 import { useCalendarEvents } from '@/lib/hooks/use-calendar-events'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
-import { useLifePlanConfig } from '@/lib/hooks/use-life-plan'
+import { useIncomes } from '@/lib/hooks/use-incomes'
 import { useTodos } from '@/lib/hooks/use-todos'
 
 function getTaskAnchorDate(startDate?: string | null, dueDate?: string | null, endDate?: string | null) {
@@ -23,13 +21,13 @@ function getTaskAnchorDate(startDate?: string | null, dueDate?: string | null, e
 function formatTaskWindow(startDate?: string | null, dueDate?: string | null, endDate?: string | null) {
   const from = startDate ?? dueDate ?? endDate
   const to = endDate ?? dueDate ?? startDate
-  if (!from) return 'No date'
+  if (!from) return '日付なし'
   if (from === to) return from
   return `${from} - ${to}`
 }
 
 function formatEventTime(startAt: string, endAt?: string | null, allDay?: boolean) {
-  if (allDay) return 'All day'
+  if (allDay) return '終日'
   return `${format(new Date(startAt), 'HH:mm')}${endAt ? ` - ${format(new Date(endAt), 'HH:mm')}` : ''}`
 }
 
@@ -37,7 +35,7 @@ export default function HomePage() {
   const { user, couple } = useAuth()
   const today = new Date()
   const monthStr = format(today, 'yyyy-MM')
-  const lifePlanConfig = useLifePlanConfig(couple?.id)
+  const lastMonthStr = format(subMonths(today, 1), 'yyyy-MM')
   const todayKey = getTodayJstDateKey()
   const weekDateKeys = useMemo(
     () => enumerateDateKeys(todayKey, format(new Date(today.getTime() + 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')),
@@ -52,12 +50,11 @@ export default function HomePage() {
   )
   const { data: todos } = useTodos(couple?.id)
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, monthStr)
-  const { data: budget } = useBudget(couple?.id, monthStr)
-  const { data: budgetMemberLimits } = useBudgetMemberLimits(budget?.id)
-  const lifePlanBudget = getLifePlanMonthlyBudget(lifePlanConfig, monthStr)
-  const budgetLimit = getBudgetLimitTotal(budget, budgetMemberLimits) || lifePlanBudget.total
-
-  const remainingBudget = budgetLimit > 0 ? budgetLimit - (summary?.total || 0) : null
+  const { data: lastMonthExpenseSummary } = useMonthlyExpenseSummary(couple?.id, lastMonthStr)
+  const { data: lastMonthIncomes } = useIncomes(couple?.id, lastMonthStr)
+  const lastMonthIncomeTotal = (lastMonthIncomes || []).reduce((sum, income) => sum + Number(income.amount), 0)
+  const lastMonthExpenseTotal = lastMonthExpenseSummary?.total || 0
+  const lastMonthBalance = lastMonthIncomeTotal - lastMonthExpenseTotal
 
   const groupedUpcomingEvents = useMemo(
     () =>
@@ -93,12 +90,12 @@ export default function HomePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Welcome back, {user?.display_name || 'User'}</h1>
+          <h1 className="text-2xl font-bold">おかえりなさい、{user?.display_name || 'ユーザー'}</h1>
           <p className="text-muted-foreground">{format(today, 'yyyy/MM/dd')}</p>
         </div>
         {couple?.living_mode && (
           <Badge className="border border-[var(--color-info)]/20 bg-[var(--color-info-soft)] text-[var(--color-info)]">
-            {LIVING_MODE_LABELS[couple.living_mode as keyof typeof LIVING_MODE_LABELS] ?? 'Not set'}
+            {LIVING_MODE_LABELS[couple.living_mode as keyof typeof LIVING_MODE_LABELS] ?? '未設定'}
           </Badge>
         )}
       </div>
@@ -106,51 +103,49 @@ export default function HomePage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card tone="cyan">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming events</CardTitle>
+            <CardTitle className="text-sm font-medium">今後の予定</CardTitle>
             <Calendar className="h-4 w-4 text-[var(--color-info)]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{events?.length || 0}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Events in the next 7 days</p>
+            <p className="mt-1 text-xs text-muted-foreground">今後7日間の予定</p>
           </CardContent>
         </Card>
 
         <Card tone="navy">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming tasks</CardTitle>
+            <CardTitle className="text-sm font-medium">今後のタスク</CardTitle>
             <CheckSquare className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{upcomingTasks.length}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Tasks scheduled from today through the next 7 days</p>
+            <p className="mt-1 text-xs text-muted-foreground">今日から7日間のタスク</p>
           </CardContent>
         </Card>
 
         <Card tone="blue">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">This month spend</CardTitle>
+            <CardTitle className="text-sm font-medium">今月の支出</CardTitle>
             <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatYen(summary?.total || 0)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{summary?.count || 0} transactions this month</p>
+            <p className="mt-1 text-xs text-muted-foreground">{summary?.count || 0} 件の取引</p>
           </CardContent>
         </Card>
 
-        <Card tone="mint">
+        <Card tone="cyan">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Budget left</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-medium">先月の収支差額</CardTitle>
+            <TrendingUp className="h-4 w-4 text-[var(--color-info)]" />
           </CardHeader>
           <CardContent>
-            {remainingBudget !== null ? (
-              <div className={`text-2xl font-bold ${remainingBudget < 0 ? 'text-destructive' : 'text-primary'}`}>
-                {formatYen(remainingBudget)}
-              </div>
-            ) : (
-              <div className="text-2xl font-bold">Not set</div>
-            )}
-            <p className="mt-1 text-xs text-muted-foreground">Budget remaining this month</p>
+            <div className="text-2xl font-bold text-[var(--color-info)]">
+              {lastMonthBalance >= 0 ? '+' : '-'}{formatYen(Math.abs(lastMonthBalance))}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              収入 {formatYen(lastMonthIncomeTotal)} / 支出 {formatYen(lastMonthExpenseTotal)}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -158,7 +153,7 @@ export default function HomePage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card tone="cyan">
           <CardHeader>
-            <CardTitle className="text-base text-primary">Upcoming schedule</CardTitle>
+            <CardTitle className="text-base text-primary">今後のスケジュール</CardTitle>
           </CardHeader>
           <CardContent>
             {groupedUpcomingEvents.length > 0 ? (
@@ -190,14 +185,14 @@ export default function HomePage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No upcoming events in the next 7 days.</p>
+              <p className="text-sm text-muted-foreground">今後7日間の予定はありません。</p>
             )}
           </CardContent>
         </Card>
 
         <Card tone="navy">
           <CardHeader>
-            <CardTitle className="text-base text-primary">Upcoming tasks</CardTitle>
+            <CardTitle className="text-base text-primary">今後のタスク</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {upcomingTasks.length > 0 ? (
@@ -213,13 +208,13 @@ export default function HomePage() {
                         ? 'bg-primary text-primary-foreground'
                         : 'border-secondary bg-secondary text-secondary-foreground'}
                     >
-                      {todo.status === 'in_progress' ? 'in progress' : 'pending'}
+                      {todo.status === 'in_progress' ? '進行中' : '未着手'}
                     </Badge>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No tasks scheduled between today and the next 7 days.</p>
+              <p className="text-sm text-muted-foreground">今日から7日間のタスクはありません。</p>
             )}
           </CardContent>
         </Card>

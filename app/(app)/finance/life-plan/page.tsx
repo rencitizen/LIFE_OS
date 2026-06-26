@@ -18,11 +18,11 @@ import { toast } from 'sonner'
 
 /*
   Color Palette:
-  #0a3323  foreground
-  #839958  secondary
-  #f7f4d5  background
-  #d3968c  accent
-  #105666  primary
+  #15a83a  basil green
+  #e73522  Italian tomato
+  #ffd400  vivid yellow
+  #174a1f  foreground
+  #ffffff  background
 */
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
@@ -202,7 +202,8 @@ export default function LifePlanPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <h2 className="text-lg font-bold text-foreground">人生キャッシュフロー</h2>
+          <h2 className="text-xl font-bold text-[var(--color-heading)]">五カ年計画</h2>
+          <p className="mt-1 text-xs text-muted-foreground">将来の収入、資産、生活費の流れを年度ごとに見通します。</p>
           <div className="flex items-center gap-3 text-[11px] mt-1">
             <span className="flex items-center gap-1">
               <span className="inline-block h-3 w-4 rounded-sm border border-accent bg-accent" />
@@ -326,7 +327,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
                 <th className="text-right p-2 whitespace-nowrap font-medium">NISA</th>
                 <th className="text-right p-2 whitespace-nowrap font-medium">課税資産</th>
                 <th className="text-right p-2 whitespace-nowrap font-medium">総資産</th>
-                <th className="text-right p-2 whitespace-nowrap font-medium">Cash比率</th>
+                <th className="text-right p-2 whitespace-nowrap font-medium">現金比率</th>
                 <th className="text-right p-2 whitespace-nowrap font-medium">年収倍率</th>
               </tr>
             </thead>
@@ -367,7 +368,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
               <div key={row.year} className="flex items-center gap-2">
                 <span className="w-10 shrink-0 text-xs font-medium text-foreground">{row.year}</span>
                 <div className="flex h-6 flex-1 overflow-hidden rounded-md border border-border bg-background">
-                  <div className="h-full bg-accent transition-all" style={{ width: `${cashW}%` }} title={`Cash: ${yen(row.householdCash)}`} />
+                  <div className="h-full bg-secondary transition-all" style={{ width: `${cashW}%` }} title={`現金: ${yen(row.householdCash)}`} />
                   <div className="h-full bg-primary transition-all" style={{ width: `${nisaW}%` }} title={`NISA: ${yen(row.householdNisa)}`} />
                   <div className="h-full bg-foreground transition-all" style={{ width: `${taxW}%` }} title={`課税: ${yen(row.householdTaxable)}`} />
                 </div>
@@ -376,7 +377,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             )
           })}
           <div className="flex gap-4 text-xs pt-2">
-            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-accent" /><span className="text-muted-foreground">キャッシュ</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-secondary" /><span className="text-muted-foreground">キャッシュ</span></span>
             <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-primary" /><span className="text-muted-foreground">NISA</span></span>
             <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-foreground" /><span className="text-muted-foreground">課税資産</span></span>
           </div>
@@ -391,10 +392,10 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             <p className="mt-1 text-xs text-muted-foreground">月ごとの入力実績を積み上げて、その年の実績手取りとして表示します。</p>
           </div>
           <Link
-            href="/finance/budgets"
+            href="/finance/expenses"
             className="inline-flex h-8 items-center rounded-md border border-accent px-3 text-xs font-medium text-primary transition-colors hover:bg-accent"
           >
-            月次実績を入力
+            収入・支出を開く
             <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Link>
         </CardHeader>
@@ -441,7 +442,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             </div>
           ) : (
             <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-              この年の月別実績はまだありません。予算ページから月ごとの収入実績を追加すると、ここに積み上がります。
+              この年の月別実績はまだありません。収入・支出画面で月ごとの実績を追加すると、ここに積み上がります。
             </div>
           )}
         </CardContent>
@@ -493,8 +494,8 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
                 <th className="text-right p-2 font-medium">生活費</th>
                 <th className="text-right p-2 font-medium">可処分</th>
                 <th className="text-right p-2 font-medium">イベント</th>
-                <th className="text-right p-2 font-medium">Cash積立</th>
-                <th className="text-right p-2 font-medium">Cash残高</th>
+                <th className="text-right p-2 font-medium">現金積立</th>
+                <th className="text-right p-2 font-medium">現金残高</th>
                 <th className="text-right p-2 font-medium">投資可能</th>
                 <th className="text-right p-2 font-medium">NISA投資</th>
                 <th className="text-right p-2 font-medium">NISA残高</th>
@@ -560,10 +561,10 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             <p className="mt-1 text-xs text-muted-foreground">月ごとの入力実績を積み上げて、その年の実績手取りとして表示します。</p>
           </div>
           <Link
-            href="/finance/budgets"
+            href="/finance/expenses"
             className="inline-flex h-8 items-center rounded-md border border-accent px-3 text-xs font-medium text-primary transition-colors hover:bg-accent"
           >
-            月次実績を入力
+            収入・支出を開く
             <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Link>
         </CardHeader>
@@ -610,7 +611,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             </div>
           ) : (
             <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-              この年の月別実績はまだありません。予算ページから月ごとの収入実績を追加すると、ここに積み上がります。
+              この年の月別実績はまだありません。収入・支出画面で月ごとの実績を追加すると、ここに積み上がります。
             </div>
           )}
         </CardContent>
@@ -623,10 +624,10 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             <p className="mt-1 text-xs text-muted-foreground">月ごとの入力実績を積み上げて、その年の実績手取りとして表示します。</p>
           </div>
           <Link
-            href="/finance/budgets"
+            href="/finance/expenses"
             className="inline-flex h-8 items-center rounded-md border border-accent px-3 text-xs font-medium text-primary transition-colors hover:bg-accent"
           >
-            月次実績を入力
+            収入・支出を開く
             <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Link>
         </CardHeader>
@@ -673,7 +674,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             </div>
           ) : (
             <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-              この年の月別実績はまだありません。予算ページから月ごとの収入実績を追加すると、ここに積み上がります。
+              この年の月別実績はまだありません。収入・支出画面で月ごとの実績を追加すると、ここに積み上がります。
             </div>
           )}
         </CardContent>

@@ -11,11 +11,11 @@ export default function SavingsPage() {
       <Card>
         <CardContent className="flex flex-col items-center justify-center p-12 text-center">
           <PiggyBank className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Phase 2で実装予定</p>
+          <p className="text-muted-foreground">第2フェーズで実装予定</p>
           <p className="text-sm text-muted-foreground mt-1">
             旅行・結婚・引越しなどの目標に向けた積立管理ができるようになります
           </p>
-          <Badge variant="outline" className="mt-4">Coming Soon</Badge>
+          <Badge variant="outline" className="mt-4">準備中</Badge>
         </CardContent>
       </Card>
     </div>

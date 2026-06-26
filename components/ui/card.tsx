@@ -6,9 +6,9 @@ type CardTone = "default" | "mint" | "cyan" | "blue" | "navy"
 
 const toneStyles: Record<CardTone, string> = {
   default: "",
-  mint: "before:bg-[var(--chart-2)]",
-  cyan: "before:bg-[var(--chart-3)]",
-  blue: "before:bg-[var(--chart-1)]",
+  mint: "before:bg-[var(--chart-1)]",
+  cyan: "before:bg-[var(--italian-blue)]",
+  blue: "before:bg-[var(--chart-3)]",
   navy: "before:bg-[var(--chart-4)]",
 }
 
@@ -53,7 +53,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-title"
       className={cn(
-        "text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
+        "text-base leading-snug font-medium text-[var(--color-heading)] group-data-[size=sm]/card:text-sm",
         className
       )}
       {...props}

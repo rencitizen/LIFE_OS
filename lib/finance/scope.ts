@@ -1,9 +1,9 @@
 export type FinanceScope = 'combined' | 'mine' | 'partner'
 
 export const FINANCE_SCOPE_LABELS: Record<FinanceScope, string> = {
-  combined: 'Combined',
-  mine: 'Self',
-  partner: 'Partner',
+  combined: '合計',
+  mine: '自分',
+  partner: 'パートナー',
 }
 
 export function matchesFinanceScope(

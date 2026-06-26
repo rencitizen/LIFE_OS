@@ -231,9 +231,9 @@ export default function CalendarPage() {
   const selectedDayEvents = getEventsForDay(selectedDate)
 
   const getEventColor = (event: CalendarEvent) => {
-    if (event.created_by === user?.id) return '#105666'
-    if (event.created_by === partner?.id) return '#d3968c'
-    return '#0a3323'
+    if (event.created_by === user?.id) return '#15a83a'
+    if (event.created_by === partner?.id) return '#e73522'
+    return '#174a1f'
   }
 
   const resetForm = (date = selectedDate) => {
@@ -297,7 +297,7 @@ export default function CalendarPage() {
         all_day: newAllDay,
         location: newLocation || undefined,
         visibility: newVisibility,
-        color: '#105666',
+        color: '#15a83a',
       }
 
       const buildEvent = (startDate: string, endDate: string): InsertTables<'calendar_events'> => ({

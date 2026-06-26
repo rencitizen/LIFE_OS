@@ -8,11 +8,10 @@ import { FINANCE_SCOPE_LABELS, type FinanceScope } from '@/lib/finance/scope'
 import { useFinanceStore } from '@/stores/finance-store'
 
 const tabs = [
-  { name: 'Overview', href: '/finance/dashboard' },
-  { name: 'Analysis', href: '/finance/analysis' },
-  { name: 'Transactions', href: '/finance/expenses' },
-  { name: 'Budgets', href: '/finance/budgets' },
-  { name: '5 year plan', href: '/finance/life-plan' },
+  { name: '概要', href: '/finance/dashboard' },
+  { name: '分析', href: '/finance/analysis' },
+  { name: '収入・支出', href: '/finance/expenses' },
+  { name: '5年計画', href: '/finance/life-plan' },
 ]
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
