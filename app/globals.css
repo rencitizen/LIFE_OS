@@ -48,8 +48,9 @@
 }
 
 :root {
-  --surface-base: #FFF8EE;
-  --surface-muted: #E4EBF2;
+  --surface-base: #FFFCF7;
+  --surface-muted: #FFF8EE;
+  --surface-panel: #ffffff;
   --surface-border: #CAD5E0;
   --chart-1: #0F2747;
   --chart-2: #1E4D8C;
@@ -63,7 +64,7 @@
   --blue-soft: #DDE8F7;
   --background: var(--surface-base);
   --foreground: var(--chart-1);
-  --card: var(--surface-muted);
+  --card: var(--surface-panel);
   --card-foreground: var(--chart-1);
   --popover: var(--surface-base);
   --popover-foreground: var(--chart-1);
@@ -71,7 +72,7 @@
   --primary-foreground: var(--surface-base);
   --secondary: var(--chart-2);
   --secondary-foreground: var(--surface-base);
-  --muted: var(--surface-muted);
+  --muted: #E4EBF2;
   --muted-foreground: #52606F;
   --accent: var(--chart-5);
   --accent-foreground: var(--chart-1);
@@ -80,7 +81,7 @@
   --input: var(--surface-border);
   --ring: var(--italian-blue);
   --radius: 0.625rem;
-  --sidebar: var(--surface-muted);
+  --sidebar: var(--surface-panel);
   --sidebar-foreground: var(--chart-1);
   --sidebar-primary: var(--chart-1);
   --sidebar-primary-foreground: var(--surface-base);

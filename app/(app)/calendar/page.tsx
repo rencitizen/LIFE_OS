@@ -71,6 +71,15 @@ const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, index) => {
   return `${hour}:${minute}`
 })
 
+const CALENDAR_COLORS = {
+  mine: '#1E4D8C',
+  partner: '#00A86B',
+  shared: '#0F2747',
+  selected: '#FFF0C2',
+  today: '#FFC83D',
+  holiday: '#F2A900',
+} as const
+
 function toStartIso(date: string, time?: string) {
   return new Date(`${date}T${time || '00:00'}:00+09:00`).toISOString()
 }
@@ -231,9 +240,9 @@ export default function CalendarPage() {
   const selectedDayEvents = getEventsForDay(selectedDate)
 
   const getEventColor = (event: CalendarEvent) => {
-    if (event.created_by === user?.id) return '#0F2747'
-    if (event.created_by === partner?.id) return '#1E4D8C'
-    return '#0F2747'
+    if (event.created_by === user?.id) return CALENDAR_COLORS.mine
+    if (event.created_by === partner?.id) return CALENDAR_COLORS.partner
+    return CALENDAR_COLORS.shared
   }
 
   const resetForm = (date = selectedDate) => {
@@ -297,7 +306,7 @@ export default function CalendarPage() {
         all_day: newAllDay,
         location: newLocation || undefined,
         visibility: newVisibility,
-        color: '#0F2747',
+        color: CALENDAR_COLORS.mine,
       }
 
       const buildEvent = (startDate: string, endDate: string): InsertTables<'calendar_events'> => ({
@@ -529,7 +538,7 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
 
-      <Card tone="cyan">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between py-3">
           <Button
             variant="ghost"
@@ -560,7 +569,7 @@ export default function CalendarPage() {
             <>
               <div className="grid grid-cols-7 border-b">
                 {['日', '月', '火', '水', '木', '金', '土'].map((day) => (
-                  <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">{day}</div>
+                  <div key={day} className="bg-muted/70 py-2 text-center text-xs font-semibold text-foreground">{day}</div>
                 ))}
               </div>
               <div>
@@ -582,9 +591,9 @@ export default function CalendarPage() {
                                 openCreateDialog(day)
                               }}
                               className={cn(
-                                'min-h-[72px] cursor-pointer border-r p-1 text-left transition-colors hover:bg-muted/40 last:border-r-0',
+                                'min-h-[72px] cursor-pointer border-r bg-card p-1 text-left transition-colors hover:bg-[#FFF8EE] last:border-r-0',
                                 !isSameMonth(day, currentMonth) && 'text-muted-foreground/40',
-                                isSelected && 'bg-primary/5 ring-1 ring-primary'
+                                isSelected && 'bg-[#FFF0C2] ring-1 ring-[#F2A900]'
                               )}
                             >
                               <button
@@ -594,14 +603,14 @@ export default function CalendarPage() {
                                   setSelectedDate(day)
                                 }}
                                 className={cn(
-                                  'inline-flex h-7 w-7 items-center justify-center rounded-full text-xs',
-                                  getJstDateKey(day) === getJstDateKey(new Date()) && 'bg-primary text-primary-foreground'
+                                  'inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium',
+                                  getJstDateKey(day) === getJstDateKey(new Date()) && 'bg-[#FFC83D] text-[#0F2747]'
                                 )}
                               >
                                 {format(day, 'd')}
                               </button>
                               {holidayName && (
-                                <div className="mt-1 truncate px-1 text-[10px] font-medium text-destructive">
+                                <div className="mt-1 truncate px-1 text-[10px] font-semibold text-[#F2A900]">
                                   {holidayName}
                                 </div>
                               )}
@@ -620,12 +629,13 @@ export default function CalendarPage() {
                                   type="button"
                                   onClick={() => openEditDialog(segment.event)}
                                   className={cn(
-                                    'block truncate px-2 py-1 text-left text-[10px] font-medium text-white',
+                                    'block truncate border-l-4 bg-[#E4EBF2] px-2 py-1 text-left text-[10px] font-semibold shadow-sm',
                                     segment.startsThisWeek ? 'rounded-l-md' : 'rounded-l-none',
                                     segment.endsThisWeek ? 'rounded-r-md' : 'rounded-r-none'
                                   )}
                                   style={{
-                                    backgroundColor: getEventColor(segment.event),
+                                    borderColor: getEventColor(segment.event),
+                                    color: getEventColor(segment.event),
                                     gridColumn: `${segment.startIndex + 1} / ${segment.endIndex + 2}`,
                                   }}
                                 >
@@ -653,13 +663,13 @@ export default function CalendarPage() {
                     onClick={() => setSelectedDate(day)}
                     className={cn(
                       'min-h-[220px] border-b border-r p-3 transition-colors hover:bg-muted/40',
-                      isSelected && 'bg-primary/5 ring-1 ring-primary'
+                      isSelected && 'bg-[#FFF0C2] ring-1 ring-[#F2A900]'
                     )}
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <button type="button" onClick={() => setSelectedDate(day)} className="text-left">
                         <div className="text-sm font-medium">{format(day, 'M/d (E)', { locale: ja })}</div>
-                        {holidayName && <div className="mt-1 text-xs font-medium text-destructive">{holidayName}</div>}
+                        {holidayName && <div className="mt-1 text-xs font-semibold text-[#F2A900]">{holidayName}</div>}
                       </button>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openCreateDialog(day)}>
                         <Plus className="h-4 w-4" />
@@ -672,8 +682,8 @@ export default function CalendarPage() {
                           key={event.id}
                           type="button"
                           onClick={() => openEditDialog(event)}
-                          className="block w-full rounded-md px-2 py-2 text-left text-xs text-white"
-                          style={{ backgroundColor: getEventColor(event) }}
+                          className="block w-full rounded-md border-l-4 bg-[#E4EBF2] px-2 py-2 text-left text-xs shadow-sm"
+                          style={{ borderColor: getEventColor(event), color: getEventColor(event) }}
                         >
                           <div className="font-medium">{event.title}</div>
                           <div className="mt-1 opacity-90">{formatEventTime(event)}</div>
@@ -692,7 +702,7 @@ export default function CalendarPage() {
         </CardContent>
       </Card>
 
-      <Card tone="mint">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between py-3">
           <CardTitle className="text-base">{format(selectedDate, 'M月d日 (E)', { locale: ja })} の予定</CardTitle>
           <Button size="sm" variant="ghost" onClick={() => openCreateDialog(selectedDate)}>
@@ -703,8 +713,8 @@ export default function CalendarPage() {
           {selectedDayEvents.length > 0 || selectedHolidayName ? (
             <div className="space-y-3">
               {selectedHolidayName && (
-                <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-                  <p className="text-sm font-medium text-destructive">{selectedHolidayName}</p>
+                <div className="rounded-lg border border-[#F2A900]/30 bg-[#FFF0C2] p-3">
+                  <p className="text-sm font-semibold text-[#0F2747]">{selectedHolidayName}</p>
                   <p className="mt-1 text-xs text-muted-foreground">日本の祝日</p>
                 </div>
               )}
