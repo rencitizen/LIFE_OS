@@ -36,15 +36,15 @@ export const TRANSACTION_SOURCE_LABELS: Record<string, string> = {
 }
 
 export const TRANSACTION_TYPE_COLORS: Record<'income' | 'expense', string> = {
-  income: '#15a83a',
-  expense: '#e73522',
+  income: '#00A86B',
+  expense: '#F2A900',
 }
 
 export const UI_ACCENT_COLORS = {
-  income: '#15a83a',
-  expense: '#e73522',
-  info: '#0072ce',
-  primary: '#15a83a',
-  warning: '#ffd400',
-  muted: '#fff7bf',
+  income: '#00A86B',
+  expense: '#F2A900',
+  info: '#1E4D8C',
+  primary: '#0F2747',
+  warning: '#FFC83D',
+  muted: '#52606F',
 } as const

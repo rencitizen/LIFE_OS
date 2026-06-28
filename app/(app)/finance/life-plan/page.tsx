@@ -18,11 +18,14 @@ import { toast } from 'sonner'
 
 /*
   Color Palette:
-  #15a83a  basil green
-  #e73522  Italian tomato
-  #ffd400  vivid yellow
-  #174a1f  foreground
-  #ffffff  background
+  #0F2747  primary
+  #1E4D8C  secondary
+  #00A86B  success
+  #5BCF6A  sub accent
+  #F2A900  warning
+  #FFC83D  highlight
+  #FFF8EE  background
+  #E4EBF2  UI surface
 */
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`

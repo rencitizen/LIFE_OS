@@ -21,7 +21,7 @@ function toFallbackProfile(authUser: AuthUser): User {
     avatar_url:
       typeof authUser.user_metadata?.avatar_url === 'string' ? authUser.user_metadata.avatar_url : null,
     email: authUser.email ?? null,
-    color: '#15a83a',
+    color: '#5BCF6A',
     role: 'partner',
     created_at: authUser.created_at ?? '',
   }

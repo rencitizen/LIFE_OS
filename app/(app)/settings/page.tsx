@@ -21,9 +21,12 @@ import { toast } from 'sonner'
 import type { LivingMode } from '@/types'
 
 const PROFILE_COLORS = [
-  { value: '#15a83a', label: 'バジルグリーン' },
-  { value: '#e73522', label: 'イタリアントマト' },
-  { value: '#ffd400', label: 'ビビットイエロー' },
+  { value: '#0F2747', label: 'Primary' },
+  { value: '#1E4D8C', label: 'Secondary' },
+  { value: '#00A86B', label: 'Success' },
+  { value: '#5BCF6A', label: 'Sub accent' },
+  { value: '#F2A900', label: 'Warning' },
+  { value: '#FFC83D', label: 'Highlight' },
 ] as const
 
 export default function SettingsPage() {
@@ -36,7 +39,7 @@ export default function SettingsPage() {
   const { data: accountSummary } = useAccountBalanceSummary(couple?.id)
 
   const [editName, setEditName] = useState('')
-  const [editColor, setEditColor] = useState('#15a83a')
+  const [editColor, setEditColor] = useState('#0F2747')
   const [editingProfile, setEditingProfile] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
 
@@ -74,7 +77,7 @@ export default function SettingsPage() {
 
   const startEditProfile = () => {
     setEditName(user?.display_name ?? '')
-    setEditColor(user?.color ?? '#15a83a')
+    setEditColor(user?.color ?? '#0F2747')
     setEditingProfile(true)
   }
 
@@ -213,8 +216,8 @@ export default function SettingsPage() {
               <AvatarFallback
                 className="text-lg"
                 style={{
-                  backgroundColor: editingProfile ? editColor : user?.color || '#15a83a',
-                  color: '#ffffff',
+                  backgroundColor: editingProfile ? editColor : user?.color || '#0F2747',
+                  color: '#FFF8EE',
                 }}
               >
                 {(editingProfile ? editName : user?.display_name)?.[0] || '?'}
@@ -255,8 +258,8 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-md border px-3 py-2">
-                  <span className="h-4 w-4 rounded-full border" style={{ backgroundColor: user?.color ?? '#15a83a' }} />
-                  <span className="text-sm">{PROFILE_COLORS.find((color) => color.value === (user?.color ?? '#15a83a'))?.label || 'カスタム'}</span>
+                  <span className="h-4 w-4 rounded-full border" style={{ backgroundColor: user?.color ?? '#0F2747' }} />
+                  <span className="text-sm">{PROFILE_COLORS.find((color) => color.value === (user?.color ?? '#0F2747'))?.label || 'カスタム'}</span>
                 </div>
               )}
             </div>

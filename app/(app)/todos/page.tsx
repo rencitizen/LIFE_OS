@@ -50,9 +50,9 @@ const taskLevelLabels: Record<TodoTaskLevel, string> = {
 }
 
 const taskLevelColors: Record<TodoTaskLevel, string> = {
-  large: 'bg-slate-900 text-white',
-  medium: 'bg-slate-200 text-slate-700',
-  small: 'bg-white text-slate-700 border border-slate-200',
+  large: 'bg-primary text-primary-foreground',
+  medium: 'bg-secondary/15 text-secondary',
+  small: 'bg-background text-foreground border border-border',
 }
 
 const taskLevelRank: Record<TodoTaskLevel, number> = {
