@@ -105,7 +105,7 @@ export default function FinanceDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card tone="mint">
+        <Card tone="cyan">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">収入</CardTitle>
             <Wallet className="h-4 w-4 text-[var(--color-income)]" />
@@ -116,7 +116,7 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card tone="blue">
+        <Card tone="navy">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">支出</CardTitle>
             <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
@@ -127,13 +127,13 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card tone="cyan">
+        <Card tone="blue">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">収支</CardTitle>
-            <Wallet className="h-4 w-4 text-[var(--color-info)]" />
+            <Wallet className="h-4 w-4 text-[var(--color-balance)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[var(--color-info)]">{formatSignedYen(actualBalance)}</div>
+            <div className="text-3xl font-bold text-[var(--color-balance)]">{formatSignedYen(actualBalance)}</div>
             <p className="mt-1 text-xs text-muted-foreground">選択月の差額</p>
           </CardContent>
         </Card>
@@ -155,7 +155,7 @@ export default function FinanceDashboardPage() {
                     <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border" />
                     <div className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[var(--color-expense)]" style={{ width: `${relationLineExpensePct}%` }} />
                     <div
-                      className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-[var(--color-income)]"
+                      className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-[var(--color-balance)]"
                       style={{ left: `${relationLineExpensePct}%`, width: `${relationLineBalancePct}%` }}
                     />
                     <div
@@ -163,7 +163,7 @@ export default function FinanceDashboardPage() {
                       style={{ left: `${relationLineExpensePct}%` }}
                     />
                     <div
-                      className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-[var(--color-income)]"
+                      className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-[var(--color-balance)]"
                       style={{ left: '100%' }}
                     />
                     <div className="absolute left-0 top-0 -translate-y-1 text-[10px] font-medium text-[var(--color-income)]">
@@ -172,14 +172,14 @@ export default function FinanceDashboardPage() {
                     <div className="absolute top-0 -translate-y-1 -translate-x-1/2 text-[10px] font-medium text-[var(--color-expense)]" style={{ left: `${relationLineExpensePct}%` }}>
                       支出点
                     </div>
-                    <div className="absolute right-0 top-0 -translate-y-1 text-[10px] font-medium text-[var(--color-income)]">
+                    <div className="absolute right-0 top-0 -translate-y-1 text-[10px] font-medium text-[var(--color-balance)]">
                       収支点
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <span className="text-[var(--color-income)]">収入 {formatYen(actualIncome)}</span>
                     <span className="text-[var(--color-expense)]">支出 {formatYen(actualExpense)}</span>
-                    <span className="text-[var(--color-info)]">収支 {formatSignedYen(actualBalance)}</span>
+                    <span className="text-[var(--color-balance)]">収支 {formatSignedYen(actualBalance)}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-[11px] text-muted-foreground">
                     <div className="rounded-md border bg-background px-3 py-2">
@@ -191,7 +191,7 @@ export default function FinanceDashboardPage() {
                       <span>{formatYen(actualExpense)}</span>
                     </div>
                     <div className="rounded-md border bg-background px-3 py-2">
-                      <span className="block font-medium text-[var(--color-info)]">収支</span>
+                      <span className="block font-medium text-[var(--color-balance)]">収支</span>
                       <span>{formatSignedYen(actualBalance)}</span>
                     </div>
                   </div>

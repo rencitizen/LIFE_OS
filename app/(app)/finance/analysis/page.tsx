@@ -108,34 +108,34 @@ export default function AnalysisPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card tone="mint">
+        <Card tone="cyan">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">収入</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatYen(actualIncome)}</p>
-          </CardContent>
-        </Card>
-        <Card tone="blue">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">支出</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatYen(actualExpense)}</p>
+            <p className="text-2xl font-bold text-[var(--color-income)]">{formatYen(actualIncome)}</p>
           </CardContent>
         </Card>
         <Card tone="navy">
           <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">支出</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-[var(--color-expense)]">{formatYen(actualExpense)}</p>
+          </CardContent>
+        </Card>
+        <Card tone="blue">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">収支</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${actualBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>{formatSignedYen(actualBalance)}</p>
+            <p className="text-2xl font-bold text-[var(--color-balance)]">{formatSignedYen(actualBalance)}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card tone="cyan">
+        <Card tone="navy">
           <CardHeader>
             <CardTitle className="text-base">支出カテゴリ上位</CardTitle>
           </CardHeader>
@@ -186,15 +186,15 @@ export default function AnalysisPage() {
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div className="rounded-xl border p-4">
             <p className="text-xs text-muted-foreground">年間収入</p>
-            <p className="mt-1 text-xl font-semibold">{formatYen(yearIncome)}</p>
+            <p className="mt-1 text-xl font-semibold text-[var(--color-income)]">{formatYen(yearIncome)}</p>
           </div>
           <div className="rounded-xl border p-4">
             <p className="text-xs text-muted-foreground">年間支出</p>
-            <p className="mt-1 text-xl font-semibold">{formatYen(yearExpense)}</p>
+            <p className="mt-1 text-xl font-semibold text-[var(--color-expense)]">{formatYen(yearExpense)}</p>
           </div>
           <div className="rounded-xl border p-4">
             <p className="text-xs text-muted-foreground">年間収支</p>
-            <p className={`mt-1 text-xl font-semibold ${yearBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
+            <p className="mt-1 text-xl font-semibold text-[var(--color-balance)]">
               {formatSignedYen(yearBalance)}
             </p>
           </div>

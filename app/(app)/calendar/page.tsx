@@ -80,6 +80,8 @@ const CALENDAR_COLORS = {
   holiday: '#F2A900',
 } as const
 
+const LIGHT_EVENT_COLORS = new Set(['#00A86B', '#5BCF6A', '#F2A900', '#FFC83D'])
+
 function toStartIso(date: string, time?: string) {
   return new Date(`${date}T${time || '00:00'}:00+09:00`).toISOString()
 }
@@ -240,9 +242,14 @@ export default function CalendarPage() {
   const selectedDayEvents = getEventsForDay(selectedDate)
 
   const getEventColor = (event: CalendarEvent) => {
-    if (event.created_by === user?.id) return CALENDAR_COLORS.mine
-    if (event.created_by === partner?.id) return CALENDAR_COLORS.partner
-    return CALENDAR_COLORS.shared
+    if (event.created_by === user?.id) return user?.color || CALENDAR_COLORS.mine
+    if (event.created_by === partner?.id) return partner?.color || CALENDAR_COLORS.partner
+    return event.color || CALENDAR_COLORS.shared
+  }
+
+  const getEventTextColor = (event: CalendarEvent) => {
+    const color = getEventColor(event)
+    return LIGHT_EVENT_COLORS.has(color.toUpperCase()) ? CALENDAR_COLORS.shared : color
   }
 
   const resetForm = (date = selectedDate) => {
@@ -306,7 +313,7 @@ export default function CalendarPage() {
         all_day: newAllDay,
         location: newLocation || undefined,
         visibility: newVisibility,
-        color: CALENDAR_COLORS.mine,
+        color: user.color || CALENDAR_COLORS.mine,
       }
 
       const buildEvent = (startDate: string, endDate: string): InsertTables<'calendar_events'> => ({
@@ -635,7 +642,7 @@ export default function CalendarPage() {
                                   )}
                                   style={{
                                     borderColor: getEventColor(segment.event),
-                                    color: getEventColor(segment.event),
+                                    color: getEventTextColor(segment.event),
                                     gridColumn: `${segment.startIndex + 1} / ${segment.endIndex + 2}`,
                                   }}
                                 >
@@ -683,7 +690,7 @@ export default function CalendarPage() {
                           type="button"
                           onClick={() => openEditDialog(event)}
                           className="block w-full rounded-md border-l-4 bg-[#E4EBF2] px-2 py-2 text-left text-xs shadow-sm"
-                          style={{ borderColor: getEventColor(event), color: getEventColor(event) }}
+                          style={{ borderColor: getEventColor(event), color: getEventTextColor(event) }}
                         >
                           <div className="font-medium">{event.title}</div>
                           <div className="mt-1 opacity-90">{formatEventTime(event)}</div>

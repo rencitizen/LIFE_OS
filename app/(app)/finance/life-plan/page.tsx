@@ -31,6 +31,13 @@ import { toast } from 'sonner'
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 
+const ASSET_COLORS = {
+  cash: '#FFC83D',
+  nisa: '#00A86B',
+  taxable: '#1E4D8C',
+  track: '#E4EBF2',
+} as const
+
 interface MonthlyIncomeActual {
   month: string
   label: string
@@ -336,7 +343,7 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             </thead>
             <tbody>
               {sim.household.map((row, i) => (
-                <tr key={row.year} className={`border-b border-border ${i % 2 === 0 ? 'bg-background' : 'bg-accent'}`}>
+                <tr key={row.year} className={`border-b border-border ${i % 2 === 0 ? 'bg-background' : 'bg-muted/35'}`}>
                   <td className="p-2 font-bold text-foreground">{row.year}</td>
                   <td className="p-2 text-muted-foreground">{row.age}</td>
                   <td className="p-2 text-right"><Computed>{yen(row.renNet)}</Computed></td>
@@ -357,11 +364,11 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
       )}
 
       {/* Asset composition bar chart */}
-      <Card className="border-border">
+      <Card className="border-border bg-card">
         <CardHeader className="pb-2">
           <CardTitle className="text-base text-foreground">資産構成推移</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2.5">
+        <CardContent className="space-y-3">
           {sim.household.map((row) => {
             const max = Math.max(...sim.household.map((h) => h.householdTotalAssets))
             const cashW = max > 0 ? (row.householdCash / max) * 100 : 0
@@ -370,19 +377,19 @@ function DashboardTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             return (
               <div key={row.year} className="flex items-center gap-2">
                 <span className="w-10 shrink-0 text-xs font-medium text-foreground">{row.year}</span>
-                <div className="flex h-6 flex-1 overflow-hidden rounded-md border border-border bg-background">
-                  <div className="h-full bg-secondary transition-all" style={{ width: `${cashW}%` }} title={`現金: ${yen(row.householdCash)}`} />
-                  <div className="h-full bg-primary transition-all" style={{ width: `${nisaW}%` }} title={`NISA: ${yen(row.householdNisa)}`} />
-                  <div className="h-full bg-foreground transition-all" style={{ width: `${taxW}%` }} title={`課税: ${yen(row.householdTaxable)}`} />
+                <div className="flex h-6 flex-1 overflow-hidden rounded-md border border-border" style={{ backgroundColor: ASSET_COLORS.track }}>
+                  <div className="h-full transition-all" style={{ width: `${cashW}%`, backgroundColor: ASSET_COLORS.cash }} title={`現金: ${yen(row.householdCash)}`} />
+                  <div className="h-full transition-all" style={{ width: `${nisaW}%`, backgroundColor: ASSET_COLORS.nisa }} title={`NISA: ${yen(row.householdNisa)}`} />
+                  <div className="h-full transition-all" style={{ width: `${taxW}%`, backgroundColor: ASSET_COLORS.taxable }} title={`課税: ${yen(row.householdTaxable)}`} />
                 </div>
                 <span className="w-28 shrink-0 text-right text-xs font-bold text-foreground">{yen(row.householdTotalAssets)}</span>
               </div>
             )
           })}
           <div className="flex gap-4 text-xs pt-2">
-            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-secondary" /><span className="text-muted-foreground">キャッシュ</span></span>
-            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-primary" /><span className="text-muted-foreground">NISA</span></span>
-            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-foreground" /><span className="text-muted-foreground">課税資産</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: ASSET_COLORS.cash }} /><span className="text-muted-foreground">現金</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: ASSET_COLORS.nisa }} /><span className="text-muted-foreground">NISA</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: ASSET_COLORS.taxable }} /><span className="text-muted-foreground">課税資産</span></span>
           </div>
         </CardContent>
       </Card>
@@ -510,7 +517,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             </thead>
             <tbody>
               {data.map((row, i) => (
-                <tr key={row.year} className={`border-b border-border ${i % 2 === 0 ? 'bg-background' : 'bg-accent'}`}>
+                <tr key={row.year} className={`border-b border-border ${i % 2 === 0 ? 'bg-background' : 'bg-muted/35'}`}>
                   <td className="p-2 font-bold text-foreground">{row.year}</td>
                   <td className="p-2 text-right"><Computed>{yen(row.net)}</Computed></td>
                   <td className="p-2 text-right"><Computed>{yen(row.livingCost)}</Computed></td>
@@ -532,7 +539,7 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
         </CardContent>
       </Card>
 
-      <Card className="border-border">
+      <Card className="border-border bg-card">
         <CardHeader className="pb-2">
           <CardTitle className="text-base text-foreground">{person === 'ren' ? 'Ren' : 'Hikaru'} 資産構成</CardTitle>
         </CardHeader>
@@ -545,15 +552,20 @@ function AssetsTab({ sim }: { sim: ReturnType<typeof useSimulation> }) {
             return (
               <div key={row.year} className="flex items-center gap-2">
                 <span className="w-10 shrink-0 text-xs font-medium text-foreground">{row.year}</span>
-                <div className="flex h-6 flex-1 overflow-hidden rounded-md border border-border bg-background">
-                  <div className="h-full bg-secondary" style={{ width: `${cashW}%` }} />
-                  <div className="h-full bg-primary" style={{ width: `${nisaW}%` }} />
-                  <div className="h-full bg-foreground" style={{ width: `${taxW}%` }} />
+                <div className="flex h-6 flex-1 overflow-hidden rounded-md border border-border" style={{ backgroundColor: ASSET_COLORS.track }}>
+                  <div className="h-full" style={{ width: `${cashW}%`, backgroundColor: ASSET_COLORS.cash }} title={`現金: ${yen(row.cashBalance)}`} />
+                  <div className="h-full" style={{ width: `${nisaW}%`, backgroundColor: ASSET_COLORS.nisa }} title={`NISA: ${yen(row.nisaBalance)}`} />
+                  <div className="h-full" style={{ width: `${taxW}%`, backgroundColor: ASSET_COLORS.taxable }} title={`課税: ${yen(row.taxableBalance)}`} />
                 </div>
                 <span className="w-28 shrink-0 text-right text-xs font-bold text-foreground">{yen(row.totalAssets)}</span>
               </div>
             )
           })}
+          <div className="flex gap-4 pt-2 text-xs">
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: ASSET_COLORS.cash }} /><span className="text-muted-foreground">現金</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: ASSET_COLORS.nisa }} /><span className="text-muted-foreground">NISA</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: ASSET_COLORS.taxable }} /><span className="text-muted-foreground">課税資産</span></span>
+          </div>
         </CardContent>
       </Card>
 
