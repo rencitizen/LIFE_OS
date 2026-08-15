@@ -52,7 +52,7 @@ Classification behavior:
 
 ## Registration RPC
 
-`public.register_chatgpt_expense(...)` is the canonical ChatGPT write path.
+`public.register_chatgpt_expense(...)` is the canonical ChatGPT create path.
 
 A successful settlement-target registration performs all of the following in one database transaction:
 
@@ -82,11 +82,13 @@ ChatGPT parses them as separate transactions and registers each row separately. 
 
 ## Corrections and deletion
 
+- `public.update_chatgpt_expense(...)` is the canonical correction path for ChatGPT-created expenses.
 - If the user says something such as `さっきのスーパー3,200円じゃなくて2,800円`, identify the intended recent expense from conversation/database context.
 - If exactly one row is an unambiguous match, update it automatically and audit the change.
 - If multiple rows are plausible, ask which one before updating.
+- A correction to amount/date/category on an unsettled settlement-target expense recalculates its `expense_splits` using the standard profile effective on the corrected date.
+- Already-settled expenses are not silently rewritten.
 - Deletion always requires explicit confirmation before the delete mutation is executed.
-- Correction of a settlement-target expense must keep its `expense_splits` consistent with the corrected amount/category/date and preserve an audit trail.
 
 ## Registration response
 
