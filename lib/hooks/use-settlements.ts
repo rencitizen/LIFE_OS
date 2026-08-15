@@ -1,8 +1,22 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Settlement, InsertTables, UpdateTables } from '@/types'
+import type { Settlement } from '@/types'
+
+export type MonthlySettlementPreview = {
+  couple_id: string
+  settlement_month: string
+  from_user: string | null
+  to_user: string | null
+  amount: number
+  expense_count: number
+  gross_amount: number
+}
+
+export type CompletedMonthlySettlement = Omit<MonthlySettlementPreview, 'couple_id'> & {
+  settlement_id: string
+}
 
 export function useSettlements(coupleId: string | undefined) {
   const supabase = createClient()
@@ -22,74 +36,73 @@ export function useSettlements(coupleId: string | undefined) {
   })
 }
 
-export function useUnsettledBalance(coupleId: string | undefined, userId: string | undefined) {
+export function useMonthlySettlementPreview(userId: string | undefined, yearMonth: string | undefined) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['unsettled-balance', coupleId, userId],
+    queryKey: ['monthly-settlement-preview', userId, yearMonth],
     queryFn: async () => {
-      // Get all advance expenses that haven't been fully settled
-      const { data, error } = await supabase
-        .from('expenses')
-        .select('*')
-        .eq('couple_id', coupleId!)
-        .eq('expense_type', 'advance')
+      const { data, error } = await (supabase as any).rpc('preview_monthly_settlement', {
+        p_user_id: userId!,
+        p_month: `${yearMonth}-01`,
+      })
       if (error) throw error
 
-      const expenses = data as unknown as { paid_by: string; amount: number }[]
-      let balance = 0
-      for (const exp of expenses) {
-        if (exp.paid_by === userId) {
-          balance += Number(exp.amount) / 2 // partner owes half
-        } else {
-          balance -= Number(exp.amount) / 2 // I owe half
-        }
-      }
-      return balance
+      const row = data?.[0]
+      if (!row) return null
+
+      return {
+        couple_id: row.couple_id,
+        settlement_month: row.settlement_month,
+        from_user: row.from_user ?? null,
+        to_user: row.to_user ?? null,
+        amount: Number(row.amount || 0),
+        expense_count: Number(row.expense_count || 0),
+        gross_amount: Number(row.gross_amount || 0),
+      } satisfies MonthlySettlementPreview
     },
-    enabled: !!coupleId && !!userId,
+    enabled: !!userId && !!yearMonth,
   })
 }
 
-export function useCreateSettlement() {
+export function useCompleteMonthlySettlement() {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (settlement: InsertTables<'settlements'>) => {
-      const { data, error } = await supabase
-        .from('settlements')
-        .insert(settlement)
-        .select()
-        .single()
+    mutationFn: async ({
+      userId,
+      yearMonth,
+      memo,
+    }: {
+      userId: string
+      yearMonth: string
+      memo?: string | null
+    }) => {
+      const { data, error } = await (supabase as any).rpc('complete_monthly_settlement', {
+        p_user_id: userId,
+        p_month: `${yearMonth}-01`,
+        p_memo: memo || null,
+      })
       if (error) throw error
-      return data as unknown as Settlement
+
+      const row = data?.[0]
+      if (!row) throw new Error('settlement_result_missing')
+
+      return {
+        settlement_id: row.settlement_id,
+        settlement_month: row.settlement_month,
+        from_user: row.from_user ?? null,
+        to_user: row.to_user ?? null,
+        amount: Number(row.amount || 0),
+        expense_count: Number(row.expense_count || 0),
+        gross_amount: Number(row.gross_amount || 0),
+      } satisfies CompletedMonthlySettlement
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthly-settlement-preview'] })
       queryClient.invalidateQueries({ queryKey: ['settlements'] })
-      queryClient.invalidateQueries({ queryKey: ['unsettled-balance'] })
-    },
-  })
-}
-
-export function useUpdateSettlement() {
-  const supabase = createClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, ...updates }: UpdateTables<'settlements'> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('settlements')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-      if (error) throw error
-      return data as unknown as Settlement
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settlements'] })
-      queryClient.invalidateQueries({ queryKey: ['unsettled-balance'] })
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
     },
   })
 }
