@@ -1,7 +1,7 @@
 export type { Database } from './database'
 import type { Database } from './database'
 
-// Table row type helper
+// Raw database helpers. These mirror Supabase exactly, including nullable legacy columns.
 export type Tables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row']
 export type InsertTables<T extends keyof Database['public']['Tables']> =
@@ -9,32 +9,67 @@ export type InsertTables<T extends keyof Database['public']['Tables']> =
 export type UpdateTables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Update']
 
-// Entity aliases. Some UI-facing fields are normalized to their application defaults
-// even though the underlying legacy columns remain nullable in Postgres.
-export type Couple = Tables<'couples'>
-export type User = Tables<'users'>
-export type CalendarEvent = Tables<'calendar_events'> & {
-  all_day: boolean
+type NormalizeRequired<T, K extends keyof T> = Omit<T, K> & {
+  [P in K]-?: NonNullable<T[P]>
 }
-export type EventReminder = Tables<'event_reminders'>
-export type ShoppingList = Tables<'shopping_lists'>
-export type ShoppingItem = Tables<'shopping_items'>
-export type Todo = Tables<'todos'>
+
+// UI-facing entity aliases. LIFE_OS historically treats these default-backed legacy
+// columns as populated. Keep that application contract separate from the raw DB type.
+export type Couple = NormalizeRequired<Tables<'couples'>, 'currency' | 'timezone' | 'created_at'>
+export type User = NormalizeRequired<Tables<'users'>, 'color' | 'role' | 'created_at'>
+export type CalendarEvent = NormalizeRequired<
+  Tables<'calendar_events'>,
+  'couple_id' | 'created_by' | 'all_day' | 'visibility' | 'event_type' | 'is_recurring' | 'created_at'
+>
+export type EventReminder = NormalizeRequired<Tables<'event_reminders'>, 'event_id' | 'is_sent' | 'type' | 'created_at'>
+export type ShoppingList = NormalizeRequired<
+  Tables<'shopping_lists'>,
+  'couple_id' | 'category' | 'is_active' | 'created_by' | 'created_at'
+>
+export type ShoppingItem = NormalizeRequired<
+  Tables<'shopping_items'>,
+  'list_id' | 'priority' | 'is_checked' | 'expense_created' | 'created_at'
+>
+export type Todo = NormalizeRequired<
+  Tables<'todos'>,
+  'couple_id' | 'created_by' | 'priority' | 'status' | 'visibility' | 'is_recurring' | 'created_at'
+>
 export type IdeaItem = Tables<'idea_items'>
-export type Expense = Tables<'expenses'> & {
+export type Expense = NormalizeRequired<
+  Tables<'expenses'>,
+  'couple_id' | 'paid_by' | 'currency' | 'expense_type' | 'is_fixed' | 'source' | 'created_at'
+> & {
   split_mode: 'none' | 'standard' | 'custom' | 'full_payer'
 }
-export type ExpenseSplit = Tables<'expense_splits'>
-export type ExpenseCategory = Tables<'expense_categories'>
-export type Settlement = Tables<'settlements'>
-export type Budget = Tables<'budgets'>
+export type ExpenseSplit = NormalizeRequired<Tables<'expense_splits'>, 'expense_id' | 'user_id' | 'is_settled'>
+export type ExpenseCategory = NormalizeRequired<
+  Tables<'expense_categories'>,
+  'couple_id' | 'is_default' | 'sort_order' | 'created_at'
+>
+export type Settlement = NormalizeRequired<
+  Tables<'settlements'>,
+  'couple_id' | 'from_user' | 'to_user' | 'status' | 'created_at'
+>
+export type Budget = NormalizeRequired<Tables<'budgets'>, 'couple_id' | 'created_at'>
 export type BudgetMemberLimit = Tables<'budget_member_limits'>
 export type BudgetCategory = Tables<'budget_categories'>
 export type BudgetIncomeCategory = Tables<'budget_income_categories'>
-export type SavingsGoal = Tables<'savings_goals'>
-export type SavingsContribution = Tables<'savings_contributions'>
-export type Account = Tables<'accounts'>
-export type Income = Tables<'incomes'>
+export type SavingsGoal = NormalizeRequired<
+  Tables<'savings_goals'>,
+  'couple_id' | 'current_amount' | 'status' | 'created_at'
+>
+export type SavingsContribution = NormalizeRequired<
+  Tables<'savings_contributions'>,
+  'goal_id' | 'user_id' | 'created_at'
+>
+export type Account = NormalizeRequired<
+  Tables<'accounts'>,
+  'couple_id' | 'owner_id' | 'is_shared' | 'created_at'
+>
+export type Income = NormalizeRequired<
+  Tables<'incomes'>,
+  'couple_id' | 'user_id' | 'income_type' | 'is_fixed' | 'created_at'
+>
 
 // Enum types
 export type Visibility = 'shared' | 'private' | 'partner_only'
