@@ -59,6 +59,10 @@ export type LivingMode = 'before_cohabiting' | 'after_cohabiting'
 export type TransactionType = 'income' | 'expense'
 export type TransactionSource = 'manual' | 'ocr' | 'moneyforward_screenshot' | 'imported' | 'ai'
 
+export type ExpenseWithRelations = Expense & {
+  expense_splits?: Array<Pick<ExpenseSplit, 'user_id' | 'amount' | 'ratio' | 'is_settled'>>
+}
+
 export interface UnifiedTransaction {
   id: string
   transactionType: TransactionType
@@ -71,6 +75,6 @@ export interface UnifiedTransaction {
   ownerId: string
   ownerLabel: string
   source: TransactionSource
-  rawExpense?: Expense
+  rawExpense?: ExpenseWithRelations
   rawIncome?: Income
 }
