@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { addMonths, format } from 'date-fns'
 import { ChevronLeft, ChevronRight, Wallet } from 'lucide-react'
 import {
@@ -17,11 +17,19 @@ import { UI_ACCENT_COLORS } from '@/lib/finance/constants'
 import { FINANCE_SCOPE_LABELS, filterByFinanceScope } from '@/lib/finance/scope'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useExpenses } from '@/lib/hooks/use-expenses'
 import { useIncomes } from '@/lib/hooks/use-incomes'
 import { useFinanceStore } from '@/stores/finance-store'
 
 const PIE_COLORS = ['#0F2747', '#1E4D8C', '#00A86B', '#5BCF6A', '#F2A900', '#FFC83D', '#E4EBF2']
+
+type ExpensePieRow = {
+  categoryId: string | null
+  name: string
+  value: number
+  hasChildren: boolean
+}
 
 function formatSignedYen(value: number) {
   const sign = value >= 0 ? '+' : '-'
@@ -37,7 +45,9 @@ export default function FinanceDashboardPage() {
   const { couple, user, partner } = useAuth()
   const { selectedMonth, setSelectedMonth, financeScope } = useFinanceStore()
   const { data: expenseRows } = useExpenses(couple?.id, selectedMonth)
+  const { data: categories } = useExpenseCategories(couple?.id)
   const { data: monthIncomes } = useIncomes(couple?.id, selectedMonth)
+  const [expenseCategoryPath, setExpenseCategoryPath] = useState<string[]>([])
 
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
@@ -63,20 +73,119 @@ export default function FinanceDashboardPage() {
   const relationLineExpensePct = actualIncome > 0 ? Math.min(100, Math.max(0, (actualExpense / actualIncome) * 100)) : 0
   const relationLineBalancePct = actualIncome > 0 ? Math.min(100, Math.max(0, (actualBalance / actualIncome) * 100)) : 0
 
-  const expensePieData = useMemo(() => {
-    const totals = new Map<string, number>()
+  const categoryById = useMemo(
+    () => new Map((categories || []).map((category) => [category.id, category])),
+    [categories]
+  )
 
-    for (const row of scopedExpenseRows) {
-      const name = row.expense_categories?.name || 'Uncategorized'
-      totals.set(name, (totals.get(name) || 0) + Number(row.amount))
+  const selectedExpenseCategoryId = expenseCategoryPath[expenseCategoryPath.length - 1] || null
+
+  const expenseCategoryBreadcrumb = useMemo(
+    () => expenseCategoryPath.map((id) => categoryById.get(id)?.name).filter(Boolean).join(' / '),
+    [categoryById, expenseCategoryPath]
+  )
+
+  const expensePieData = useMemo<ExpensePieRow[]>(() => {
+    const totals = new Map<string, ExpensePieRow>()
+    const categoryList = categories || []
+
+    const hasChildren = (categoryId: string) =>
+      categoryList.some((category) => category.parent_category_id === categoryId)
+
+    const rootCategoryId = (categoryId: string) => {
+      let current = categoryById.get(categoryId)
+      const seen = new Set<string>()
+      while (current?.parent_category_id && !seen.has(current.id)) {
+        seen.add(current.id)
+        current = categoryById.get(current.parent_category_id)
+      }
+      return current?.id || categoryId
     }
 
-    const rows = Array.from(totals.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
+    const directChildBelow = (categoryId: string, ancestorId: string) => {
+      let current = categoryById.get(categoryId)
+      const seen = new Set<string>()
 
-    return rows
-  }, [scopedExpenseRows])
+      while (current && !seen.has(current.id)) {
+        seen.add(current.id)
+        if (current.parent_category_id === ancestorId) return current.id
+        if (!current.parent_category_id) return null
+        current = categoryById.get(current.parent_category_id)
+      }
+      return null
+    }
+
+    const isDescendantOrSelf = (categoryId: string, ancestorId: string) => {
+      if (categoryId === ancestorId) return true
+      let current = categoryById.get(categoryId)
+      const seen = new Set<string>()
+      while (current?.parent_category_id && !seen.has(current.id)) {
+        seen.add(current.id)
+        if (current.parent_category_id === ancestorId) return true
+        current = categoryById.get(current.parent_category_id)
+      }
+      return false
+    }
+
+    for (const row of scopedExpenseRows) {
+      const amount = Number(row.amount)
+      const rowCategoryId = row.category_id
+
+      if (!rowCategoryId || !categoryById.has(rowCategoryId)) {
+        if (!selectedExpenseCategoryId) {
+          const current = totals.get('uncategorized') || {
+            categoryId: null,
+            name: '未分類',
+            value: 0,
+            hasChildren: false,
+          }
+          current.value += amount
+          totals.set('uncategorized', current)
+        }
+        continue
+      }
+
+      let bucketId: string | null = null
+      let bucketName = ''
+      let bucketHasChildren = false
+
+      if (!selectedExpenseCategoryId) {
+        bucketId = rootCategoryId(rowCategoryId)
+        const bucketCategory = categoryById.get(bucketId)
+        bucketName = bucketCategory?.name || row.expense_categories?.name || '未分類'
+        bucketHasChildren = Boolean(bucketCategory && hasChildren(bucketCategory.id))
+      } else {
+        if (!isDescendantOrSelf(rowCategoryId, selectedExpenseCategoryId)) continue
+
+        if (rowCategoryId === selectedExpenseCategoryId) {
+          bucketId = null
+          bucketName = `${categoryById.get(selectedExpenseCategoryId)?.name || 'カテゴリ'}（直下）`
+        } else {
+          bucketId = directChildBelow(rowCategoryId, selectedExpenseCategoryId)
+          const bucketCategory = bucketId ? categoryById.get(bucketId) : null
+          bucketName = bucketCategory?.name || 'その他'
+          bucketHasChildren = Boolean(bucketCategory && hasChildren(bucketCategory.id))
+        }
+      }
+
+      const key = bucketId || `direct:${selectedExpenseCategoryId || 'root'}`
+      const current = totals.get(key) || {
+        categoryId: bucketId,
+        name: bucketName,
+        value: 0,
+        hasChildren: bucketHasChildren,
+      }
+      current.value += amount
+      totals.set(key, current)
+    }
+
+    return Array.from(totals.values()).sort((a, b) => b.value - a.value)
+  }, [categories, categoryById, scopedExpenseRows, selectedExpenseCategoryId])
+
+  const drillIntoCategory = (row: ExpensePieRow) => {
+    if (!row.categoryId || !row.hasChildren) return
+    setExpenseCategoryPath((current) => [...current, row.categoryId!])
+  }
 
   const navigateMonth = (direction: number) => {
     const nextDate = addMonths(displayDate, direction)
@@ -204,8 +313,23 @@ export default function FinanceDashboardPage() {
         </Card>
 
         <Card tone="cyan">
-          <CardHeader>
-            <CardTitle className="text-base">支出構成</CardTitle>
+          <CardHeader className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">支出構成</CardTitle>
+              {expenseCategoryPath.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExpenseCategoryPath((current) => current.slice(0, -1))}
+                >
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  戻る
+                </Button>
+              )}
+            </div>
+            {expenseCategoryBreadcrumb && (
+              <p className="text-xs text-muted-foreground">{expenseCategoryBreadcrumb}</p>
+            )}
           </CardHeader>
           <CardContent>
             {expensePieData.length > 0 ? (
@@ -231,22 +355,30 @@ export default function FinanceDashboardPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {expensePieData.slice(0, 6).map((row, index) => (
-                    <div key={row.name} className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
-                      <div className="flex items-center gap-2">
+                  {expensePieData.slice(0, 8).map((row, index) => (
+                    <button
+                      key={`${row.categoryId || row.name}-${index}`}
+                      type="button"
+                      className={`flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left text-sm transition-colors ${
+                        row.hasChildren ? 'hover:bg-muted/40' : 'cursor-default'
+                      }`}
+                      onClick={() => drillIntoCategory(row)}
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
                         <span
-                          className="inline-block h-3 w-3 rounded-full"
+                          className="inline-block h-3 w-3 shrink-0 rounded-full"
                           style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
                         />
                         <span className="truncate">{row.name}</span>
+                        {row.hasChildren && <span className="text-xs text-muted-foreground">詳細</span>}
                       </div>
                       <span className="shrink-0 font-medium">{formatYen(row.value)}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">支出を追加すると支出構成グラフが表示されます。</p>
+              <p className="text-sm text-muted-foreground">この階層に表示できる支出はありません。</p>
             )}
           </CardContent>
         </Card>
