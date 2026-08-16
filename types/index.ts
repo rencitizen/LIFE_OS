@@ -9,31 +9,24 @@ export type InsertTables<T extends keyof Database['public']['Tables']> =
 export type UpdateTables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Update']
 
-// Entity aliases
+// Entity aliases. Some UI-facing fields are normalized to their application defaults
+// even though the underlying legacy columns remain nullable in Postgres.
 export type Couple = Tables<'couples'>
 export type User = Tables<'users'>
-export type CalendarEvent = Tables<'calendar_events'>
+export type CalendarEvent = Tables<'calendar_events'> & {
+  all_day: boolean
+}
 export type EventReminder = Tables<'event_reminders'>
 export type ShoppingList = Tables<'shopping_lists'>
 export type ShoppingItem = Tables<'shopping_items'>
 export type Todo = Tables<'todos'>
 export type IdeaItem = Tables<'idea_items'>
-
-// The generated database.ts in this repository predates the finance split/category
-// migrations. Keep these finance aliases aligned with the live Supabase schema until
-// the whole generated file is replaced by the next CLI type-generation pass.
 export type Expense = Tables<'expenses'> & {
-  split_profile_id: string | null
   split_mode: 'none' | 'standard' | 'custom' | 'full_payer'
-  is_settlement_target: boolean
 }
 export type ExpenseSplit = Tables<'expense_splits'>
-export type ExpenseCategory = Tables<'expense_categories'> & {
-  parent_category_id: string | null
-}
-export type Settlement = Tables<'settlements'> & {
-  settlement_month: string | null
-}
+export type ExpenseCategory = Tables<'expense_categories'>
+export type Settlement = Tables<'settlements'>
 export type Budget = Tables<'budgets'>
 export type BudgetMemberLimit = Tables<'budget_member_limits'>
 export type BudgetCategory = Tables<'budget_categories'>
