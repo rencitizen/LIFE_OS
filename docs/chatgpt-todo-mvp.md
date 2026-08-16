@@ -29,6 +29,19 @@ ChatGPT -> Supabase -> LIFE_OS
 
 Supabase remains the system of record.
 
+## Implemented write paths
+
+ChatGPT-originated Todo mutations use dedicated transaction-safe RPCs:
+
+- `public.register_chatgpt_todo(...)`
+- `public.update_chatgpt_todo(...)`
+- `public.complete_chatgpt_todo(...)`
+- `public.delete_chatgpt_todo(...)`
+
+All four validate the acting user and couple boundary and write to `todo_action_logs` in the same database transaction. Delete additionally requires `p_confirmed = true` at the RPC boundary, so a missing conversational confirmation cannot accidentally become a destructive write.
+
+Target matching remains a ChatGPT responsibility: the RPCs mutate an already-resolved Todo ID and deliberately do not guess which Todo the user meant.
+
 ## As-Is findings (2026-08-15)
 
 - Total Todos: 54
@@ -121,11 +134,15 @@ Examples:
 - 「資料修正を優先度高にして」
 - 「これはひかるん担当」
 
+`update_chatgpt_todo` accepts only the approved mutable fields. Unsupported JSON keys are rejected rather than silently ignored.
+
 ### 5. Delete Todo
 
 Deletion always requires explicit confirmation immediately before execution.
 
 Do not treat completion as deletion.
+
+`delete_chatgpt_todo` independently enforces this rule with a required confirmation flag.
 
 ### 6. Matching existing Todos
 
@@ -194,7 +211,7 @@ Do not execute:
 
 ## Audit requirement
 
-ChatGPT-originated mutations should be traceable. A minimal audit structure should record:
+ChatGPT-originated mutations are recorded in `todo_action_logs` with:
 - source = chatgpt
 - action type
 - todo_id
@@ -204,7 +221,7 @@ ChatGPT-originated mutations should be traceable. A minimal audit structure shou
 - execution timestamp
 - status / error
 
-The audit mechanism should be minimal and must not alter current Todo behavior.
+The audit mechanism is append-only for normal authenticated application use and does not alter current Todo behavior.
 
 ## MVP success criteria
 
