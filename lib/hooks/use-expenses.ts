@@ -2,10 +2,11 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Expense, InsertTables, UpdateTables } from '@/types'
+import type { Expense, ExpenseSplit, InsertTables, UpdateTables } from '@/types'
 
 interface ExpenseWithCategory extends Expense {
   expense_categories: { name: string; icon: string | null; color: string | null } | null
+  expense_splits: Array<Pick<ExpenseSplit, 'user_id' | 'amount' | 'ratio' | 'is_settled'>>
 }
 
 function invalidateExpenseQueries(queryClient: ReturnType<typeof useQueryClient>) {
@@ -24,7 +25,7 @@ export function useExpenses(coupleId: string | undefined, yearMonth?: string) {
     queryFn: async () => {
       let query = supabase
         .from('expenses')
-        .select('*, expense_categories(name, icon, color)')
+        .select('*, expense_categories(name, icon, color), expense_splits(user_id, amount, ratio, is_settled)')
         .eq('couple_id', coupleId!)
         .order('expense_date', { ascending: false })
 
