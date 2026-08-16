@@ -16,6 +16,7 @@ import { FINANCE_SCOPE_LABELS, matchesFinanceScope } from '@/lib/finance/scope'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCreateCategory, useExpenseCategories } from '@/lib/hooks/use-categories'
+import { useCreateManualExpense, useUpdateExpenseWithSplits } from '@/lib/hooks/use-expenses'
 import { useCreateTransaction, useDeleteTransaction, useTransactions, useUpdateTransaction } from '@/lib/hooks/use-transactions'
 import { useFinanceStore } from '@/stores/finance-store'
 import { toast } from 'sonner'
@@ -75,6 +76,8 @@ export default function TransactionsPage() {
   const createTransaction = useCreateTransaction()
   const updateTransaction = useUpdateTransaction()
   const deleteTransaction = useDeleteTransaction()
+  const createManualExpense = useCreateManualExpense()
+  const updateExpenseWithSplits = useUpdateExpenseWithSplits()
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
@@ -89,6 +92,7 @@ export default function TransactionsPage() {
   const [memo, setMemo] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [expenseKind, setExpenseKind] = useState('shared')
+  const [settlementTarget, setSettlementTarget] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [incomeType, setIncomeType] = useState('salary')
 
@@ -107,6 +111,7 @@ export default function TransactionsPage() {
     setMemo('')
     setCategoryId('')
     setExpenseKind('shared')
+    setSettlementTarget(false)
     setPaymentMethod('card')
     setIncomeType('salary')
   }
@@ -139,6 +144,7 @@ export default function TransactionsPage() {
     setMemo(transaction.memo)
     setCategoryId(transaction.rawExpense?.category_id || '')
     setExpenseKind(transaction.rawExpense?.expense_type || 'shared')
+    setSettlementTarget(Boolean(transaction.rawExpense?.is_settlement_target))
     setPaymentMethod(transaction.rawExpense?.payment_method || 'card')
     setIncomeType(transaction.rawIncome?.income_type || 'salary')
     setDialogOpen(true)
@@ -156,33 +162,32 @@ export default function TransactionsPage() {
 
     try {
       if (transactionType === 'expense') {
+        if (!categoryId) return toast.error('カテゴリを選択してください')
+        const resolvedExpenseKind = settlementTarget ? 'shared' : expenseKind
+
         if (editingTransaction) {
-          await updateTransaction.mutateAsync({
-            transactionType: 'expense',
-            values: {
-              id: editingTransaction.id,
-              amount: Number(amount),
-              description: memo || null,
-              expense_date: date,
-              expense_type: expenseKind,
-              category_id: categoryId || null,
-              payment_method: paymentMethod,
-            },
+          await updateExpenseWithSplits.mutateAsync({
+            userId: user.id,
+            expenseId: editingTransaction.id,
+            amount: Number(amount),
+            expenseDate: date,
+            categoryId,
+            description: memo || null,
+            isSettlementTarget: settlementTarget,
+            paymentMethod,
+            expenseType: resolvedExpenseKind,
           })
         } else {
-          await createTransaction.mutateAsync({
-            transactionType: 'expense',
-            values: {
-              couple_id: couple.id,
-              paid_by: user.id,
-              amount: Number(amount),
-              description: memo || null,
-              expense_date: date,
-              expense_type: expenseKind,
-              category_id: categoryId || null,
-              payment_method: paymentMethod,
-              source: 'manual',
-            },
+          await createManualExpense.mutateAsync({
+            userId: user.id,
+            paidBy: user.id,
+            amount: Number(amount),
+            expenseDate: date,
+            categoryId,
+            description: memo || null,
+            isSettlementTarget: settlementTarget,
+            paymentMethod,
+            expenseType: resolvedExpenseKind,
           })
         }
       } else {
@@ -215,7 +220,8 @@ export default function TransactionsPage() {
       setSelectedMonth(date.slice(0, 7))
       setDialogOpen(false)
       toast.success(editingTransaction ? '取引を更新しました' : '取引を追加しました')
-    } catch {
+    } catch (error) {
+      console.error(error)
       toast.error(editingTransaction ? '取引の更新に失敗しました' : '取引の追加に失敗しました')
     }
   }
@@ -379,6 +385,13 @@ export default function TransactionsPage() {
     )
   }, [filteredTransactions])
 
+  const isSaving =
+    createTransaction.isPending ||
+    updateTransaction.isPending ||
+    deleteTransaction.isPending ||
+    createManualExpense.isPending ||
+    updateExpenseWithSplits.isPending
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -477,14 +490,35 @@ export default function TransactionsPage() {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className="space-y-2">
                       <Label>支出区分</Label>
-                      <Select value={expenseKind} onValueChange={(value) => setExpenseKind(value ?? 'shared')}>
+                      <Select
+                        value={settlementTarget ? 'shared' : expenseKind}
+                        onValueChange={(value) => setExpenseKind(value ?? 'shared')}
+                        disabled={settlementTarget}
+                      >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="shared">共有</SelectItem>
                           <SelectItem value="personal">個人</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>精算</Label>
+                      <Select
+                        value={settlementTarget ? 'target' : 'none'}
+                        onValueChange={(value) => {
+                          const next = value === 'target'
+                          setSettlementTarget(next)
+                          if (next) setExpenseKind('shared')
+                        }}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">対象外</SelectItem>
+                          <SelectItem value="target">精算対象</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -500,6 +534,11 @@ export default function TransactionsPage() {
                       </Select>
                     </div>
                   </div>
+                  {settlementTarget && (
+                    <p className="text-xs text-muted-foreground">
+                      精算対象は、支出日の標準負担割合で自動分割されます。
+                    </p>
+                  )}
                 </>
               ) : (
                 <div className="space-y-2">
@@ -527,7 +566,7 @@ export default function TransactionsPage() {
                     削除
                   </Button>
                 )}
-                <Button className="flex-1" onClick={handleSave} disabled={createTransaction.isPending || updateTransaction.isPending || deleteTransaction.isPending}>
+                <Button className="flex-1" onClick={handleSave} disabled={isSaving}>
                   {editingTransaction ? '更新' : '保存'}
                 </Button>
               </div>
@@ -671,6 +710,9 @@ export default function TransactionsPage() {
                           ? EXPENSE_KIND_LABELS[transaction.type] || transaction.type
                           : INCOME_TYPE_LABELS[transaction.type] || transaction.type}
                       </Badge>
+                      {transaction.transactionType === 'expense' && transaction.rawExpense?.is_settlement_target && (
+                        <Badge variant="secondary" className="text-xs">精算対象</Badge>
+                      )}
                       <Badge variant="outline" className="text-xs">
                         {TRANSACTION_SOURCE_LABELS[transaction.source] || transaction.source}
                       </Badge>
