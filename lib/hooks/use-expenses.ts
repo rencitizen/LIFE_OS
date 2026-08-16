@@ -8,6 +8,14 @@ interface ExpenseWithCategory extends Expense {
   expense_categories: { name: string; icon: string | null; color: string | null } | null
 }
 
+function invalidateExpenseQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['expenses'] })
+  queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
+  queryClient.invalidateQueries({ queryKey: ['expense-history'] })
+  queryClient.invalidateQueries({ queryKey: ['expense-history-year'] })
+  queryClient.invalidateQueries({ queryKey: ['monthly-settlement-preview'] })
+}
+
 export function useExpenses(coupleId: string | undefined, yearMonth?: string) {
   const supabase = createClient()
 
@@ -131,6 +139,7 @@ export function useYearExpenseHistory(coupleId: string | undefined, year: number
   })
 }
 
+// Kept for non-interactive/import write paths that intentionally do not create settlement splits.
 export function useCreateExpense() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -145,12 +154,51 @@ export function useCreateExpense() {
       if (error) throw error
       return data as unknown as Expense
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] })
-      queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['expense-history'] })
-      queryClient.invalidateQueries({ queryKey: ['expense-history-year'] })
+    onSuccess: () => invalidateExpenseQueries(queryClient),
+  })
+}
+
+export function useCreateManualExpense() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      paidBy,
+      amount,
+      expenseDate,
+      categoryId,
+      description,
+      isSettlementTarget,
+      paymentMethod,
+      expenseType,
+    }: {
+      userId: string
+      paidBy: string
+      amount: number
+      expenseDate: string
+      categoryId: string
+      description: string | null
+      isSettlementTarget: boolean
+      paymentMethod: string | null
+      expenseType: string
+    }) => {
+      const { data, error } = await supabase.rpc('register_manual_expense', {
+        p_user_id: userId,
+        p_paid_by: paidBy,
+        p_amount: amount,
+        p_expense_date: expenseDate,
+        p_category_id: categoryId,
+        p_description: description,
+        p_is_settlement_target: isSettlementTarget,
+        p_payment_method: paymentMethod,
+        p_expense_type: expenseType,
+      })
+      if (error) throw error
+      return data as unknown as Expense
     },
+    onSuccess: () => invalidateExpenseQueries(queryClient),
   })
 }
 
@@ -169,12 +217,51 @@ export function useUpdateExpense() {
       if (error) throw error
       return data as unknown as Expense
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] })
-      queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['expense-history'] })
-      queryClient.invalidateQueries({ queryKey: ['expense-history-year'] })
+    onSuccess: () => invalidateExpenseQueries(queryClient),
+  })
+}
+
+export function useUpdateExpenseWithSplits() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      expenseId,
+      amount,
+      expenseDate,
+      categoryId,
+      description,
+      isSettlementTarget,
+      paymentMethod,
+      expenseType,
+    }: {
+      userId: string
+      expenseId: string
+      amount: number
+      expenseDate: string
+      categoryId: string
+      description: string | null
+      isSettlementTarget: boolean
+      paymentMethod: string | null
+      expenseType: string
+    }) => {
+      const { data, error } = await supabase.rpc('update_expense_with_splits', {
+        p_user_id: userId,
+        p_expense_id: expenseId,
+        p_amount: amount,
+        p_expense_date: expenseDate,
+        p_category_id: categoryId,
+        p_description: description,
+        p_is_settlement_target: isSettlementTarget,
+        p_payment_method: paymentMethod,
+        p_expense_type: expenseType,
+      })
+      if (error) throw error
+      return data as unknown as Expense
     },
+    onSuccess: () => invalidateExpenseQueries(queryClient),
   })
 }
 
@@ -187,11 +274,6 @@ export function useDeleteExpense() {
       const { error } = await supabase.from('expenses').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] })
-      queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['expense-history'] })
-      queryClient.invalidateQueries({ queryKey: ['expense-history-year'] })
-    },
+    onSuccess: () => invalidateExpenseQueries(queryClient),
   })
 }
