@@ -13,6 +13,7 @@ import {
   Settings,
   TrendingUp,
   LineChart,
+  Lightbulb,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useUIStore } from '@/stores/ui-store'
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'カレンダー', href: '/calendar', icon: Calendar },
   { name: '買い物', href: '/shopping', icon: ShoppingCart },
   { name: 'タスク', href: '/todos', icon: CheckSquare },
+  { name: '思考・アイデア', href: '/ideas', icon: Lightbulb },
 ]
 
 const financeNavigation = [
