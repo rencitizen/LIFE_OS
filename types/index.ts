@@ -52,7 +52,10 @@ export type Settlement = NormalizeRequired<
 >
 export type Budget = NormalizeRequired<Tables<'budgets'>, 'couple_id' | 'created_at'>
 export type BudgetMemberLimit = Tables<'budget_member_limits'>
-export type BudgetCategory = Tables<'budget_categories'>
+export type BudgetCategory = NormalizeRequired<
+  Tables<'budget_categories'>,
+  'budget_id' | 'category_id' | 'alert_ratio'
+>
 export type BudgetIncomeCategory = Tables<'budget_income_categories'>
 export type SavingsGoal = NormalizeRequired<
   Tables<'savings_goals'>,
