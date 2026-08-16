@@ -677,59 +677,77 @@ export default function TransactionsPage() {
 
       <div className="space-y-2">
         {filteredTransactions.length > 0 ? (
-          filteredTransactions.map((transaction) => (
-            <Card key={`${transaction.transactionType}-${transaction.id}`} tone={transaction.transactionType === 'income' ? 'cyan' : 'navy'}>
-              <CardContent className="cursor-pointer p-4 transition-colors hover:bg-muted/30" onClick={() => openEditDialog(transaction)}>
-                <div className="flex items-start gap-3">
-                  <div
-                    className="mt-1 h-9 w-9 rounded-full"
-                    style={{
-                      backgroundColor: transaction.transactionType === 'income' ? `${UI_ACCENT_COLORS.income}20` : `${UI_ACCENT_COLORS.expense}20`,
-                      color: transaction.transactionType === 'income' ? UI_ACCENT_COLORS.income : UI_ACCENT_COLORS.expense,
-                    }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium">
-                        {transaction.transactionType === 'income'
-                          ? INCOME_TYPE_LABELS[transaction.type] || transaction.type
-                          : transaction.category}
+          filteredTransactions.map((transaction) => {
+            const splits = transaction.rawExpense?.expense_splits || []
+            const settlementTarget = Boolean(transaction.rawExpense?.is_settlement_target)
+            const isSettled = settlementTarget && splits.length > 0 && splits.every((split) => split.is_settled)
+            const userShare = splits.find((split) => split.user_id === user?.id)?.amount
+            const partnerShare = splits.find((split) => split.user_id === partner?.id)?.amount
+
+            return (
+              <Card key={`${transaction.transactionType}-${transaction.id}`} tone={transaction.transactionType === 'income' ? 'cyan' : 'navy'}>
+                <CardContent className="cursor-pointer p-4 transition-colors hover:bg-muted/30" onClick={() => openEditDialog(transaction)}>
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="mt-1 h-9 w-9 rounded-full"
+                      style={{
+                        backgroundColor: transaction.transactionType === 'income' ? `${UI_ACCENT_COLORS.income}20` : `${UI_ACCENT_COLORS.expense}20`,
+                        color: transaction.transactionType === 'income' ? UI_ACCENT_COLORS.income : UI_ACCENT_COLORS.expense,
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium">
+                          {transaction.transactionType === 'income'
+                            ? INCOME_TYPE_LABELS[transaction.type] || transaction.type
+                            : transaction.category}
+                        </p>
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(transaction.date), 'M/d', { locale: ja })}
+                        {transaction.memo ? ` ・ ${transaction.memo}` : ''}
                       </p>
-                      <Pencil className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(transaction.date), 'M/d', { locale: ja })}
-                      {transaction.memo ? ` ・ ${transaction.memo}` : ''}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {transaction.transactionType === 'income' ? '収入' : '支出'}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {transaction.transactionType === 'expense'
-                          ? EXPENSE_KIND_LABELS[transaction.type] || transaction.type
-                          : INCOME_TYPE_LABELS[transaction.type] || transaction.type}
-                      </Badge>
-                      {transaction.transactionType === 'expense' && transaction.rawExpense?.is_settlement_target && (
-                        <Badge variant="secondary" className="text-xs">精算対象</Badge>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {transaction.transactionType === 'income' ? '収入' : '支出'}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {transaction.transactionType === 'expense'
+                            ? EXPENSE_KIND_LABELS[transaction.type] || transaction.type
+                            : INCOME_TYPE_LABELS[transaction.type] || transaction.type}
+                        </Badge>
+                        {transaction.transactionType === 'expense' && settlementTarget && (
+                          <>
+                            <Badge variant="secondary" className="text-xs">精算対象</Badge>
+                            <Badge variant="outline" className="text-xs">{isSettled ? '精算済' : '未精算'}</Badge>
+                          </>
+                        )}
+                        <Badge variant="outline" className="text-xs">
+                          {TRANSACTION_SOURCE_LABELS[transaction.source] || transaction.source}
+                        </Badge>
+                      </div>
+                      {transaction.transactionType === 'expense' && settlementTarget && splits.length > 0 && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          負担：{user?.display_name || '自分'} {formatYen(Number(userShare || 0))}
+                          {' ・ '}
+                          {partner?.display_name || 'パートナー'} {formatYen(Number(partnerShare || 0))}
+                        </p>
                       )}
-                      <Badge variant="outline" className="text-xs">
-                        {TRANSACTION_SOURCE_LABELS[transaction.source] || transaction.source}
-                      </Badge>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${transaction.transactionType === 'income' ? 'text-[var(--color-income)]' : 'text-[var(--color-expense)]'}`}>
+                        {transaction.transactionType === 'income' ? '+' : '-'}{formatYen(transaction.amount).replace('¥', '')}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {transaction.ownerId === user?.id ? user.display_name : partner?.display_name || 'パートナー'}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${transaction.transactionType === 'income' ? 'text-[var(--color-income)]' : 'text-[var(--color-expense)]'}`}>
-                      {transaction.transactionType === 'income' ? '+' : '-'}{formatYen(transaction.amount).replace('¥', '')}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {transaction.ownerId === user?.id ? user.display_name : partner?.display_name || 'パートナー'}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            )
+          })
         ) : (
           <Card tone="cyan">
             <CardContent className="p-8 text-center text-sm text-muted-foreground">
