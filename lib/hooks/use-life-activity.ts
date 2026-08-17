@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 
 export type LifeActivity = {
   id: string
-  module: 'finance' | 'calendar' | 'shopping' | 'ideas'
+  module: 'finance' | 'todo' | 'calendar' | 'shopping' | 'ideas'
   action: string
   entityId: string | null
   rawInput: string | null
@@ -18,10 +18,17 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
   return useQuery({
     queryKey: ['life-activity', coupleId, limit],
     queryFn: async () => {
-      const [financeResult, lifeResult] = await Promise.all([
+      const [financeResult, todoResult, lifeResult] = await Promise.all([
         supabase
           .from('finance_action_logs')
           .select('id, action, expense_id, settlement_id, raw_input, created_at')
+          .eq('couple_id', coupleId!)
+          .eq('status', 'executed')
+          .order('created_at', { ascending: false })
+          .limit(limit),
+        supabase
+          .from('todo_action_logs')
+          .select('id, action, todo_id, raw_input, created_at')
           .eq('couple_id', coupleId!)
           .eq('status', 'executed')
           .order('created_at', { ascending: false })
@@ -36,6 +43,7 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
       ])
 
       if (financeResult.error) throw financeResult.error
+      if (todoResult.error) throw todoResult.error
       if (lifeResult.error) throw lifeResult.error
 
       const financeRows: LifeActivity[] = (financeResult.data || []).map((row) => ({
@@ -43,6 +51,15 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
         module: 'finance',
         action: row.action,
         entityId: row.expense_id || row.settlement_id || null,
+        rawInput: row.raw_input,
+        createdAt: row.created_at,
+      }))
+
+      const todoRows: LifeActivity[] = (todoResult.data || []).map((row) => ({
+        id: row.id,
+        module: 'todo',
+        action: row.action,
+        entityId: row.todo_id,
         rawInput: row.raw_input,
         createdAt: row.created_at,
       }))
@@ -60,7 +77,7 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
         createdAt: row.created_at,
       }))
 
-      return [...financeRows, ...lifeRows]
+      return [...financeRows, ...todoRows, ...lifeRows]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, limit)
     },
