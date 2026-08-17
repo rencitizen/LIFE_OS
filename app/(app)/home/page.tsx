@@ -1,17 +1,28 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo } from 'react'
-import { format, subMonths } from 'date-fns'
-import { Calendar, CheckSquare, TrendingUp, Wallet } from 'lucide-react'
+import { format } from 'date-fns'
+import {
+  ArrowRight,
+  Bot,
+  Calendar,
+  CheckSquare,
+  CircleAlert,
+  Lightbulb,
+  ShoppingCart,
+  Wallet,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { enumerateDateKeys, eventOverlapsDateRange, getJstDayRange, getTodayJstDateKey } from '@/lib/date-utils'
-import { LIVING_MODE_LABELS } from '@/lib/finance/constants'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useBudget } from '@/lib/hooks/use-budgets'
 import { useCalendarEvents } from '@/lib/hooks/use-calendar-events'
-import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
-import { useIncomes } from '@/lib/hooks/use-incomes'
+import { useExpenses } from '@/lib/hooks/use-expenses'
+import { useRecentLifeActivity, type LifeActivity } from '@/lib/hooks/use-life-activity'
+import { useMonthlySettlementPreview } from '@/lib/hooks/use-settlements'
 import { useTodos } from '@/lib/hooks/use-todos'
 
 function getTaskAnchorDate(startDate?: string | null, dueDate?: string | null, endDate?: string | null) {
@@ -31,17 +42,47 @@ function formatEventTime(startAt: string, endAt?: string | null, allDay?: boolea
   return `${format(new Date(startAt), 'HH:mm')}${endAt ? ` - ${format(new Date(endAt), 'HH:mm')}` : ''}`
 }
 
+const MODULE_META: Record<LifeActivity['module'], { label: string; href: string }> = {
+  finance: { label: '家計', href: '/finance/dashboard' },
+  todo: { label: 'タスク', href: '/todos' },
+  calendar: { label: 'カレンダー', href: '/calendar' },
+  shopping: { label: '買い物', href: '/shopping' },
+  ideas: { label: '思考', href: '/ideas' },
+}
+
+function activityActionLabel(activity: LifeActivity) {
+  if (activity.module === 'finance') {
+    if (activity.action === 'create_expense') return '支出を登録'
+    if (activity.action === 'update_expense') return '支出を更新'
+    if (activity.action === 'complete_settlement') return '精算を完了'
+    if (activity.action === 'update_split_profile') return '負担割合を更新'
+  }
+  if (activity.action === 'create') return '登録'
+  if (activity.action === 'update') return '更新'
+  if (activity.action === 'complete') return '完了'
+  if (activity.action === 'delete') return '削除'
+  return activity.action.replaceAll('_', ' ')
+}
+
+function moduleIcon(module: LifeActivity['module']) {
+  if (module === 'finance') return Wallet
+  if (module === 'todo') return CheckSquare
+  if (module === 'calendar') return Calendar
+  if (module === 'shopping') return ShoppingCart
+  return Lightbulb
+}
+
 export default function HomePage() {
   const { user, couple } = useAuth()
-  const today = new Date()
-  const monthStr = format(today, 'yyyy-MM')
-  const lastMonthStr = format(subMonths(today, 1), 'yyyy-MM')
   const todayKey = getTodayJstDateKey()
-  const weekDateKeys = useMemo(
-    () => enumerateDateKeys(todayKey, format(new Date(today.getTime() + 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')),
-    [today, todayKey]
-  )
-  const weekRange = useMemo(() => getJstDayRange(weekDateKeys[weekDateKeys.length - 1]), [weekDateKeys])
+  const monthStr = todayKey.slice(0, 7)
+  const weekDateKeys = useMemo(() => {
+    const today = new Date(`${todayKey}T00:00:00+09:00`)
+    const end = new Date(today.getTime() + 6 * 24 * 60 * 60 * 1000)
+    return enumerateDateKeys(todayKey, format(end, 'yyyy-MM-dd'))
+  }, [todayKey])
+  const weekEndKey = weekDateKeys[weekDateKeys.length - 1]
+  const weekRange = useMemo(() => getJstDayRange(weekEndKey), [weekEndKey])
 
   const { data: events } = useCalendarEvents(
     couple?.id,
@@ -49,134 +90,173 @@ export default function HomePage() {
     weekRange.end.toISOString()
   )
   const { data: todos } = useTodos(couple?.id)
-  const { data: summary } = useMonthlyExpenseSummary(couple?.id, monthStr)
-  const { data: lastMonthExpenseSummary } = useMonthlyExpenseSummary(couple?.id, lastMonthStr)
-  const { data: lastMonthIncomes } = useIncomes(couple?.id, lastMonthStr)
-  const lastMonthIncomeTotal = (lastMonthIncomes || []).reduce((sum, income) => sum + Number(income.amount), 0)
-  const lastMonthExpenseTotal = lastMonthExpenseSummary?.total || 0
-  const lastMonthBalance = lastMonthIncomeTotal - lastMonthExpenseTotal
+  const { data: expenses } = useExpenses(couple?.id, monthStr)
+  const { data: budget } = useBudget(couple?.id, monthStr)
+  const { data: settlement } = useMonthlySettlementPreview(user?.id, monthStr)
+  const { data: lifeActivity } = useRecentLifeActivity(couple?.id, 8)
 
-  const groupedUpcomingEvents = useMemo(
-    () =>
-      weekDateKeys
-        .map((dateKey) => ({
-          dateKey,
-          items: (events || []).filter((event) => eventOverlapsDateRange(event.start_at, event.end_at, dateKey)),
-        }))
-        .filter((group) => group.items.length > 0),
-    [events, weekDateKeys]
+  const todayEvents = useMemo(
+    () => (events || []).filter((event) => eventOverlapsDateRange(event.start_at, event.end_at, todayKey)),
+    [events, todayKey]
   )
 
-  const upcomingTasks = useMemo(() => {
-    const start = todayKey
-    const end = weekDateKeys[weekDateKeys.length - 1]
-
-    return (todos || [])
-      .filter((todo) => todo.status !== 'done')
+  const openTodos = useMemo(() => (todos || []).filter((todo) => todo.status !== 'done'), [todos])
+  const overdueTodos = useMemo(
+    () => openTodos.filter((todo) => {
+      const anchor = getTaskAnchorDate(todo.start_date, todo.due_date, todo.end_date)
+      return Boolean(anchor && anchor < todayKey)
+    }),
+    [openTodos, todayKey]
+  )
+  const todayTodos = useMemo(
+    () => openTodos.filter((todo) => getTaskAnchorDate(todo.start_date, todo.due_date, todo.end_date) === todayKey),
+    [openTodos, todayKey]
+  )
+  const upcomingTodos = useMemo(
+    () => openTodos
       .filter((todo) => {
         const anchor = getTaskAnchorDate(todo.start_date, todo.due_date, todo.end_date)
-        return !!anchor && anchor >= start && anchor <= end
+        return Boolean(anchor && anchor > todayKey && anchor <= weekEndKey)
       })
       .sort((a, b) => {
         const left = getTaskAnchorDate(a.start_date, a.due_date, a.end_date) || '9999-12-31'
         const right = getTaskAnchorDate(b.start_date, b.due_date, b.end_date) || '9999-12-31'
-        if (left !== right) return left.localeCompare(right)
-        return a.created_at.localeCompare(b.created_at)
-      })
-      .slice(0, 6)
-  }, [todayKey, todos, weekDateKeys])
+        return left.localeCompare(right)
+      }),
+    [openTodos, todayKey, weekEndKey]
+  )
+
+  const groupedUpcomingEvents = useMemo(
+    () => weekDateKeys
+      .map((dateKey) => ({
+        dateKey,
+        items: (events || []).filter((event) => eventOverlapsDateRange(event.start_at, event.end_at, dateKey)),
+      }))
+      .filter((group) => group.items.length > 0),
+    [events, weekDateKeys]
+  )
+
+  const todayExpense = useMemo(
+    () => (expenses || [])
+      .filter((expense) => expense.expense_date === todayKey)
+      .reduce((sum, expense) => sum + Number(expense.amount), 0),
+    [expenses, todayKey]
+  )
+  const monthExpense = useMemo(
+    () => (expenses || []).reduce((sum, expense) => sum + Number(expense.amount), 0),
+    [expenses]
+  )
+  const budgetLimit = Number(budget?.total_limit || 0)
+  const budgetRemaining = budgetLimit > 0 ? budgetLimit - monthExpense : null
+
+  const attentionCount = overdueTodos.length
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">おかえりなさい、{user?.display_name || 'ユーザー'}</h1>
-          <p className="text-muted-foreground">{format(today, 'yyyy/MM/dd')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold">{user?.display_name || 'ユーザー'}の現在地</h1>
+            <Badge variant="outline" className="gap-1">
+              <Bot className="h-3 w-3" /> ChatGPT連携中
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">{todayKey} · LIFE_OSは会話から更新されています。</p>
         </div>
-        {couple?.living_mode && (
-          <Badge className="border border-[var(--color-info)]/20 bg-[var(--color-info-soft)] text-[var(--color-info)]">
-            {LIVING_MODE_LABELS[couple.living_mode as keyof typeof LIVING_MODE_LABELS] ?? '未設定'}
+        {attentionCount > 0 && (
+          <Badge className="gap-1 bg-amber-500/10 text-amber-700 hover:bg-amber-500/10">
+            <CircleAlert className="h-3.5 w-3.5" /> 要確認 {attentionCount}件
           </Badge>
         )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card tone="cyan">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">今後の予定</CardTitle>
-            <Calendar className="h-4 w-4 text-[var(--color-info)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{events?.length || 0}</div>
-            <p className="mt-1 text-xs text-muted-foreground">今後7日間の予定</p>
-          </CardContent>
-        </Card>
+        <Link href="/calendar" className="block">
+          <Card tone="cyan" className="h-full transition-transform hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">今日の予定</CardTitle>
+              <Calendar className="h-4 w-4 text-[var(--color-info)]" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{todayEvents.length}</div>
+              <p className="mt-1 text-xs text-muted-foreground">今後7日間は {events?.length || 0}件</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card tone="navy">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">今後のタスク</CardTitle>
-            <CheckSquare className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{upcomingTasks.length}</div>
-            <p className="mt-1 text-xs text-muted-foreground">今日から7日間のタスク</p>
-          </CardContent>
-        </Card>
+        <Link href="/todos" className="block">
+          <Card tone="navy" className="h-full transition-transform hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">今日のタスク</CardTitle>
+              <CheckSquare className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{todayTodos.length}</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {overdueTodos.length > 0 ? `期限超過 ${overdueTodos.length}件` : '期限超過なし'}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card tone="blue">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">今月の支出</CardTitle>
-            <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatYen(summary?.total || 0)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{summary?.count || 0} 件の取引</p>
-          </CardContent>
-        </Card>
+        <Link href="/finance/dashboard" className="block">
+          <Card tone="blue" className="h-full transition-transform hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">今日の支出</CardTitle>
+              <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{formatYen(todayExpense)}</div>
+              <p className="mt-1 text-xs text-muted-foreground">今月 {formatYen(monthExpense)}</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card tone="cyan">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">先月の収支差額</CardTitle>
-            <TrendingUp className="h-4 w-4 text-[var(--color-info)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[var(--color-info)]">
-              {lastMonthBalance >= 0 ? '+' : '-'}{formatYen(Math.abs(lastMonthBalance))}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              収入 {formatYen(lastMonthIncomeTotal)} / 支出 {formatYen(lastMonthExpenseTotal)}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/finance/dashboard" className="block">
+          <Card tone="cyan" className="h-full transition-transform hover:-translate-y-0.5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">家計の余力</CardTitle>
+              <Wallet className="h-4 w-4 text-[var(--color-info)]" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {budgetRemaining !== null ? formatYen(budgetRemaining) : '予算未設定'}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                精算 {formatYen(settlement?.amount || 0)} · {settlement?.expense_count || 0}件
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card tone="cyan">
-          <CardHeader>
-            <CardTitle className="text-base text-primary">今後のスケジュール</CardTitle>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>今日と次の予定</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">今後7日間の流れ</p>
+            </div>
+            <Link href="/calendar" className="inline-flex items-center gap-1 text-sm font-medium text-primary">
+              カレンダー <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </CardHeader>
           <CardContent>
             {groupedUpcomingEvents.length > 0 ? (
-              <div className="space-y-3">
-                {groupedUpcomingEvents.map((group) => (
-                  <div key={group.dateKey} className="rounded-lg border border-primary/40 bg-background p-3">
-                    <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-primary">
-                        {format(new Date(`${group.dateKey}T00:00:00+09:00`), 'MM/dd')}
-                      </p>
-                      <Badge className="border-secondary bg-secondary text-secondary-foreground">{group.items.length}</Badge>
-                    </div>
-
-                    <div className="space-y-3">
-                      {group.items.map((event) => (
-                        <div key={`${group.dateKey}-${event.id}`} className="flex items-start gap-3 rounded-lg border border-accent/40 bg-accent/20 p-3">
-                          <div className="mt-1 h-8 w-1 rounded-full" style={{ backgroundColor: 'var(--primary)' }} />
+              <div className="space-y-4">
+                {groupedUpcomingEvents.slice(0, 4).map((group) => (
+                  <div key={group.dateKey}>
+                    <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                      {group.dateKey === todayKey ? '今日' : format(new Date(`${group.dateKey}T00:00:00+09:00`), 'MM/dd')}
+                    </p>
+                    <div className="space-y-2">
+                      {group.items.slice(0, 3).map((event) => (
+                        <div key={`${group.dateKey}-${event.id}`} className="flex items-start gap-3 rounded-lg border p-3">
+                          <div className="mt-1 h-8 w-1 rounded-full bg-primary" />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatEventTime(event.start_at, event.end_at, event.all_day)}
-                            </p>
-                            {event.location && <p className="mt-1 text-xs text-muted-foreground">{event.location}</p>}
+                            <p className="truncate text-sm font-semibold">{event.title}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">{formatEventTime(event.start_at, event.end_at, event.all_day)}</p>
+                            {event.location && <p className="mt-0.5 truncate text-xs text-muted-foreground">{event.location}</p>}
                           </div>
                         </div>
                       ))}
@@ -190,35 +270,85 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        <Card tone="navy">
-          <CardHeader>
-            <CardTitle className="text-base text-primary">今後のタスク</CardTitle>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>いまやること</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">期限超過 → 今日 → 今週の順</p>
+            </div>
+            <Link href="/todos" className="inline-flex items-center gap-1 text-sm font-medium text-primary">
+              タスク <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {upcomingTasks.length > 0 ? (
-              upcomingTasks.map((todo) => (
-                <div key={todo.id} className="rounded-lg border border-primary/40 bg-background p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{todo.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{formatTaskWindow(todo.start_date, todo.due_date, todo.end_date)}</p>
+          <CardContent>
+            {[...overdueTodos, ...todayTodos, ...upcomingTodos].length > 0 ? (
+              <div className="space-y-2">
+                {[...overdueTodos, ...todayTodos, ...upcomingTodos].slice(0, 8).map((todo) => {
+                  const anchor = getTaskAnchorDate(todo.start_date, todo.due_date, todo.end_date)
+                  const overdue = Boolean(anchor && anchor < todayKey)
+                  const today = anchor === todayKey
+                  return (
+                    <div key={todo.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{todo.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{formatTaskWindow(todo.start_date, todo.due_date, todo.end_date)}</p>
+                      </div>
+                      <Badge variant={overdue ? 'destructive' : today ? 'default' : 'secondary'}>
+                        {overdue ? '期限超過' : today ? '今日' : '今週'}
+                      </Badge>
                     </div>
-                    <Badge
-                      className={todo.status === 'in_progress'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'border-secondary bg-secondary text-secondary-foreground'}
-                    >
-                      {todo.status === 'in_progress' ? '進行中' : '未着手'}
-                    </Badge>
-                  </div>
-                </div>
-              ))
+                  )
+                })}
+              </div>
             ) : (
-              <p className="text-sm text-muted-foreground">今日から7日間のタスクはありません。</p>
+              <p className="text-sm text-muted-foreground">今週対応するタスクはありません。</p>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2"><Bot className="h-4 w-4" /> ChatGPTからの更新</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">会話からLIFE_OSへ反映された直近の操作</p>
+            </div>
+            <Badge variant="outline">反映済み</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {lifeActivity && lifeActivity.length > 0 ? (
+            <div className="divide-y">
+              {lifeActivity.map((activity) => {
+                const meta = MODULE_META[activity.module]
+                const Icon = moduleIcon(activity.module)
+                return (
+                  <Link
+                    key={`${activity.module}-${activity.id}`}
+                    href={meta.href}
+                    className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+                  >
+                    <div className="mt-0.5 rounded-full bg-muted p-2"><Icon className="h-4 w-4" /></div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">{meta.label}</Badge>
+                        <p className="text-sm font-semibold">{activityActionLabel(activity)}</p>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {activity.rawInput || 'ChatGPTから更新'}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">{format(new Date(activity.createdAt), 'MM/dd HH:mm')}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">ChatGPTからの更新履歴はまだありません。</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
