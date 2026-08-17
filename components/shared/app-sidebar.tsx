@@ -27,10 +27,10 @@ const navigation = [
 ]
 
 const financeNavigation = [
-  { name: '概要', href: '/finance/dashboard', icon: BarChart3 },
-  { name: '月次分析', href: '/finance/analysis', icon: LineChart },
-  { name: '収入・支出', href: '/finance/expenses', icon: Wallet },
-  { name: '5年計画', href: '/finance/life-plan', icon: TrendingUp },
+  { name: '現在', href: '/finance/dashboard', icon: BarChart3 },
+  { name: '履歴', href: '/finance/expenses', icon: Wallet },
+  { name: '分析', href: '/finance/analysis', icon: LineChart },
+  { name: 'ライフプラン', href: '/finance/life-plan', icon: TrendingUp },
 ]
 
 export function AppSidebar() {
