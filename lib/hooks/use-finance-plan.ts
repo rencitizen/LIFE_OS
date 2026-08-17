@@ -32,7 +32,7 @@ export function useFinancePlanItems(coupleId: string | undefined) {
   return useQuery({
     queryKey: ['finance-plan-items', coupleId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('finance_plan_items')
         .select('*')
         .eq('couple_id', coupleId!)
@@ -40,11 +40,11 @@ export function useFinancePlanItems(coupleId: string | undefined) {
         .order('target_date', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data || []).map((row) => ({
+      return ((data || []) as any[]).map((row) => ({
         ...row,
         target_amount: row.target_amount == null ? null : Number(row.target_amount),
         current_amount: row.current_amount == null ? null : Number(row.current_amount),
-      })) as unknown as FinancePlanItem[]
+      })) as FinancePlanItem[]
     },
     enabled: !!coupleId,
   })
