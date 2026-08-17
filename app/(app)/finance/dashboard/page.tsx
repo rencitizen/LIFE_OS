@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { addMonths, format } from 'date-fns'
 import {
   ArrowRight,
@@ -38,6 +38,14 @@ function displayPerson(id: string | null, user?: { id: string; display_name: str
   return 'メンバー'
 }
 
+type CategoryViewRow = {
+  id: string | null
+  name: string
+  icon: string | null
+  amount: number
+  hasChildren: boolean
+}
+
 export default function FinanceDashboardPage() {
   const { couple, user, partner } = useAuth()
   const { selectedMonth, setSelectedMonth, financeScope } = useFinanceStore()
@@ -45,6 +53,7 @@ export default function FinanceDashboardPage() {
   const { data: categories } = useExpenseCategories(couple?.id)
   const { data: budget } = useBudget(couple?.id, selectedMonth)
   const { data: settlement } = useMonthlySettlementPreview(user?.id, selectedMonth)
+  const [categoryPath, setCategoryPath] = useState<string[]>([])
 
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
@@ -89,38 +98,119 @@ export default function FinanceDashboardPage() {
     () => new Map((categories || []).map((category) => [category.id, category])),
     [categories]
   )
+  const selectedCategoryId = categoryPath[categoryPath.length - 1] || null
+  const categoryBreadcrumb = categoryPath
+    .map((id) => categoryById.get(id)?.name)
+    .filter(Boolean)
+    .join(' / ')
 
-  const rootCategoryId = (categoryId: string) => {
-    let current = categoryById.get(categoryId)
-    const seen = new Set<string>()
-    while (current?.parent_category_id && !seen.has(current.id)) {
-      seen.add(current.id)
-      current = categoryById.get(current.parent_category_id)
-    }
-    return current?.id || categoryId
-  }
+  const categoryRows = useMemo<CategoryViewRow[]>(() => {
+    const categoryList = categories || []
+    const totals = new Map<string, CategoryViewRow>()
 
-  const categoryTotals = useMemo(() => {
-    const totals = new Map<string, { id: string; name: string; icon: string | null; amount: number }>()
-    for (const row of scopedExpenses) {
-      const id = row.category_id
-      if (!id) continue
-      const rootId = rootCategoryId(id)
-      const category = categoryById.get(rootId)
-      const current = totals.get(rootId) || {
-        id: rootId,
-        name: category?.name || row.expense_categories?.name || 'その他',
-        icon: category?.icon || null,
-        amount: 0,
+    const hasChildren = (categoryId: string) => categoryList.some((category) => category.parent_category_id === categoryId)
+
+    const rootCategoryId = (categoryId: string) => {
+      let current = categoryById.get(categoryId)
+      const seen = new Set<string>()
+      while (current?.parent_category_id && !seen.has(current.id)) {
+        seen.add(current.id)
+        current = categoryById.get(current.parent_category_id)
       }
-      current.amount += Number(row.amount)
-      totals.set(rootId, current)
+      return current?.id || categoryId
     }
+
+    const directChildBelow = (categoryId: string, ancestorId: string) => {
+      let current = categoryById.get(categoryId)
+      const seen = new Set<string>()
+      while (current && !seen.has(current.id)) {
+        seen.add(current.id)
+        if (current.parent_category_id === ancestorId) return current.id
+        if (!current.parent_category_id) return null
+        current = categoryById.get(current.parent_category_id)
+      }
+      return null
+    }
+
+    const isDescendantOrSelf = (categoryId: string, ancestorId: string) => {
+      if (categoryId === ancestorId) return true
+      let current = categoryById.get(categoryId)
+      const seen = new Set<string>()
+      while (current?.parent_category_id && !seen.has(current.id)) {
+        seen.add(current.id)
+        if (current.parent_category_id === ancestorId) return true
+        current = categoryById.get(current.parent_category_id)
+      }
+      return false
+    }
+
+    for (const expense of scopedExpenses) {
+      const categoryId = expense.category_id
+      const amount = Number(expense.amount)
+
+      if (!categoryId || !categoryById.has(categoryId)) {
+        if (!selectedCategoryId) {
+          const current = totals.get('uncategorized') || {
+            id: null,
+            name: '未分類',
+            icon: null,
+            amount: 0,
+            hasChildren: false,
+          }
+          current.amount += amount
+          totals.set('uncategorized', current)
+        }
+        continue
+      }
+
+      let bucketId: string | null = null
+      let bucketName = ''
+      let bucketIcon: string | null = null
+      let bucketHasChildren = false
+
+      if (!selectedCategoryId) {
+        bucketId = rootCategoryId(categoryId)
+        const category = categoryById.get(bucketId)
+        bucketName = category?.name || expense.expense_categories?.name || 'その他'
+        bucketIcon = category?.icon || null
+        bucketHasChildren = hasChildren(bucketId)
+      } else {
+        if (!isDescendantOrSelf(categoryId, selectedCategoryId)) continue
+
+        if (categoryId === selectedCategoryId) {
+          const selected = categoryById.get(selectedCategoryId)
+          bucketId = null
+          bucketName = `${selected?.name || 'カテゴリ'}（直下）`
+          bucketIcon = selected?.icon || null
+        } else {
+          bucketId = directChildBelow(categoryId, selectedCategoryId)
+          const category = bucketId ? categoryById.get(bucketId) : null
+          bucketName = category?.name || 'その他'
+          bucketIcon = category?.icon || null
+          bucketHasChildren = Boolean(bucketId && hasChildren(bucketId))
+        }
+      }
+
+      const key = bucketId || `direct:${selectedCategoryId || 'root'}`
+      const current = totals.get(key) || {
+        id: bucketId,
+        name: bucketName,
+        icon: bucketIcon,
+        amount: 0,
+        hasChildren: bucketHasChildren,
+      }
+      current.amount += amount
+      totals.set(key, current)
+    }
+
     return Array.from(totals.values()).sort((a, b) => b.amount - a.amount)
-  }, [categoryById, scopedExpenses])
+  }, [categories, categoryById, scopedExpenses, selectedCategoryId])
+
+  const categoryViewTotal = categoryRows.reduce((sum, row) => sum + row.amount, 0)
 
   const navigateMonth = (direction: number) => {
     setSelectedMonth(format(addMonths(displayDate, direction), 'yyyy-MM'))
+    setCategoryPath([])
   }
 
   const settlementDirection = settlement && settlement.amount > 0
@@ -241,37 +331,64 @@ export default function FinanceDashboardPage() {
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>今月の支出内訳</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">親カテゴリへ集約した現在の構成</p>
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>今月の支出内訳</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {categoryBreadcrumb || '親カテゴリへ集約。階層がある項目はタップして内訳を確認できます。'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {categoryPath.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => setCategoryPath((current) => current.slice(0, -1))}>
+                    <ChevronLeft className="mr-1 h-3.5 w-3.5" /> 戻る
+                  </Button>
+                )}
+                <Link href="/finance/analysis" className="text-sm font-medium text-primary">分析を見る</Link>
+              </div>
             </div>
-            <Link href="/finance/analysis" className="text-sm font-medium text-primary">分析を見る</Link>
           </CardHeader>
           <CardContent>
-            {categoryTotals.length > 0 ? (
+            {categoryRows.length > 0 ? (
               <div className="space-y-4">
-                {categoryTotals.slice(0, 8).map((row) => {
-                  const pct = monthTotal > 0 ? (row.amount / monthTotal) * 100 : 0
-                  return (
-                    <div key={row.id} className="space-y-1.5">
+                {categoryRows.slice(0, 8).map((row, index) => {
+                  const pct = categoryViewTotal > 0 ? (row.amount / categoryViewTotal) * 100 : 0
+                  const inner = (
+                    <>
                       <div className="flex items-center justify-between gap-3 text-sm">
                         <span className="flex min-w-0 items-center gap-2 font-medium">
                           <span>{row.icon || '•'}</span>
                           <span className="truncate">{row.name}</span>
+                          {row.hasChildren && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                         </span>
                         <span className="shrink-0 font-semibold">{formatYen(row.amount)}</span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
                         <div className="h-full rounded-full bg-primary" style={{ width: `${clamp(pct)}%` }} />
                       </div>
-                      <p className="text-right text-[11px] text-muted-foreground">{pct.toFixed(0)}%</p>
-                    </div>
+                      <p className="mt-1 text-right text-[11px] text-muted-foreground">{pct.toFixed(0)}%</p>
+                    </>
                   )
+
+                  if (row.id && row.hasChildren) {
+                    return (
+                      <button
+                        key={row.id}
+                        type="button"
+                        className="block w-full text-left"
+                        onClick={() => setCategoryPath((current) => [...current, row.id!])}
+                      >
+                        {inner}
+                      </button>
+                    )
+                  }
+
+                  return <div key={row.id || `direct-${index}`}>{inner}</div>
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">この月の支出はまだありません。</p>
+              <p className="text-sm text-muted-foreground">この階層に支出はありません。</p>
             )}
           </CardContent>
         </Card>
