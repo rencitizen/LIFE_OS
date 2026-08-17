@@ -18,12 +18,18 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
   return useQuery({
     queryKey: ['life-activity', coupleId, limit],
     queryFn: async () => {
-      const [financeResult, todoResult, lifeResult] = await Promise.all([
+      const [financeResult, financePlanResult, todoResult, lifeResult] = await Promise.all([
         supabase
           .from('finance_action_logs')
           .select('id, action, expense_id, settlement_id, raw_input, created_at')
           .eq('couple_id', coupleId!)
           .eq('status', 'executed')
+          .order('created_at', { ascending: false })
+          .limit(limit),
+        (supabase as any)
+          .from('finance_plan_action_logs')
+          .select('id, action, plan_item_id, raw_input, created_at')
+          .eq('couple_id', coupleId!)
           .order('created_at', { ascending: false })
           .limit(limit),
         supabase
@@ -43,6 +49,7 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
       ])
 
       if (financeResult.error) throw financeResult.error
+      if (financePlanResult.error) throw financePlanResult.error
       if (todoResult.error) throw todoResult.error
       if (lifeResult.error) throw lifeResult.error
 
@@ -51,6 +58,15 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
         module: 'finance',
         action: row.action,
         entityId: row.expense_id || row.settlement_id || null,
+        rawInput: row.raw_input,
+        createdAt: row.created_at,
+      }))
+
+      const financePlanRows: LifeActivity[] = ((financePlanResult.data || []) as any[]).map((row) => ({
+        id: row.id,
+        module: 'finance',
+        action: row.action === 'create' ? 'create_plan' : row.action === 'status_change' ? 'update_plan_status' : 'update_plan',
+        entityId: row.plan_item_id,
         rawInput: row.raw_input,
         createdAt: row.created_at,
       }))
@@ -77,7 +93,7 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
         createdAt: row.created_at,
       }))
 
-      return [...financeRows, ...todoRows, ...lifeRows]
+      return [...financeRows, ...financePlanRows, ...todoRows, ...lifeRows]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, limit)
     },
