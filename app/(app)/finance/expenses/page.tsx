@@ -80,7 +80,7 @@ export default function FinanceHistoryPage() {
   const filteredTransactions = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase()
     return (transactions || []).filter((transaction) => {
-      if (!matchesFinanceScope(transaction.ownerId, financeScope, user?.id, partner?.id)) return false
+      if (!matchesFinanceScope(financeScope, transaction.ownerId, user?.id, partner?.id)) return false
       if (typeFilter !== 'all' && transaction.transactionType !== typeFilter) return false
       if (sourceFilter === 'ai' && transaction.source !== 'ai') return false
       if (sourceFilter === 'manual' && transaction.source === 'ai') return false
