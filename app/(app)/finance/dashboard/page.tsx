@@ -3,17 +3,7 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { addMonths, format } from 'date-fns'
-import {
-  ArrowRight,
-  Bot,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  CircleAlert,
-  ReceiptText,
-  Scale,
-  Wallet,
-} from 'lucide-react'
+import { ArrowRight, Bot, ChevronLeft, ChevronRight, CircleAlert } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,7 +21,11 @@ function clamp(value: number, min = 0, max = 100) {
   return Math.min(max, Math.max(min, value))
 }
 
-function displayPerson(id: string | null, user?: { id: string; display_name: string } | null, partner?: { id: string; display_name: string } | null) {
+function displayPerson(
+  id: string | null,
+  user?: { id: string; display_name: string } | null,
+  partner?: { id: string; display_name: string } | null
+) {
   if (!id) return '—'
   if (user?.id === id) return user.display_name
   if (partner?.id === id) return partner.display_name
@@ -218,156 +212,126 @@ export default function FinanceDashboardPage() {
     : '精算なし'
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-7">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">今の家計</h1>
-            <Badge variant="outline" className="gap-1">
-              <Bot className="h-3 w-3" />
-              ChatGPT連携
-            </Badge>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {FINANCE_SCOPE_LABELS[financeScope]}の現在地。入力ではなく、確認と判断のための画面です。
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">今の家計</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{FINANCE_SCOPE_LABELS[financeScope]}の現在地</p>
         </div>
-
-        <div className="flex items-center gap-2 rounded-lg border bg-card px-1 py-1">
-          <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)}>
+        <div className="flex items-center rounded-lg border bg-background p-0.5">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateMonth(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="min-w-[92px] text-center text-sm font-semibold">{format(displayDate, 'yyyy/MM')}</span>
-          <Button variant="ghost" size="icon" onClick={() => navigateMonth(1)}>
+          <span className="min-w-[84px] text-center text-sm font-semibold">{format(displayDate, 'yyyy/MM')}</span>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateMonth(1)}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card tone="navy">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">今月の支出</CardTitle>
-            <Wallet className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatYen(monthTotal)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{scopedExpenses.length}件をリアルタイム集計</p>
-          </CardContent>
-        </Card>
+      <Card className="overflow-hidden border-primary/15">
+        <CardContent className="p-0">
+          <div className="grid md:grid-cols-[1.2fr_0.8fr]">
+            <div className="p-6 md:p-8">
+              <p className="text-sm font-medium text-muted-foreground">今月使った</p>
+              <p className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">{formatYen(monthTotal)}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{scopedExpenses.length}件を反映</p>
+            </div>
 
-        <Card tone="cyan">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">あと使える額</CardTitle>
-            <Scale className="h-4 w-4 text-[var(--color-info)]" />
-          </CardHeader>
-          <CardContent>
-            {budgetRemaining !== null ? (
-              <>
-                <div className={budgetRemaining < 0 ? 'text-3xl font-bold text-destructive' : 'text-3xl font-bold'}>
-                  {formatYen(budgetRemaining)}
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${budgetUsedPct}%` }} />
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">予算 {formatYen(budgetLimit)} の {budgetUsedPct.toFixed(0)}% 使用</p>
-              </>
-            ) : (
-              <>
-                <div className="text-xl font-semibold">予算未設定</div>
-                <p className="mt-1 text-xs text-muted-foreground">2人合計表示で月次予算を設定すると表示されます</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+            <div className="border-t p-6 md:border-l md:border-t-0 md:p-8">
+              <p className="text-sm font-medium text-muted-foreground">あと使える</p>
+              {budgetRemaining !== null ? (
+                <>
+                  <p className={budgetRemaining < 0 ? 'mt-2 text-3xl font-bold text-destructive' : 'mt-2 text-3xl font-bold'}>
+                    {formatYen(budgetRemaining)}
+                  </p>
+                  <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${budgetUsedPct}%` }} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>予算 {formatYen(budgetLimit)}</span>
+                    <span>{budgetUsedPct.toFixed(0)}%</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-xl font-semibold">予算未設定</p>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">月次予算を設定すると残額がここに出ます。</p>
+                </>
+              )}
+            </div>
+          </div>
 
-        <Card tone="blue">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">今日の支出</CardTitle>
-            <ReceiptText className="h-4 w-4 text-[var(--color-expense)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatYen(todayTotal)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{todayKey}</p>
-          </CardContent>
-        </Card>
-
-        <Card tone="cyan">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">今月の精算</CardTitle>
-            <Scale className="h-4 w-4 text-[var(--color-info)]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm font-semibold text-muted-foreground">{settlementDirection}</div>
-            <div className="mt-1 text-3xl font-bold">{formatYen(settlement?.amount || 0)}</div>
-            <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-              <span>{settlement?.expense_count || 0}件 / 対象 {formatYen(settlement?.gross_amount || 0)}</span>
-              <Link href="/finance/settlements" className="inline-flex items-center gap-1 font-medium text-primary">
+          <div className="grid border-t sm:grid-cols-2">
+            <div className="flex items-end justify-between gap-4 p-5 sm:border-r md:px-8">
+              <div>
+                <p className="text-xs text-muted-foreground">今日の支出</p>
+                <p className="mt-1 text-xl font-bold">{formatYen(todayTotal)}</p>
+              </div>
+              <span className="text-xs text-muted-foreground">{todayKey.slice(5).replace('-', '/')}</span>
+            </div>
+            <div className="flex items-end justify-between gap-4 border-t p-5 sm:border-t-0 md:px-8">
+              <div>
+                <p className="text-xs text-muted-foreground">今月の精算</p>
+                <p className="mt-1 text-xl font-bold">{formatYen(settlement?.amount || 0)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{settlementDirection}</p>
+              </div>
+              <Link href="/finance/settlements" className="inline-flex items-center gap-1 text-xs font-medium text-primary">
                 詳細 <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {anomalies.length > 0 && (
-        <Card className="border-amber-500/40 bg-amber-500/5">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-amber-500/10 p-2 text-amber-700">
-                <CircleAlert className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-semibold">要確認 {anomalies.length}件</p>
-                <p className="text-sm text-muted-foreground">カテゴリ未設定、または精算split不足のデータがあります。</p>
-              </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <CircleAlert className="h-4 w-4 text-amber-700" />
+            <div>
+              <p className="text-sm font-semibold">要確認 {anomalies.length}件</p>
+              <p className="text-xs text-muted-foreground">カテゴリ未設定、または精算情報が不足しています。</p>
             </div>
-            <Link href="/finance/expenses">
-              <Button variant="outline" size="sm">履歴で確認</Button>
-            </Link>
-          </CardContent>
-        </Card>
+          </div>
+          <Link href="/finance/expenses" className="text-xs font-medium text-primary">履歴で確認</Link>
+        </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <CardTitle>今月の支出内訳</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {categoryBreadcrumb || '親カテゴリへ集約。階層がある項目はタップして内訳を確認できます。'}
-                </p>
+                <CardTitle className="text-base">支出の内訳</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">{categoryBreadcrumb || '大きい項目から確認'}</p>
               </div>
               <div className="flex items-center gap-2">
                 {categoryPath.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={() => setCategoryPath((current) => current.slice(0, -1))}>
-                    <ChevronLeft className="mr-1 h-3.5 w-3.5" /> 戻る
+                  <Button variant="ghost" size="sm" onClick={() => setCategoryPath((current) => current.slice(0, -1))}>
+                    <ChevronLeft className="mr-1 h-3.5 w-3.5" />戻る
                   </Button>
                 )}
-                <Link href="/finance/analysis" className="text-sm font-medium text-primary">分析を見る</Link>
+                <Link href="/finance/analysis" className="text-xs font-medium text-primary">分析</Link>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             {categoryRows.length > 0 ? (
               <div className="space-y-4">
-                {categoryRows.slice(0, 8).map((row, index) => {
+                {categoryRows.slice(0, 7).map((row) => {
                   const pct = categoryViewTotal > 0 ? (row.amount / categoryViewTotal) * 100 : 0
-                  const inner = (
+                  const content = (
                     <>
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <span className="flex min-w-0 items-center gap-2 font-medium">
-                          <span>{row.icon || '•'}</span>
-                          <span className="truncate">{row.name}</span>
-                          {row.hasChildren && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                        </span>
-                        <span className="shrink-0 font-semibold">{formatYen(row.amount)}</span>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="min-w-0 truncate text-sm font-medium">{row.icon ? `${row.icon} ` : ''}{row.name}</span>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums">{formatYen(row.amount)}</span>
                       </div>
-                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${clamp(pct)}%` }} />
+                      <div className="mt-2 flex items-center gap-3">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="w-10 text-right text-[11px] text-muted-foreground">{pct.toFixed(0)}%</span>
                       </div>
-                      <p className="mt-1 text-right text-[11px] text-muted-foreground">{pct.toFixed(0)}%</p>
                     </>
                   )
 
@@ -376,70 +340,54 @@ export default function FinanceDashboardPage() {
                       <button
                         key={row.id}
                         type="button"
-                        className="block w-full text-left"
+                        className="block w-full rounded-lg p-1 text-left transition-colors hover:bg-muted/50"
                         onClick={() => setCategoryPath((current) => [...current, row.id!])}
                       >
-                        {inner}
+                        {content}
                       </button>
                     )
                   }
 
-                  return <div key={row.id || `direct-${index}`}>{inner}</div>
+                  return <div key={row.id || row.name} className="p-1">{content}</div>
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">この階層に支出はありません。</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">支出データがありません。</p>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>最近の更新</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">ChatGPTや手入力から反映された直近の記録</p>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-base">最近の更新</CardTitle>
+              <Link href="/finance/expenses" className="text-xs font-medium text-primary">すべて見る</Link>
             </div>
-            <Link href="/finance/expenses" className="text-sm font-medium text-primary">すべて見る</Link>
           </CardHeader>
           <CardContent>
             {recentUpdates.length > 0 ? (
               <div className="divide-y">
-                {recentUpdates.map((row) => {
-                  const isAi = row.source === 'chatgpt'
-                  const partnerShare = row.expense_splits?.find((split) => split.user_id === partner?.id)
-                  return (
-                    <div key={row.id} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-semibold">{row.description || row.expense_categories?.name || '支出'}</p>
-                          {isAi && (
-                            <Badge variant="outline" className="gap-1 px-1.5 py-0 text-[10px]">
-                              <Bot className="h-3 w-3" /> AI
-                            </Badge>
-                          )}
-                          {row.is_settlement_target && (
-                            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">精算対象</Badge>
-                          )}
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {row.expense_date} · {row.expense_categories?.name || '未分類'} · {displayPerson(row.paid_by, user, partner)}支払い
-                        </p>
-                        {row.is_settlement_target && partnerShare && (
-                          <p className="mt-1 text-xs text-muted-foreground">{partner?.display_name || 'パートナー'}負担 {formatYen(Number(partnerShare.amount || 0))}</p>
+                {recentUpdates.map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium">{expense.description || expense.expense_categories?.name || '支出'}</p>
+                        {expense.source === 'chatgpt' && (
+                          <span className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
+                            <Bot className="h-3 w-3" />AI
+                          </span>
                         )}
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className="font-semibold">{formatYen(Number(row.amount))}</p>
-                        <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
-                          <CheckCircle2 className="h-3 w-3" /> 反映済み
-                        </div>
-                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {expense.expense_date} · {expense.expense_categories?.name || '未分類'}
+                      </p>
                     </div>
-                  )
-                })}
+                    <p className="shrink-0 text-sm font-semibold tabular-nums">{formatYen(Number(expense.amount))}</p>
+                  </div>
+                ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">まだ更新はありません。</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">まだ更新はありません。</p>
             )}
           </CardContent>
         </Card>
