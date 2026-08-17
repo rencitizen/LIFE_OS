@@ -11,7 +11,7 @@ import {
   Wallet,
   BarChart3,
   Settings,
-  TrendingUp,
+  Target,
   LineChart,
   Lightbulb,
 } from 'lucide-react'
@@ -28,9 +28,9 @@ const navigation = [
 
 const financeNavigation = [
   { name: '現在', href: '/finance/dashboard', icon: BarChart3 },
+  { name: '計画', href: '/finance/plan', icon: Target },
   { name: '履歴', href: '/finance/expenses', icon: Wallet },
   { name: '分析', href: '/finance/analysis', icon: LineChart },
-  { name: 'ライフプラン', href: '/finance/life-plan', icon: TrendingUp },
 ]
 
 export function AppSidebar() {
@@ -76,22 +76,25 @@ export function AppSidebar() {
               <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">家計</p>
             </div>
 
-            {financeNavigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  pathname === item.href
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.name}
-              </Link>
-            ))}
+            {financeNavigation.map((item) => {
+              const active = pathname === item.href || (item.href === '/finance/plan' && pathname === '/finance/life-plan')
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.name}
+                </Link>
+              )
+            })}
 
             <div className="pt-4">
               <Link
