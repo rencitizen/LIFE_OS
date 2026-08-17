@@ -1,402 +1,331 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { addMonths, format } from 'date-fns'
-import { ChevronLeft, ChevronRight, Wallet } from 'lucide-react'
 import {
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-} from 'recharts'
+  ArrowRight,
+  Bot,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  ReceiptText,
+  Scale,
+  Wallet,
+} from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { UI_ACCENT_COLORS } from '@/lib/finance/constants'
 import { FINANCE_SCOPE_LABELS, filterByFinanceScope } from '@/lib/finance/scope'
 import { formatYen } from '@/lib/finance/utils'
+import { getTodayJstDateKey } from '@/lib/date-utils'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { useBudget } from '@/lib/hooks/use-budgets'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useExpenses } from '@/lib/hooks/use-expenses'
-import { useIncomes } from '@/lib/hooks/use-incomes'
+import { useMonthlySettlementPreview } from '@/lib/hooks/use-settlements'
 import { useFinanceStore } from '@/stores/finance-store'
 
-const PIE_COLORS = ['#0F2747', '#1E4D8C', '#00A86B', '#5BCF6A', '#F2A900', '#FFC83D', '#E4EBF2']
-
-type ExpensePieRow = {
-  categoryId: string | null
-  name: string
-  value: number
-  hasChildren: boolean
+function clamp(value: number, min = 0, max = 100) {
+  return Math.min(max, Math.max(min, value))
 }
 
-function formatSignedYen(value: number) {
-  const sign = value >= 0 ? '+' : '-'
-  return `${sign}${formatYen(Math.abs(value))}`
-}
-
-function formatTooltipCurrency(value: number | string | ReadonlyArray<number | string> | undefined) {
-  const normalized = Array.isArray(value) ? value[0] : value
-  return formatYen(Number(normalized || 0))
+function displayPerson(id: string | null, user?: { id: string; display_name: string } | null, partner?: { id: string; display_name: string } | null) {
+  if (!id) return '—'
+  if (user?.id === id) return user.display_name
+  if (partner?.id === id) return partner.display_name
+  return 'メンバー'
 }
 
 export default function FinanceDashboardPage() {
   const { couple, user, partner } = useAuth()
   const { selectedMonth, setSelectedMonth, financeScope } = useFinanceStore()
-  const { data: expenseRows } = useExpenses(couple?.id, selectedMonth)
+  const { data: expenses } = useExpenses(couple?.id, selectedMonth)
   const { data: categories } = useExpenseCategories(couple?.id)
-  const { data: monthIncomes } = useIncomes(couple?.id, selectedMonth)
-  const [expenseCategoryPath, setExpenseCategoryPath] = useState<string[]>([])
+  const { data: budget } = useBudget(couple?.id, selectedMonth)
+  const { data: settlement } = useMonthlySettlementPreview(user?.id, selectedMonth)
 
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
+  const todayKey = getTodayJstDateKey()
 
-  const scopedExpenseRows = useMemo(
-    () => filterByFinanceScope(expenseRows || [], financeScope, user?.id, partner?.id, (row) => row.paid_by),
-    [expenseRows, financeScope, partner?.id, user?.id]
-  )
-  const scopedIncomes = useMemo(
-    () => filterByFinanceScope(monthIncomes || [], financeScope, user?.id, partner?.id, (row) => row.user_id),
-    [financeScope, monthIncomes, partner?.id, user?.id]
+  const scopedExpenses = useMemo(
+    () => filterByFinanceScope(expenses || [], financeScope, user?.id, partner?.id, (row) => row.paid_by),
+    [expenses, financeScope, partner?.id, user?.id]
   )
 
-  const actualIncome = useMemo(
-    () => scopedIncomes.reduce((sum, row) => sum + Number(row.amount), 0),
-    [scopedIncomes]
+  const monthTotal = useMemo(
+    () => scopedExpenses.reduce((sum, row) => sum + Number(row.amount), 0),
+    [scopedExpenses]
   )
-  const actualExpense = useMemo(
-    () => scopedExpenseRows.reduce((sum, row) => sum + Number(row.amount), 0),
-    [scopedExpenseRows]
+
+  const todayTotal = useMemo(
+    () => scopedExpenses
+      .filter((row) => row.expense_date === todayKey)
+      .reduce((sum, row) => sum + Number(row.amount), 0),
+    [scopedExpenses, todayKey]
   )
-  const actualBalance = actualIncome - actualExpense
-  const relationLineExpensePct = actualIncome > 0 ? Math.min(100, Math.max(0, (actualExpense / actualIncome) * 100)) : 0
-  const relationLineBalancePct = actualIncome > 0 ? Math.min(100, Math.max(0, (actualBalance / actualIncome) * 100)) : 0
+
+  const budgetLimit = financeScope === 'combined' ? Number(budget?.total_limit || 0) : 0
+  const budgetRemaining = budgetLimit > 0 ? budgetLimit - monthTotal : null
+  const budgetUsedPct = budgetLimit > 0 ? clamp((monthTotal / budgetLimit) * 100) : 0
+
+  const anomalies = useMemo(
+    () => (expenses || []).filter((row) =>
+      !row.category_id || (row.is_settlement_target && (!row.expense_splits || row.expense_splits.length === 0))
+    ),
+    [expenses]
+  )
+
+  const recentUpdates = useMemo(
+    () => [...(expenses || [])]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 6),
+    [expenses]
+  )
 
   const categoryById = useMemo(
     () => new Map((categories || []).map((category) => [category.id, category])),
     [categories]
   )
 
-  const selectedExpenseCategoryId = expenseCategoryPath[expenseCategoryPath.length - 1] || null
-
-  const expenseCategoryBreadcrumb = useMemo(
-    () => expenseCategoryPath.map((id) => categoryById.get(id)?.name).filter(Boolean).join(' / '),
-    [categoryById, expenseCategoryPath]
-  )
-
-  const expensePieData = useMemo<ExpensePieRow[]>(() => {
-    const totals = new Map<string, ExpensePieRow>()
-    const categoryList = categories || []
-
-    const hasChildren = (categoryId: string) =>
-      categoryList.some((category) => category.parent_category_id === categoryId)
-
-    const rootCategoryId = (categoryId: string) => {
-      let current = categoryById.get(categoryId)
-      const seen = new Set<string>()
-      while (current?.parent_category_id && !seen.has(current.id)) {
-        seen.add(current.id)
-        current = categoryById.get(current.parent_category_id)
-      }
-      return current?.id || categoryId
+  const rootCategoryId = (categoryId: string) => {
+    let current = categoryById.get(categoryId)
+    const seen = new Set<string>()
+    while (current?.parent_category_id && !seen.has(current.id)) {
+      seen.add(current.id)
+      current = categoryById.get(current.parent_category_id)
     }
-
-    const directChildBelow = (categoryId: string, ancestorId: string) => {
-      let current = categoryById.get(categoryId)
-      const seen = new Set<string>()
-
-      while (current && !seen.has(current.id)) {
-        seen.add(current.id)
-        if (current.parent_category_id === ancestorId) return current.id
-        if (!current.parent_category_id) return null
-        current = categoryById.get(current.parent_category_id)
-      }
-      return null
-    }
-
-    const isDescendantOrSelf = (categoryId: string, ancestorId: string) => {
-      if (categoryId === ancestorId) return true
-      let current = categoryById.get(categoryId)
-      const seen = new Set<string>()
-      while (current?.parent_category_id && !seen.has(current.id)) {
-        seen.add(current.id)
-        if (current.parent_category_id === ancestorId) return true
-        current = categoryById.get(current.parent_category_id)
-      }
-      return false
-    }
-
-    for (const row of scopedExpenseRows) {
-      const amount = Number(row.amount)
-      const rowCategoryId = row.category_id
-
-      if (!rowCategoryId || !categoryById.has(rowCategoryId)) {
-        if (!selectedExpenseCategoryId) {
-          const current = totals.get('uncategorized') || {
-            categoryId: null,
-            name: '未分類',
-            value: 0,
-            hasChildren: false,
-          }
-          current.value += amount
-          totals.set('uncategorized', current)
-        }
-        continue
-      }
-
-      let bucketId: string | null = null
-      let bucketName = ''
-      let bucketHasChildren = false
-
-      if (!selectedExpenseCategoryId) {
-        bucketId = rootCategoryId(rowCategoryId)
-        const bucketCategory = categoryById.get(bucketId)
-        bucketName = bucketCategory?.name || row.expense_categories?.name || '未分類'
-        bucketHasChildren = Boolean(bucketCategory && hasChildren(bucketCategory.id))
-      } else {
-        if (!isDescendantOrSelf(rowCategoryId, selectedExpenseCategoryId)) continue
-
-        if (rowCategoryId === selectedExpenseCategoryId) {
-          bucketId = null
-          bucketName = `${categoryById.get(selectedExpenseCategoryId)?.name || 'カテゴリ'}（直下）`
-        } else {
-          bucketId = directChildBelow(rowCategoryId, selectedExpenseCategoryId)
-          const bucketCategory = bucketId ? categoryById.get(bucketId) : null
-          bucketName = bucketCategory?.name || 'その他'
-          bucketHasChildren = Boolean(bucketCategory && hasChildren(bucketCategory.id))
-        }
-      }
-
-      const key = bucketId || `direct:${selectedExpenseCategoryId || 'root'}`
-      const current = totals.get(key) || {
-        categoryId: bucketId,
-        name: bucketName,
-        value: 0,
-        hasChildren: bucketHasChildren,
-      }
-      current.value += amount
-      totals.set(key, current)
-    }
-
-    return Array.from(totals.values()).sort((a, b) => b.value - a.value)
-  }, [categories, categoryById, scopedExpenseRows, selectedExpenseCategoryId])
-
-  const drillIntoCategory = (row: ExpensePieRow) => {
-    if (!row.categoryId || !row.hasChildren) return
-    setExpenseCategoryPath((current) => [...current, row.categoryId!])
+    return current?.id || categoryId
   }
+
+  const categoryTotals = useMemo(() => {
+    const totals = new Map<string, { id: string; name: string; icon: string | null; amount: number }>()
+    for (const row of scopedExpenses) {
+      const id = row.category_id
+      if (!id) continue
+      const rootId = rootCategoryId(id)
+      const category = categoryById.get(rootId)
+      const current = totals.get(rootId) || {
+        id: rootId,
+        name: category?.name || row.expense_categories?.name || 'その他',
+        icon: category?.icon || null,
+        amount: 0,
+      }
+      current.amount += Number(row.amount)
+      totals.set(rootId, current)
+    }
+    return Array.from(totals.values()).sort((a, b) => b.amount - a.amount)
+  }, [categoryById, scopedExpenses])
 
   const navigateMonth = (direction: number) => {
-    const nextDate = addMonths(displayDate, direction)
-    setSelectedMonth(format(nextDate, 'yyyy-MM'))
+    setSelectedMonth(format(addMonths(displayDate, direction), 'yyyy-MM'))
   }
+
+  const settlementDirection = settlement && settlement.amount > 0
+    ? `${displayPerson(settlement.from_user, user, partner)} → ${displayPerson(settlement.to_user, user, partner)}`
+    : '精算なし'
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold">月次概要</h1>
-          <p className="text-sm text-muted-foreground">
-            {FINANCE_SCOPE_LABELS[financeScope]}の収入、支出、月次収支を確認できます。
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">今の家計</h1>
+            <Badge variant="outline" className="gap-1">
+              <Bot className="h-3 w-3" />
+              ChatGPT連携
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {FINANCE_SCOPE_LABELS[financeScope]}の現在地。入力ではなく、確認と判断のための画面です。
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 rounded-lg border bg-card px-1 py-1">
           <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="min-w-[120px] text-center text-sm font-medium">{format(displayDate, 'yyyy/MM')}</span>
+          <span className="min-w-[92px] text-center text-sm font-semibold">{format(displayDate, 'yyyy/MM')}</span>
           <Button variant="ghost" size="icon" onClick={() => navigateMonth(1)}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card tone="cyan">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card tone="navy">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">収入</CardTitle>
-            <Wallet className="h-4 w-4 text-[var(--color-income)]" />
+            <CardTitle className="text-sm font-medium">今月の支出</CardTitle>
+            <Wallet className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[var(--color-income)]">{formatYen(actualIncome)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{scopedIncomes.length} 件の収入</p>
+            <div className="text-3xl font-bold">{formatYen(monthTotal)}</div>
+            <p className="mt-1 text-xs text-muted-foreground">{scopedExpenses.length}件をリアルタイム集計</p>
           </CardContent>
         </Card>
 
-        <Card tone="navy">
+        <Card tone="cyan">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">支出</CardTitle>
-            <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
+            <CardTitle className="text-sm font-medium">あと使える額</CardTitle>
+            <Scale className="h-4 w-4 text-[var(--color-info)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[var(--color-expense)]">{formatYen(actualExpense)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{scopedExpenseRows.length} 件の支出</p>
+            {budgetRemaining !== null ? (
+              <>
+                <div className={budgetRemaining < 0 ? 'text-3xl font-bold text-destructive' : 'text-3xl font-bold'}>
+                  {formatYen(budgetRemaining)}
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${budgetUsedPct}%` }} />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">予算 {formatYen(budgetLimit)} の {budgetUsedPct.toFixed(0)}% 使用</p>
+              </>
+            ) : (
+              <>
+                <div className="text-xl font-semibold">予算未設定</div>
+                <p className="mt-1 text-xs text-muted-foreground">2人合計表示で月次予算を設定すると表示されます</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
         <Card tone="blue">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">収支</CardTitle>
-            <Wallet className="h-4 w-4 text-[var(--color-balance)]" />
+            <CardTitle className="text-sm font-medium">今日の支出</CardTitle>
+            <ReceiptText className="h-4 w-4 text-[var(--color-expense)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[var(--color-balance)]">{formatSignedYen(actualBalance)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">選択月の差額</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.35fr_0.95fr]">
-        <Card tone="cyan">
-          <CardHeader>
-            <CardTitle className="text-base">収支の線分図</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {actualIncome > 0 || actualExpense > 0 ? (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  収入 - 支出 = 収支 の関係を、1本の線分で表しています。
-                </p>
-                <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
-                  <div className="relative h-20">
-                    <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border" />
-                    <div className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[var(--color-expense)]" style={{ width: `${relationLineExpensePct}%` }} />
-                    <div
-                      className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-[var(--color-balance)]"
-                      style={{ left: `${relationLineExpensePct}%`, width: `${relationLineBalancePct}%` }}
-                    />
-                    <div
-                      className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-[var(--color-expense)]"
-                      style={{ left: `${relationLineExpensePct}%` }}
-                    />
-                    <div
-                      className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-[var(--color-balance)]"
-                      style={{ left: '100%' }}
-                    />
-                    <div className="absolute left-0 top-0 -translate-y-1 text-[10px] font-medium text-[var(--color-income)]">
-                      収入
-                    </div>
-                    <div className="absolute top-0 -translate-y-1 -translate-x-1/2 text-[10px] font-medium text-[var(--color-expense)]" style={{ left: `${relationLineExpensePct}%` }}>
-                      支出点
-                    </div>
-                    <div className="absolute right-0 top-0 -translate-y-1 text-[10px] font-medium text-[var(--color-balance)]">
-                      収支点
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-[var(--color-income)]">収入 {formatYen(actualIncome)}</span>
-                    <span className="text-[var(--color-expense)]">支出 {formatYen(actualExpense)}</span>
-                    <span className="text-[var(--color-balance)]">収支 {formatSignedYen(actualBalance)}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-[11px] text-muted-foreground">
-                    <div className="rounded-md border bg-background px-3 py-2">
-                      <span className="block font-medium text-[var(--color-income)]">収入</span>
-                      <span>{formatYen(actualIncome)}</span>
-                    </div>
-                    <div className="rounded-md border bg-background px-3 py-2">
-                      <span className="block font-medium text-[var(--color-expense)]">支出</span>
-                      <span>{formatYen(actualExpense)}</span>
-                    </div>
-                    <div className="rounded-md border bg-background px-3 py-2">
-                      <span className="block font-medium text-[var(--color-balance)]">収支</span>
-                      <span>{formatSignedYen(actualBalance)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">収入または支出を追加すると収支の線分図が表示されます。</p>
-            )}
+            <div className="text-3xl font-bold">{formatYen(todayTotal)}</div>
+            <p className="mt-1 text-xs text-muted-foreground">{todayKey}</p>
           </CardContent>
         </Card>
 
         <Card tone="cyan">
-          <CardHeader className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-base">支出構成</CardTitle>
-              {expenseCategoryPath.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setExpenseCategoryPath((current) => current.slice(0, -1))}
-                >
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  戻る
-                </Button>
-              )}
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">今月の精算</CardTitle>
+            <Scale className="h-4 w-4 text-[var(--color-info)]" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm font-semibold text-muted-foreground">{settlementDirection}</div>
+            <div className="mt-1 text-3xl font-bold">{formatYen(settlement?.amount || 0)}</div>
+            <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+              <span>{settlement?.expense_count || 0}件 / 対象 {formatYen(settlement?.gross_amount || 0)}</span>
+              <Link href="/finance/settlements" className="inline-flex items-center gap-1 font-medium text-primary">
+                詳細 <ArrowRight className="h-3 w-3" />
+              </Link>
             </div>
-            {expenseCategoryBreadcrumb && (
-              <p className="text-xs text-muted-foreground">{expenseCategoryBreadcrumb}</p>
-            )}
-          </CardHeader>
-          <CardContent>
-            {expensePieData.length > 0 ? (
-              <div className="space-y-4">
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={expensePieData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius={64}
-                        outerRadius={96}
-                        paddingAngle={2}
-                      >
-                        {expensePieData.map((entry, index) => (
-                          <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={formatTooltipCurrency} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="space-y-2">
-                  {expensePieData.slice(0, 8).map((row, index) => (
-                    <button
-                      key={`${row.categoryId || row.name}-${index}`}
-                      type="button"
-                      className={`flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left text-sm transition-colors ${
-                        row.hasChildren ? 'hover:bg-muted/40' : 'cursor-default'
-                      }`}
-                      onClick={() => drillIntoCategory(row)}
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="inline-block h-3 w-3 shrink-0 rounded-full"
-                          style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
-                        />
-                        <span className="truncate">{row.name}</span>
-                        {row.hasChildren && <span className="text-xs text-muted-foreground">詳細</span>}
-                      </div>
-                      <span className="shrink-0 font-medium">{formatYen(row.value)}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">この階層に表示できる支出はありません。</p>
-            )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/finance/expenses" className="rounded-xl border bg-background p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
-          <p className="text-sm font-medium">収入・支出を開く</p>
-          <p className="mt-1 text-xs text-muted-foreground">月次の収入・支出を確認、編集します。</p>
-        </Link>
-        <Link href="/finance/analysis" className="rounded-xl border bg-accent p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
-          <p className="text-sm font-medium">分析を開く</p>
-          <p className="mt-1 text-xs text-muted-foreground">カテゴリや前年比の詳細を確認します。</p>
-        </Link>
-        <Link href="/finance/life-plan" className="rounded-xl border bg-primary p-4 text-primary-foreground transition-all hover:-translate-y-0.5 hover:shadow-sm">
-          <p className="text-sm font-medium">5年計画を開く</p>
-          <p className="mt-1 text-xs text-muted-foreground">将来の収入・資産推移を確認します。</p>
-        </Link>
+      {anomalies.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-amber-500/10 p-2 text-amber-700">
+                <CircleAlert className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold">要確認 {anomalies.length}件</p>
+                <p className="text-sm text-muted-foreground">カテゴリ未設定、または精算split不足のデータがあります。</p>
+              </div>
+            </div>
+            <Link href="/finance/expenses">
+              <Button variant="outline" size="sm">履歴で確認</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>今月の支出内訳</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">親カテゴリへ集約した現在の構成</p>
+            </div>
+            <Link href="/finance/analysis" className="text-sm font-medium text-primary">分析を見る</Link>
+          </CardHeader>
+          <CardContent>
+            {categoryTotals.length > 0 ? (
+              <div className="space-y-4">
+                {categoryTotals.slice(0, 8).map((row) => {
+                  const pct = monthTotal > 0 ? (row.amount / monthTotal) * 100 : 0
+                  return (
+                    <div key={row.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="flex min-w-0 items-center gap-2 font-medium">
+                          <span>{row.icon || '•'}</span>
+                          <span className="truncate">{row.name}</span>
+                        </span>
+                        <span className="shrink-0 font-semibold">{formatYen(row.amount)}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-primary" style={{ width: `${clamp(pct)}%` }} />
+                      </div>
+                      <p className="text-right text-[11px] text-muted-foreground">{pct.toFixed(0)}%</p>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">この月の支出はまだありません。</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>最近の更新</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">ChatGPTや手入力から反映された直近の記録</p>
+            </div>
+            <Link href="/finance/expenses" className="text-sm font-medium text-primary">すべて見る</Link>
+          </CardHeader>
+          <CardContent>
+            {recentUpdates.length > 0 ? (
+              <div className="divide-y">
+                {recentUpdates.map((row) => {
+                  const isAi = row.source === 'chatgpt'
+                  const partnerShare = row.expense_splits?.find((split) => split.user_id === partner?.id)
+                  return (
+                    <div key={row.id} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-semibold">{row.description || row.expense_categories?.name || '支出'}</p>
+                          {isAi && (
+                            <Badge variant="outline" className="gap-1 px-1.5 py-0 text-[10px]">
+                              <Bot className="h-3 w-3" /> AI
+                            </Badge>
+                          )}
+                          {row.is_settlement_target && (
+                            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">精算対象</Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {row.expense_date} · {row.expense_categories?.name || '未分類'} · {displayPerson(row.paid_by, user, partner)}支払い
+                        </p>
+                        {row.is_settlement_target && partnerShare && (
+                          <p className="mt-1 text-xs text-muted-foreground">{partner?.display_name || 'パートナー'}負担 {formatYen(Number(partnerShare.amount || 0))}</p>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-semibold">{formatYen(Number(row.amount))}</p>
+                        <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
+                          <CheckCircle2 className="h-3 w-3" /> 反映済み
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">まだ更新はありません。</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
