@@ -65,7 +65,7 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
       const financePlanRows: LifeActivity[] = ((financePlanResult.data || []) as any[]).map((row) => ({
         id: row.id,
         module: 'finance',
-        action: row.action === 'create' ? 'create_plan' : row.action === 'status_change' ? 'update_plan_status' : 'update_plan',
+        action: row.action === 'create' ? 'create' : 'update',
         entityId: row.plan_item_id,
         rawInput: row.raw_input,
         createdAt: row.created_at,
