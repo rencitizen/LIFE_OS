@@ -8,11 +8,10 @@ import { FINANCE_SCOPE_LABELS, type FinanceScope } from '@/lib/finance/scope'
 import { useFinanceStore } from '@/stores/finance-store'
 
 const tabs = [
-  { name: '概要', href: '/finance/dashboard' },
+  { name: '現在', href: '/finance/dashboard' },
+  { name: '履歴', href: '/finance/expenses' },
   { name: '分析', href: '/finance/analysis' },
-  { name: '収入・支出', href: '/finance/expenses' },
-  { name: '精算', href: '/finance/settlements' },
-  { name: '5年計画', href: '/finance/life-plan' },
+  { name: 'ライフプラン', href: '/finance/life-plan' },
 ]
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
@@ -39,6 +38,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs font-medium text-muted-foreground">表示</span>
         {(['combined', 'mine', 'partner'] as FinanceScope[]).map((scope) => (
           <Button
             key={scope}
