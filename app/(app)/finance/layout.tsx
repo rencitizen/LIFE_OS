@@ -8,10 +8,11 @@ import { FINANCE_SCOPE_LABELS, type FinanceScope } from '@/lib/finance/scope'
 import { useFinanceStore } from '@/stores/finance-store'
 
 const tabs = [
-  { name: '現在', href: '/finance/dashboard' },
-  { name: '計画', href: '/finance/plan' },
+  { name: '家計', href: '/finance/dashboard' },
   { name: '履歴', href: '/finance/expenses' },
-  { name: '分析', href: '/finance/analysis' },
+  { name: '精算', href: '/finance/settlements' },
+  { name: 'レビュー', href: '/finance/analysis' },
+  { name: '計画', href: '/finance/plan' },
   { name: '取込', href: '/finance/import' },
 ]
 
