@@ -26,13 +26,17 @@ export type FinancePlanItem = {
   updated_at: string
 }
 
+type FinancePlanDbRow = Omit<FinancePlanItem, 'target_amount' | 'current_amount'> & {
+  target_amount: number | string | null
+  current_amount: number | string | null
+}
+
 export function useFinancePlanItems(coupleId: string | undefined) {
   const supabase = createClient()
-
   return useQuery({
     queryKey: ['finance-plan-items', coupleId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('finance_plan_items')
         .select('*')
         .eq('couple_id', coupleId!)
@@ -40,11 +44,11 @@ export function useFinancePlanItems(coupleId: string | undefined) {
         .order('target_date', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
       if (error) throw error
-      return ((data || []) as any[]).map((row) => ({
+      return ((data || []) as unknown as FinancePlanDbRow[]).map((row) => ({
         ...row,
         target_amount: row.target_amount == null ? null : Number(row.target_amount),
         current_amount: row.current_amount == null ? null : Number(row.current_amount),
-      })) as FinancePlanItem[]
+      })) satisfies FinancePlanItem[]
     },
     enabled: !!coupleId,
   })
