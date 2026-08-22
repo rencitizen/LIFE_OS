@@ -3,6 +3,9 @@ import type { Database as BaseDatabase, Json } from './database'
 type BaseTables = BaseDatabase['public']['Tables']
 type BaseFunctions = BaseDatabase['public']['Functions']
 
+type WithRelationships<T> = T & { Relationships: [] }
+type CompatBaseTables = { [K in keyof BaseTables]: WithRelationships<BaseTables[K]> }
+
 type ExpenseRow = BaseTables['expenses']['Row'] & {
   counts_toward_totals: boolean
   external_id: string | null
@@ -92,10 +95,11 @@ type MonthlySnapshotRow = {
   snapshot_month: string
 }
 
-type RowShape<T> = {
+type SimpleTable<T> = {
   Row: T
-  Insert: { [K in keyof T]?: T[K] } & Record<string, unknown>
-  Update: { [K in keyof T]?: T[K] }
+  Insert: Partial<T>
+  Update: Partial<T>
+  Relationships: []
 }
 
 type FinancePlanItemTable = {
@@ -106,22 +110,38 @@ type FinancePlanItemTable = {
     updated_at?: string
   }
   Update: Partial<FinancePlanItemRow>
+  Relationships: []
 }
 
-type FinancePlanActionTable = RowShape<FinancePlanActionRow>
-type MoneyForwardRunTable = RowShape<MoneyForwardRunRow>
-type MonthlySnapshotTable = RowShape<MonthlySnapshotRow>
-
-type LiveTables = Omit<
-  BaseTables,
-  'expenses' | 'chatgpt_action_logs'
-> & {
-  expenses: { Row: ExpenseRow; Insert: ExpenseInsert; Update: ExpenseUpdate }
-  chatgpt_action_logs: { Row: ChatGptLogRow; Insert: ChatGptLogInsert; Update: ChatGptLogUpdate }
-  expense_monthly_snapshots: MonthlySnapshotTable
+type LiveTables = Omit<CompatBaseTables, 'expenses' | 'chatgpt_action_logs'> & {
+  expenses: {
+    Row: ExpenseRow
+    Insert: ExpenseInsert
+    Update: ExpenseUpdate
+    Relationships: []
+  }
+  chatgpt_action_logs: {
+    Row: ChatGptLogRow
+    Insert: ChatGptLogInsert
+    Update: ChatGptLogUpdate
+    Relationships: []
+  }
+  expense_monthly_snapshots: SimpleTable<MonthlySnapshotRow>
   finance_plan_items: FinancePlanItemTable
-  finance_plan_action_logs: FinancePlanActionTable
-  moneyforward_import_runs: MoneyForwardRunTable
+  finance_plan_action_logs: SimpleTable<FinancePlanActionRow>
+  moneyforward_import_runs: SimpleTable<MoneyForwardRunRow>
+}
+
+type MoneyForwardPayload = {
+  expense_date: string
+  amount: number
+  description: string
+  category_name: string
+  parent_category_name?: string | null
+  external_id?: string | null
+  payment_method?: 'cash' | 'card' | 'transfer' | null
+  is_settlement_target?: boolean
+  raw_payload?: Record<string, string>
 }
 
 type LiveFunctions = BaseFunctions & {
@@ -132,7 +152,7 @@ type LiveFunctions = BaseFunctions & {
   delete_app_expense: { Args: { p_expense_id: string }; Returns: string }
   delete_app_todo: { Args: { p_todo_id: string }; Returns: string }
   import_moneyforward_rows: {
-    Args: { p_file_name?: string; p_paid_by: string; p_rows: Json; p_user_id: string }
+    Args: { p_file_name?: string | null; p_paid_by: string; p_rows: MoneyForwardPayload[]; p_user_id: string }
     Returns: Array<{
       errors: Json
       failed_count: number
@@ -143,28 +163,28 @@ type LiveFunctions = BaseFunctions & {
       unchanged_count: number
     }>
   }
-  register_app_expense: { Args: { p_payload: Json }; Returns: ExpenseRow }
-  update_app_expense: { Args: { p_changes: Json; p_expense_id: string }; Returns: ExpenseRow }
-  register_app_todo: { Args: { p_payload: Json }; Returns: BaseTables['todos']['Row'] }
-  register_app_todos: { Args: { p_payloads: Json }; Returns: BaseTables['todos']['Row'][] }
-  update_app_todo: { Args: { p_changes: Json; p_todo_id: string }; Returns: BaseTables['todos']['Row'] }
+  register_app_expense: { Args: { p_payload: ExpenseInsert }; Returns: ExpenseRow }
+  update_app_expense: { Args: { p_changes: ExpenseUpdate; p_expense_id: string }; Returns: ExpenseRow }
+  register_app_todo: { Args: { p_payload: BaseTables['todos']['Insert'] }; Returns: BaseTables['todos']['Row'] }
+  register_app_todos: { Args: { p_payloads: BaseTables['todos']['Insert'][] }; Returns: BaseTables['todos']['Row'][] }
+  update_app_todo: { Args: { p_changes: BaseTables['todos']['Update']; p_todo_id: string }; Returns: BaseTables['todos']['Row'] }
   resolve_expense_category_id: {
-    Args: { p_category_name: string; p_couple_id: string; p_parent_category_name?: string }
+    Args: { p_category_name: string; p_couple_id: string; p_parent_category_name?: string | null }
     Returns: string
   }
   upsert_chatgpt_finance_plan_item: {
     Args: {
-      p_category?: string
-      p_current_amount?: number
-      p_description?: string
-      p_horizon?: string
-      p_item_id?: string
-      p_priority?: string
-      p_raw_input?: string
-      p_status?: string
-      p_target_amount?: number
-      p_target_date?: string
-      p_title?: string
+      p_category?: string | null
+      p_current_amount?: number | null
+      p_description?: string | null
+      p_horizon?: string | null
+      p_item_id?: string | null
+      p_priority?: string | null
+      p_raw_input?: string | null
+      p_status?: string | null
+      p_target_amount?: number | null
+      p_target_date?: string | null
+      p_title?: string | null
       p_user_id: string
     }
     Returns: string
@@ -173,13 +193,13 @@ type LiveFunctions = BaseFunctions & {
     Args: {
       p_amount: number
       p_category_name: string
-      p_description: string
+      p_description: string | null
       p_expense_date: string
-      p_external_id?: string
+      p_external_id?: string | null
       p_is_settlement_target?: boolean
       p_paid_by: string
-      p_parent_category_name?: string
-      p_payment_method?: string
+      p_parent_category_name?: string | null
+      p_payment_method?: string | null
       p_raw_payload?: Json
       p_user_id: string
     }
