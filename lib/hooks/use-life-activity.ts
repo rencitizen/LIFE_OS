@@ -12,6 +12,14 @@ export type LifeActivity = {
   createdAt: string
 }
 
+type FinancePlanActionRow = {
+  id: string
+  action: string
+  plan_item_id: string | null
+  raw_input: string | null
+  created_at: string
+}
+
 export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) {
   const supabase = createClient()
 
@@ -26,7 +34,7 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
           .eq('status', 'executed')
           .order('created_at', { ascending: false })
           .limit(limit),
-        (supabase as any)
+        supabase
           .from('finance_plan_action_logs')
           .select('id, action, plan_item_id, raw_input, created_at')
           .eq('couple_id', coupleId!)
@@ -62,7 +70,7 @@ export function useRecentLifeActivity(coupleId: string | undefined, limit = 10) 
         createdAt: row.created_at,
       }))
 
-      const financePlanRows: LifeActivity[] = ((financePlanResult.data || []) as any[]).map((row) => ({
+      const financePlanRows: LifeActivity[] = ((financePlanResult.data || []) as unknown as FinancePlanActionRow[]).map((row) => ({
         id: row.id,
         module: 'finance',
         action: row.action === 'create' ? 'create' : 'update',
