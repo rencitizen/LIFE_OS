@@ -277,6 +277,18 @@ export default function FinanceDashboardPage() {
     ? `${displayPerson(settlement.from_user, user, partner)} → ${displayPerson(settlement.to_user, user, partner)}`
     : '精算なし'
 
+  const monthBalanceTone = monthBalance > 0
+    ? 'bg-emerald-600 text-white'
+    : monthBalance < 0
+      ? 'bg-destructive text-destructive-foreground'
+      : 'bg-muted text-foreground'
+
+  const yearBalanceTone = yearBalance > 0
+    ? 'text-emerald-600 dark:text-emerald-400'
+    : yearBalance < 0
+      ? 'text-destructive'
+      : 'text-foreground'
+
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -310,7 +322,7 @@ export default function FinanceDashboardPage() {
               <p className="mt-2 text-3xl font-black tracking-tight tabular-nums">{formatYen(monthExpense)}</p>
               <p className="mt-2 text-xs font-medium text-muted-foreground">{formatDelta(monthExpense, previousExpense)}</p>
             </div>
-            <div className="bg-primary p-6 text-primary-foreground md:p-7">
+            <div className={`p-6 md:p-7 ${monthBalanceTone}`}>
               <p className="text-xs font-bold uppercase tracking-wide opacity-75">収支</p>
               <p className="mt-2 text-3xl font-black tracking-tight tabular-nums">{formatSignedYen(monthBalance)}</p>
               <p className="mt-2 text-xs opacity-75">収入 − 支出</p>
@@ -372,7 +384,7 @@ export default function FinanceDashboardPage() {
 
       <Card className="border-2 shadow-sm">
         <CardHeader className="border-b pb-4"><CardTitle className="text-lg">{selectedYear}年 累計</CardTitle></CardHeader>
-        <CardContent className="grid gap-0 p-0 sm:grid-cols-3"><div className="border-b p-5 sm:border-b-0 sm:border-r"><p className="text-xs font-semibold text-muted-foreground">年間収入</p><p className="mt-1 text-xl font-black tabular-nums">{formatYen(yearIncome)}</p></div><div className="border-b p-5 sm:border-b-0 sm:border-r"><p className="text-xs font-semibold text-muted-foreground">年間支出</p><p className="mt-1 text-xl font-black tabular-nums">{formatYen(yearExpense)}</p></div><div className="p-5"><p className="text-xs font-semibold text-muted-foreground">年間収支</p><p className="mt-1 text-xl font-black tabular-nums">{formatSignedYen(yearBalance)}</p></div></CardContent>
+        <CardContent className="grid gap-0 p-0 sm:grid-cols-3"><div className="border-b p-5 sm:border-b-0 sm:border-r"><p className="text-xs font-semibold text-muted-foreground">年間収入</p><p className="mt-1 text-xl font-black tabular-nums">{formatYen(yearIncome)}</p></div><div className="border-b p-5 sm:border-b-0 sm:border-r"><p className="text-xs font-semibold text-muted-foreground">年間支出</p><p className="mt-1 text-xl font-black tabular-nums">{formatYen(yearExpense)}</p></div><div className="p-5"><p className="text-xs font-semibold text-muted-foreground">年間収支</p><p className={`mt-1 text-xl font-black tabular-nums ${yearBalanceTone}`}>{formatSignedYen(yearBalance)}</p></div></CardContent>
       </Card>
 
       <Card className="border-2 shadow-sm">
