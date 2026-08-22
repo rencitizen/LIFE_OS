@@ -21,15 +21,11 @@ export function useTodos(coupleId: string | undefined, filters?: {
         .order('due_date', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
 
-      if (filters?.status) {
-        query = query.eq('status', filters.status)
-      }
+      if (filters?.status) query = query.eq('status', filters.status)
       if (filters?.assignedTo !== undefined) {
-        if (filters.assignedTo === null) {
-          query = query.is('assigned_to', null)
-        } else {
-          query = query.eq('assigned_to', filters.assignedTo)
-        }
+        query = filters.assignedTo === null
+          ? query.is('assigned_to', null)
+          : query.eq('assigned_to', filters.assignedTo)
       }
 
       const { data, error } = await query
@@ -46,17 +42,11 @@ export function useCreateTodo() {
 
   return useMutation({
     mutationFn: async (todo: InsertTables<'todos'>) => {
-      const { data, error } = await supabase
-        .from('todos')
-        .insert(todo)
-        .select()
-        .single()
+      const { data, error } = await (supabase as any).rpc('register_app_todo', { p_payload: todo })
       if (error) throw error
-      return data as unknown as Todo
+      return data as Todo
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos'] }),
   })
 }
 
@@ -66,16 +56,11 @@ export function useCreateTodos() {
 
   return useMutation({
     mutationFn: async (todos: InsertTables<'todos'>[]) => {
-      const { data, error } = await supabase
-        .from('todos')
-        .insert(todos)
-        .select()
+      const { data, error } = await (supabase as any).rpc('register_app_todos', { p_payloads: todos })
       if (error) throw error
-      return (data ?? []) as unknown as Todo[]
+      return (data ?? []) as Todo[]
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos'] }),
   })
 }
 
@@ -85,18 +70,14 @@ export function useUpdateTodo() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: UpdateTables<'todos'> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('todos')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
+      const { data, error } = await (supabase as any).rpc('update_app_todo', {
+        p_todo_id: id,
+        p_changes: updates,
+      })
       if (error) throw error
-      return data as unknown as Todo
+      return data as Todo
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos'] }),
   })
 }
 
@@ -106,11 +87,9 @@ export function useDeleteTodo() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('todos').delete().eq('id', id)
+      const { error } = await (supabase as any).rpc('delete_app_todo', { p_todo_id: id })
       if (error) throw error
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todos'] }),
   })
 }
