@@ -15,6 +15,7 @@ function invalidateExpenseQueries(queryClient: ReturnType<typeof useQueryClient>
   queryClient.invalidateQueries({ queryKey: ['expense-history'] })
   queryClient.invalidateQueries({ queryKey: ['expense-history-year'] })
   queryClient.invalidateQueries({ queryKey: ['monthly-settlement-preview'] })
+  queryClient.invalidateQueries({ queryKey: ['year-expenses'] })
 }
 
 export function useExpenses(coupleId: string | undefined, yearMonth?: string) {
@@ -27,6 +28,7 @@ export function useExpenses(coupleId: string | undefined, yearMonth?: string) {
         .from('expenses')
         .select('*, expense_categories(name, icon, color), expense_splits(user_id, amount, ratio, is_settled)')
         .eq('couple_id', coupleId!)
+        .eq('counts_toward_totals', true)
         .order('expense_date', { ascending: false })
 
       if (yearMonth) {
@@ -62,6 +64,7 @@ export function useMonthlyExpenseSummary(coupleId: string | undefined, yearMonth
         .from('expenses')
         .select('*, expense_categories(name, icon)')
         .eq('couple_id', coupleId!)
+        .eq('counts_toward_totals', true)
         .gte('expense_date', startDate)
         .lt('expense_date', endDate)
       if (error) throw error
@@ -72,6 +75,7 @@ export function useMonthlyExpenseSummary(coupleId: string | undefined, yearMonth
       const variable = total - fixed
       const shared = expenses.filter((e) => e.expense_type === 'shared').reduce((sum, e) => sum + Number(e.amount), 0)
       const personal = expenses.filter((e) => e.expense_type === 'personal').reduce((sum, e) => sum + Number(e.amount), 0)
+      const settlementTarget = expenses.filter((e) => e.is_settlement_target).reduce((sum, e) => sum + Number(e.amount), 0)
 
       const byCategory: Record<string, { name: string; icon: string | null; total: number }> = {}
       for (const e of expenses) {
@@ -86,7 +90,7 @@ export function useMonthlyExpenseSummary(coupleId: string | undefined, yearMonth
         byCategory[catId].total += Number(e.amount)
       }
 
-      return { total, fixed, variable, shared, personal, byCategory, count: expenses.length }
+      return { total, fixed, variable, shared, personal, settlementTarget, byCategory, count: expenses.length }
     },
     enabled: !!coupleId,
   })
@@ -106,6 +110,7 @@ export function useExpenseHistory(coupleId: string | undefined, months = 12) {
         .from('expenses')
         .select('amount, expense_date')
         .eq('couple_id', coupleId!)
+        .eq('counts_toward_totals', true)
         .gte('expense_date', start.toISOString().slice(0, 10))
         .lt('expense_date', end.toISOString().slice(0, 10))
       if (error) throw error
@@ -126,6 +131,7 @@ export function useYearExpenseHistory(coupleId: string | undefined, year: number
         .from('expenses')
         .select('amount, expense_date, category_id, paid_by, expense_categories(name, icon, color)')
         .eq('couple_id', coupleId!)
+        .eq('counts_toward_totals', true)
         .gte('expense_date', `${year}-01-01`)
         .lt('expense_date', `${year + 1}-01-01`)
       if (error) throw error
@@ -140,20 +146,19 @@ export function useYearExpenseHistory(coupleId: string | undefined, year: number
   })
 }
 
-// Kept for non-interactive/import write paths that intentionally do not create settlement splits.
+/**
+ * Generic app expense creation. The browser never writes the ledger directly;
+ * the RPC derives the authenticated user and applies split guardrails.
+ */
 export function useCreateExpense() {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (expense: InsertTables<'expenses'>) => {
-      const { data, error } = await supabase
-        .from('expenses')
-        .insert(expense)
-        .select()
-        .single()
+      const { data, error } = await (supabase as any).rpc('register_app_expense', { p_payload: expense })
       if (error) throw error
-      return data as unknown as Expense
+      return data as Expense
     },
     onSuccess: () => invalidateExpenseQueries(queryClient),
   })
@@ -209,14 +214,12 @@ export function useUpdateExpense() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: UpdateTables<'expenses'> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('expenses')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
+      const { data, error } = await (supabase as any).rpc('update_app_expense', {
+        p_expense_id: id,
+        p_changes: updates,
+      })
       if (error) throw error
-      return data as unknown as Expense
+      return data as Expense
     },
     onSuccess: () => invalidateExpenseQueries(queryClient),
   })
@@ -272,7 +275,7 @@ export function useDeleteExpense() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('expenses').delete().eq('id', id)
+      const { error } = await (supabase as any).rpc('delete_app_expense', { p_expense_id: id })
       if (error) throw error
     },
     onSuccess: () => invalidateExpenseQueries(queryClient),
