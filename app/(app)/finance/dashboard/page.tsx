@@ -3,7 +3,18 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { addMonths, format } from 'date-fns'
-import { ArrowRight, Bot, ChevronLeft, ChevronRight, CircleAlert } from 'lucide-react'
+import {
+  ArrowRight,
+  Bot,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  FileUp,
+  ReceiptText,
+  Scale,
+  Sparkles,
+  WalletCards,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,11 +25,17 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { useBudget } from '@/lib/hooks/use-budgets'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useExpenses } from '@/lib/hooks/use-expenses'
+import { useIncomes } from '@/lib/hooks/use-incomes'
 import { useMonthlySettlementPreview } from '@/lib/hooks/use-settlements'
 import { useFinanceStore } from '@/stores/finance-store'
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.min(max, Math.max(min, value))
+}
+
+function formatSignedYen(value: number) {
+  const sign = value >= 0 ? '+' : '-'
+  return `${sign}${formatYen(Math.abs(value))}`
 }
 
 function displayPerson(
@@ -44,6 +61,7 @@ export default function FinanceDashboardPage() {
   const { couple, user, partner } = useAuth()
   const { selectedMonth, setSelectedMonth, financeScope } = useFinanceStore()
   const { data: expenses } = useExpenses(couple?.id, selectedMonth)
+  const { data: incomes } = useIncomes(couple?.id, selectedMonth)
   const { data: categories } = useExpenseCategories(couple?.id)
   const { data: budget } = useBudget(couple?.id, selectedMonth)
   const { data: settlement } = useMonthlySettlementPreview(user?.id, selectedMonth)
@@ -58,10 +76,22 @@ export default function FinanceDashboardPage() {
     [expenses, financeScope, partner?.id, user?.id]
   )
 
-  const monthTotal = useMemo(
+  const scopedIncomes = useMemo(
+    () => filterByFinanceScope(incomes || [], financeScope, user?.id, partner?.id, (row) => row.user_id),
+    [financeScope, incomes, partner?.id, user?.id]
+  )
+
+  const monthExpense = useMemo(
     () => scopedExpenses.reduce((sum, row) => sum + Number(row.amount), 0),
     [scopedExpenses]
   )
+
+  const monthIncome = useMemo(
+    () => scopedIncomes.reduce((sum, row) => sum + Number(row.amount), 0),
+    [scopedIncomes]
+  )
+
+  const monthBalance = monthIncome - monthExpense
 
   const todayTotal = useMemo(
     () => scopedExpenses
@@ -70,9 +100,23 @@ export default function FinanceDashboardPage() {
     [scopedExpenses, todayKey]
   )
 
+  const sharedExpense = useMemo(
+    () => scopedExpenses
+      .filter((row) => row.expense_type === 'shared')
+      .reduce((sum, row) => sum + Number(row.amount), 0),
+    [scopedExpenses]
+  )
+
+  const personalExpense = useMemo(
+    () => scopedExpenses
+      .filter((row) => row.expense_type === 'personal')
+      .reduce((sum, row) => sum + Number(row.amount), 0),
+    [scopedExpenses]
+  )
+
   const budgetLimit = financeScope === 'combined' ? Number(budget?.total_limit || 0) : 0
-  const budgetRemaining = budgetLimit > 0 ? budgetLimit - monthTotal : null
-  const budgetUsedPct = budgetLimit > 0 ? clamp((monthTotal / budgetLimit) * 100) : 0
+  const budgetRemaining = budgetLimit > 0 ? budgetLimit - monthExpense : null
+  const budgetUsedPct = budgetLimit > 0 ? clamp((monthExpense / budgetLimit) * 100) : 0
 
   const anomalies = useMemo(
     () => (expenses || []).filter((row) =>
@@ -82,10 +126,10 @@ export default function FinanceDashboardPage() {
   )
 
   const recentUpdates = useMemo(
-    () => [...(expenses || [])]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    () => [...scopedExpenses]
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
       .slice(0, 6),
-    [expenses]
+    [scopedExpenses]
   )
 
   const categoryById = useMemo(
@@ -212,12 +256,17 @@ export default function FinanceDashboardPage() {
     : '精算なし'
 
   return (
-    <div className="space-y-7">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">今の家計</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{FINANCE_SCOPE_LABELS[financeScope]}の現在地</p>
+          <div className="mb-2 flex items-center gap-2">
+            <Badge variant="outline">家計</Badge>
+            <span className="text-sm text-muted-foreground">{FINANCE_SCOPE_LABELS[financeScope]}</span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">{format(displayDate, 'yyyy/MM')} の家計</h1>
+          <p className="mt-1 text-sm text-muted-foreground">収支、予算、精算、支出の内訳をここでまとめて確認します。</p>
         </div>
+
         <div className="flex items-center rounded-lg border bg-background p-0.5">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateMonth(-1)}>
             <ChevronLeft className="h-4 w-4" />
@@ -229,60 +278,106 @@ export default function FinanceDashboardPage() {
         </div>
       </div>
 
-      <Card className="overflow-hidden border-primary/15">
-        <CardContent className="p-0">
-          <div className="grid md:grid-cols-[1.2fr_0.8fr]">
-            <div className="p-6 md:p-8">
-              <p className="text-sm font-medium text-muted-foreground">今月使った</p>
-              <p className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">{formatYen(monthTotal)}</p>
-              <p className="mt-2 text-sm text-muted-foreground">{scopedExpenses.length}件を反映</p>
-            </div>
-
-            <div className="border-t p-6 md:border-l md:border-t-0 md:p-8">
-              <p className="text-sm font-medium text-muted-foreground">あと使える</p>
-              {budgetRemaining !== null ? (
-                <>
-                  <p className={budgetRemaining < 0 ? 'mt-2 text-3xl font-bold text-destructive' : 'mt-2 text-3xl font-bold'}>
-                    {formatYen(budgetRemaining)}
-                  </p>
-                  <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${budgetUsedPct}%` }} />
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>予算 {formatYen(budgetLimit)}</span>
-                    <span>{budgetUsedPct.toFixed(0)}%</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="mt-2 text-xl font-semibold">予算未設定</p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">月次予算を設定すると残額がここに出ます。</p>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="grid border-t sm:grid-cols-2">
-            <div className="flex items-end justify-between gap-4 p-5 sm:border-r md:px-8">
+      <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
+        <Card tone="blue" className="overflow-hidden">
+          <CardContent className="p-6 md:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
-                <p className="text-xs text-muted-foreground">今日の支出</p>
-                <p className="mt-1 text-xl font-bold">{formatYen(todayTotal)}</p>
+                <p className="text-sm font-medium text-muted-foreground">今月の収支</p>
+                <p className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">{formatSignedYen(monthBalance)}</p>
+                <p className="mt-2 text-xs text-muted-foreground">登録済み収入 − 支出</p>
               </div>
-              <span className="text-xs text-muted-foreground">{todayKey.slice(5).replace('-', '/')}</span>
-            </div>
-            <div className="flex items-end justify-between gap-4 border-t p-5 sm:border-t-0 md:px-8">
-              <div>
-                <p className="text-xs text-muted-foreground">今月の精算</p>
-                <p className="mt-1 text-xl font-bold">{formatYen(settlement?.amount || 0)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{settlementDirection}</p>
-              </div>
-              <Link href="/finance/settlements" className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                詳細 <ArrowRight className="h-3 w-3" />
+              <Link href="/finance/analysis" className="inline-flex items-center gap-1 text-sm font-medium text-primary">
+                月次レビュー <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border bg-background/70 p-4">
+                <p className="text-xs text-muted-foreground">収入</p>
+                <p className="mt-1 text-xl font-bold text-[var(--color-income)]">{formatYen(monthIncome)}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{scopedIncomes.length}件を反映</p>
+              </div>
+              <div className="rounded-xl border bg-background/70 p-4">
+                <p className="text-xs text-muted-foreground">支出</p>
+                <p className="mt-1 text-xl font-bold text-[var(--color-expense)]">{formatYen(monthExpense)}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{scopedExpenses.length}件を反映</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-base">今月の予算</CardTitle>
+              <Link href="/finance/budgets" className="text-xs font-medium text-primary">設定</Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {budgetRemaining !== null ? (
+              <>
+                <p className="text-xs text-muted-foreground">あと使える</p>
+                <p className={budgetRemaining < 0 ? 'mt-1 text-3xl font-bold text-destructive' : 'mt-1 text-3xl font-bold'}>
+                  {formatYen(budgetRemaining)}
+                </p>
+                <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${budgetUsedPct}%` }} />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>予算 {formatYen(budgetLimit)}</span>
+                  <span>{budgetUsedPct.toFixed(0)}%</span>
+                </div>
+              </>
+            ) : (
+              <div className="py-2">
+                <p className="text-xl font-semibold">予算未設定</p>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  {financeScope === 'combined'
+                    ? '月次予算を設定すると、残り金額と消化率がここに表示されます。'
+                    : '予算は2人分の家計表示で確認できます。'}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center justify-between gap-4 p-5">
+            <div>
+              <p className="text-xs text-muted-foreground">今日の支出</p>
+              <p className="mt-1 text-xl font-bold">{formatYen(todayTotal)}</p>
+            </div>
+            <ReceiptText className="h-5 w-5 text-muted-foreground" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex items-center justify-between gap-4 p-5">
+            <div>
+              <p className="text-xs text-muted-foreground">共有支出</p>
+              <p className="mt-1 text-xl font-bold">{formatYen(sharedExpense)}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">個人 {formatYen(personalExpense)}</p>
+            </div>
+            <WalletCards className="h-5 w-5 text-muted-foreground" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex items-center justify-between gap-4 p-5">
+            <div>
+              <p className="text-xs text-muted-foreground">今月の精算</p>
+              <p className="mt-1 text-xl font-bold">{formatYen(settlement?.amount || 0)}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{settlementDirection}</p>
+            </div>
+            <Link href="/finance/settlements" aria-label="精算を確認" className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <Scale className="h-5 w-5" />
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
 
       {anomalies.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
@@ -297,13 +392,13 @@ export default function FinanceDashboardPage() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <CardTitle className="text-base">支出の内訳</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">{categoryBreadcrumb || '大きい項目から確認'}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{categoryBreadcrumb || 'カテゴリを押すと内訳を掘り下げられます'}</p>
               </div>
               <div className="flex items-center gap-2">
                 {categoryPath.length > 0 && (
@@ -311,7 +406,7 @@ export default function FinanceDashboardPage() {
                     <ChevronLeft className="mr-1 h-3.5 w-3.5" />戻る
                   </Button>
                 )}
-                <Link href="/finance/analysis" className="text-xs font-medium text-primary">分析</Link>
+                <Link href="/finance/analysis" className="text-xs font-medium text-primary">レビュー</Link>
               </div>
             </div>
           </CardHeader>
@@ -360,7 +455,7 @@ export default function FinanceDashboardPage() {
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-3">
-              <CardTitle className="text-base">最近の更新</CardTitle>
+              <CardTitle className="text-base">最近の支出</CardTitle>
               <Link href="/finance/expenses" className="text-xs font-medium text-primary">すべて見る</Link>
             </div>
           </CardHeader>
@@ -387,11 +482,39 @@ export default function FinanceDashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">まだ更新はありません。</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">まだ支出はありません。</p>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">家計の操作</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Link href="/finance/expenses" className="group rounded-xl border p-4 transition-colors hover:bg-muted/50">
+            <ReceiptText className="h-5 w-5 text-muted-foreground" />
+            <p className="mt-3 text-sm font-semibold">支出履歴</p>
+            <p className="mt-1 text-xs text-muted-foreground">明細の確認・修正</p>
+          </Link>
+          <Link href="/finance/settlements" className="group rounded-xl border p-4 transition-colors hover:bg-muted/50">
+            <Scale className="h-5 w-5 text-muted-foreground" />
+            <p className="mt-3 text-sm font-semibold">月次精算</p>
+            <p className="mt-1 text-xs text-muted-foreground">2人の立替を精算</p>
+          </Link>
+          <Link href="/finance/analysis" className="group rounded-xl border p-4 transition-colors hover:bg-muted/50">
+            <Sparkles className="h-5 w-5 text-muted-foreground" />
+            <p className="mt-3 text-sm font-semibold">月次レビュー</p>
+            <p className="mt-1 text-xs text-muted-foreground">前月比較と支出分析</p>
+          </Link>
+          <Link href="/finance/import" className="group rounded-xl border p-4 transition-colors hover:bg-muted/50">
+            <FileUp className="h-5 w-5 text-muted-foreground" />
+            <p className="mt-3 text-sm font-semibold">CSV取込</p>
+            <p className="mt-1 text-xs text-muted-foreground">過去明細を追加</p>
+          </Link>
+        </CardContent>
+      </Card>
     </div>
   )
 }
