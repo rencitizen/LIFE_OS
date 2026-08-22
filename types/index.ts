@@ -1,5 +1,5 @@
-export type { Database } from './database'
-import type { Database } from './database'
+export type { Database } from './database-live'
+import type { Database } from './database-live'
 
 // Raw database helpers. These mirror Supabase exactly, including nullable legacy columns.
 export type Tables<T extends keyof Database['public']['Tables']> =
@@ -37,7 +37,7 @@ export type Todo = NormalizeRequired<
 export type IdeaItem = Tables<'idea_items'>
 export type Expense = NormalizeRequired<
   Tables<'expenses'>,
-  'couple_id' | 'paid_by' | 'currency' | 'expense_type' | 'is_fixed' | 'source' | 'created_at'
+  'couple_id' | 'paid_by' | 'currency' | 'expense_type' | 'is_fixed' | 'source' | 'created_at' | 'counts_toward_totals' | 'record_kind' | 'import_meta'
 > & {
   split_mode: 'none' | 'standard' | 'custom' | 'full_payer'
 }
@@ -73,6 +73,7 @@ export type Income = NormalizeRequired<
   Tables<'incomes'>,
   'couple_id' | 'user_id' | 'income_type' | 'is_fixed' | 'created_at'
 >
+export type LifePlan = NormalizeRequired<Tables<'life_plans'>, 'couple_id' | 'created_at' | 'updated_at'>
 
 // Enum types
 export type Visibility = 'shared' | 'private' | 'partner_only'

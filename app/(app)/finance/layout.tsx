@@ -12,12 +12,13 @@ const tabs = [
   { name: '計画', href: '/finance/plan' },
   { name: '履歴', href: '/finance/expenses' },
   { name: '分析', href: '/finance/analysis' },
+  { name: '取込', href: '/finance/import' },
 ]
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { financeScope, setFinanceScope } = useFinanceStore()
-  const showScope = pathname !== '/finance/plan' && pathname !== '/finance/life-plan'
+  const showScope = pathname !== '/finance/plan' && pathname !== '/finance/life-plan' && pathname !== '/finance/import'
 
   return (
     <div className="space-y-5">

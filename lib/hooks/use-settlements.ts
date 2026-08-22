@@ -14,21 +14,26 @@ export type MonthlySettlementPreview = {
   gross_amount: number
 }
 
-export type CompletedMonthlySettlement = Omit<MonthlySettlementPreview, 'couple_id'> & {
-  settlement_id: string
+export type CompletedMonthlySettlement = Omit<MonthlySettlementPreview, 'couple_id'> & { settlement_id: string }
+
+type PreviewRpcRow = {
+  couple_id: string
+  settlement_month: string
+  from_user: string | null
+  to_user: string | null
+  amount: number | string
+  expense_count: number | string
+  gross_amount: number | string
 }
+
+type CompleteRpcRow = Omit<PreviewRpcRow, 'couple_id'> & { settlement_id: string }
 
 export function useSettlements(coupleId: string | undefined) {
   const supabase = createClient()
-
   return useQuery({
     queryKey: ['settlements', coupleId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('settlements')
-        .select('*')
-        .eq('couple_id', coupleId!)
-        .order('created_at', { ascending: false })
+      const { data, error } = await supabase.from('settlements').select('*').eq('couple_id', coupleId!).order('created_at', { ascending: false })
       if (error) throw error
       return data as unknown as Settlement[]
     },
@@ -38,19 +43,13 @@ export function useSettlements(coupleId: string | undefined) {
 
 export function useMonthlySettlementPreview(userId: string | undefined, yearMonth: string | undefined) {
   const supabase = createClient()
-
   return useQuery({
     queryKey: ['monthly-settlement-preview', userId, yearMonth],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc('preview_monthly_settlement', {
-        p_user_id: userId!,
-        p_month: `${yearMonth}-01`,
-      })
+      const { data, error } = await supabase.rpc('preview_monthly_settlement', { p_user_id: userId!, p_month: `${yearMonth}-01` })
       if (error) throw error
-
-      const row = data?.[0]
+      const row = (data as unknown as PreviewRpcRow[] | null)?.[0]
       if (!row) return null
-
       return {
         couple_id: row.couple_id,
         settlement_month: row.settlement_month,
@@ -68,27 +67,12 @@ export function useMonthlySettlementPreview(userId: string | undefined, yearMont
 export function useCompleteMonthlySettlement() {
   const supabase = createClient()
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({
-      userId,
-      yearMonth,
-      memo,
-    }: {
-      userId: string
-      yearMonth: string
-      memo?: string | null
-    }) => {
-      const { data, error } = await (supabase as any).rpc('complete_monthly_settlement', {
-        p_user_id: userId,
-        p_month: `${yearMonth}-01`,
-        p_memo: memo || null,
-      })
+    mutationFn: async ({ userId, yearMonth, memo }: { userId: string; yearMonth: string; memo?: string | null }) => {
+      const { data, error } = await supabase.rpc('complete_monthly_settlement', { p_user_id: userId, p_month: `${yearMonth}-01`, p_memo: memo || null })
       if (error) throw error
-
-      const row = data?.[0]
+      const row = (data as unknown as CompleteRpcRow[] | null)?.[0]
       if (!row) throw new Error('settlement_result_missing')
-
       return {
         settlement_id: row.settlement_id,
         settlement_month: row.settlement_month,
