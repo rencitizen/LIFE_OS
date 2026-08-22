@@ -11,7 +11,6 @@ const tabs = [
   { name: '家計', href: '/finance/dashboard' },
   { name: '履歴', href: '/finance/expenses' },
   { name: '精算', href: '/finance/settlements' },
-  { name: 'レビュー', href: '/finance/analysis' },
   { name: '計画', href: '/finance/plan' },
   { name: '取込', href: '/finance/import' },
 ]
