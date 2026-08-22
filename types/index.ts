@@ -38,29 +38,75 @@ export type IdeaItem = Tables<'idea_items'>
 export type Expense = NormalizeRequired<
   Tables<'expenses'>,
   'couple_id' | 'paid_by' | 'currency' | 'expense_type' | 'is_fixed' | 'source' | 'created_at' | 'counts_toward_totals' | 'record_kind' | 'import_meta'
+> & {
+  split_mode: 'none' | 'standard' | 'custom' | 'full_payer'
+}
+export type ExpenseSplit = NormalizeRequired<Tables<'expense_splits'>, 'expense_id' | 'user_id' | 'is_settled'>
+export type ExpenseCategory = NormalizeRequired<
+  Tables<'expense_categories'>,
+  'couple_id' | 'is_default' | 'sort_order' | 'created_at'
 >
-export type ExpenseCategory = NormalizeRequired<Tables<'expense_categories'>, 'couple_id' | 'is_default' | 'sort_order' | 'created_at'>
-export type ExpenseSplit = NormalizeRequired<Tables<'expense_splits'>, 'expense_id' | 'user_id' | 'ratio' | 'amount' | 'is_settled'>
-export type Settlement = NormalizeRequired<Tables<'settlements'>, 'couple_id' | 'from_user' | 'to_user' | 'status' | 'created_at'>
-export type Income = NormalizeRequired<Tables<'incomes'>, 'couple_id' | 'user_id' | 'income_type' | 'is_fixed' | 'created_at'>
+export type Settlement = NormalizeRequired<
+  Tables<'settlements'>,
+  'couple_id' | 'from_user' | 'to_user' | 'status' | 'created_at'
+>
 export type Budget = NormalizeRequired<Tables<'budgets'>, 'couple_id' | 'created_at'>
-export type BudgetCategory = NormalizeRequired<Tables<'budget_categories'>, 'budget_id' | 'category_id' | 'limit_amount' | 'alert_ratio'>
 export type BudgetMemberLimit = Tables<'budget_member_limits'>
+export type BudgetCategory = NormalizeRequired<
+  Tables<'budget_categories'>,
+  'budget_id' | 'category_id' | 'alert_ratio'
+>
 export type BudgetIncomeCategory = Tables<'budget_income_categories'>
-export type SavingsGoal = NormalizeRequired<Tables<'savings_goals'>, 'couple_id' | 'target_amount' | 'current_amount' | 'status' | 'created_at'>
-export type SavingsContribution = NormalizeRequired<Tables<'savings_contributions'>, 'goal_id' | 'user_id' | 'created_at'>
-export type Account = NormalizeRequired<Tables<'accounts'>, 'couple_id' | 'owner_id' | 'created_at'>
+export type SavingsGoal = NormalizeRequired<
+  Tables<'savings_goals'>,
+  'couple_id' | 'current_amount' | 'status' | 'created_at'
+>
+export type SavingsContribution = NormalizeRequired<
+  Tables<'savings_contributions'>,
+  'goal_id' | 'user_id' | 'created_at'
+>
+export type Account = NormalizeRequired<
+  Tables<'accounts'>,
+  'couple_id' | 'owner_id' | 'is_shared' | 'created_at'
+>
+export type Income = NormalizeRequired<
+  Tables<'incomes'>,
+  'couple_id' | 'user_id' | 'income_type' | 'is_fixed' | 'created_at'
+>
 export type LifePlan = NormalizeRequired<Tables<'life_plans'>, 'couple_id' | 'created_at' | 'updated_at'>
 
-export type TransactionType = 'expense' | 'income'
-export type UnifiedTransaction = {
+// Enum types
+export type Visibility = 'shared' | 'private' | 'partner_only'
+export type EventType = 'life' | 'financial' | 'anniversary' | 'medical' | 'travel'
+export type Priority = 'high' | 'medium' | 'low'
+export type TodoStatus = 'pending' | 'in_progress' | 'done'
+export type TodoTaskLevel = 'large' | 'medium' | 'small'
+export type ExpenseType = 'personal' | 'shared' | 'advance' | 'pending_settlement'
+export type PaymentMethod = 'cash' | 'card' | 'transfer'
+export type SettlementStatus = 'requested' | 'confirmed' | 'done'
+export type AccountType = 'bank' | 'credit' | 'investment' | 'cash'
+export type IncomeType = 'salary' | 'bonus' | 'freelance' | 'other'
+export type ShoppingCategory = 'food' | 'daily' | 'other' | 'general'
+export type LivingMode = 'before_cohabiting' | 'after_cohabiting'
+export type TransactionType = 'income' | 'expense'
+export type TransactionSource = 'manual' | 'ocr' | 'moneyforward_screenshot' | 'imported' | 'ai'
+
+export type ExpenseWithRelations = Expense & {
+  expense_splits?: Array<Pick<ExpenseSplit, 'user_id' | 'amount' | 'ratio' | 'is_settled'>>
+}
+
+export interface UnifiedTransaction {
   id: string
   transactionType: TransactionType
-  amount: number
   date: string
-  description: string | null
-  ownerId: string | null
-  categoryLabel: string
-  isFixed: boolean
-  raw: Expense | Income
+  type: string
+  category: string
+  categoryId: string | null
+  amount: number
+  memo: string
+  ownerId: string
+  ownerLabel: string
+  source: TransactionSource
+  rawExpense?: ExpenseWithRelations
+  rawIncome?: Income
 }
