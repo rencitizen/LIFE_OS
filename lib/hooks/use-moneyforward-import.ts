@@ -37,20 +37,29 @@ export type MoneyForwardImportRun = {
   created_at: string
 }
 
+type ImportRpcRow = {
+  run_id: string
+  rows_total: number | string
+  inserted_count: number | string
+  linked_existing_count: number | string
+  unchanged_count: number | string
+  failed_count: number | string
+  errors: unknown
+}
+
 export function useMoneyForwardImportRuns(coupleId: string | undefined) {
   const supabase = createClient()
-
   return useQuery({
     queryKey: ['moneyforward-import-runs', coupleId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('moneyforward_import_runs')
         .select('id,file_name,rows_total,inserted_count,linked_existing_count,unchanged_count,failed_count,errors,created_at')
         .eq('couple_id', coupleId!)
         .order('created_at', { ascending: false })
         .limit(10)
       if (error) throw error
-      return (data ?? []) as MoneyForwardImportRun[]
+      return (data ?? []) as unknown as MoneyForwardImportRun[]
     },
     enabled: !!coupleId,
   })
@@ -59,37 +68,26 @@ export function useMoneyForwardImportRuns(coupleId: string | undefined) {
 export function useImportMoneyForward() {
   const supabase = createClient()
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({
-      userId,
-      paidBy,
-      rows,
-      fileName,
-    }: {
-      userId: string
-      paidBy: string
-      rows: MoneyForwardImportRow[]
-      fileName?: string | null
-    }) => {
-      const { data, error } = await (supabase as any).rpc('import_moneyforward_rows', {
+    mutationFn: async ({ userId, paidBy, rows, fileName }: { userId: string; paidBy: string; rows: MoneyForwardImportRow[]; fileName?: string | null }) => {
+      const { data, error } = await supabase.rpc('import_moneyforward_rows', {
         p_user_id: userId,
         p_paid_by: paidBy,
         p_rows: rows,
         p_file_name: fileName || null,
       })
       if (error) throw error
-      const row = data?.[0]
+      const row = (data as unknown as ImportRpcRow[] | null)?.[0]
       if (!row) throw new Error('import_result_missing')
       return {
-        ...row,
+        run_id: row.run_id,
         rows_total: Number(row.rows_total || 0),
         inserted_count: Number(row.inserted_count || 0),
         linked_existing_count: Number(row.linked_existing_count || 0),
         unchanged_count: Number(row.unchanged_count || 0),
         failed_count: Number(row.failed_count || 0),
-        errors: Array.isArray(row.errors) ? row.errors : [],
-      } as MoneyForwardImportResult
+        errors: Array.isArray(row.errors) ? row.errors as MoneyForwardImportResult['errors'] : [],
+      } satisfies MoneyForwardImportResult
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['moneyforward-import-runs'] })
