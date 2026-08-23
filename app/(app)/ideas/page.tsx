@@ -68,7 +68,7 @@ export default function IdeasPage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold">思考・アイデア</h1>
           <p className="text-sm text-muted-foreground">
-            思考テーマ、やりたいこと、あとで掘り下げたいアイデアを残します。
+            思考テーマや、あとで掘り下げたいアイデアを残します。
           </p>
         </div>
 
