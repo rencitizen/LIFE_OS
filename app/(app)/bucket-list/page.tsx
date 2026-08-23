@@ -159,7 +159,7 @@ export default function BucketListPage() {
       ) : (items || []).length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {(items || []).map((item) => (
-            <Card key={item.id} tone="rose">
+            <Card key={item.id}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -183,7 +183,7 @@ export default function BucketListPage() {
           ))}
         </div>
       ) : (
-        <Card tone="rose">
+        <Card>
           <CardContent className="p-8 text-center">
             <Heart className="mx-auto h-6 w-6 text-muted-foreground" />
             <p className="mt-3 text-sm text-muted-foreground">
