@@ -95,10 +95,30 @@ type MonthlySnapshotRow = {
   snapshot_month: string
 }
 
+type BucketListItemRow = {
+  category: string | null
+  couple_id: string
+  created_at: string
+  created_by: string
+  id: string
+  memo: string | null
+  title: string
+}
+
 type SimpleTable<T> = {
   Row: T
   Insert: Partial<T>
   Update: Partial<T>
+  Relationships: []
+}
+
+type BucketListItemTable = {
+  Row: BucketListItemRow
+  Insert: Omit<BucketListItemRow, 'id' | 'created_at'> & {
+    id?: string
+    created_at?: string
+  }
+  Update: Partial<BucketListItemRow>
   Relationships: []
 }
 
@@ -126,6 +146,7 @@ type LiveTables = Omit<CompatBaseTables, 'expenses' | 'chatgpt_action_logs'> & {
     Update: ChatGptLogUpdate
     Relationships: []
   }
+  bucket_list_items: BucketListItemTable
   expense_monthly_snapshots: SimpleTable<MonthlySnapshotRow>
   finance_plan_items: FinancePlanItemTable
   finance_plan_action_logs: SimpleTable<FinancePlanActionRow>
@@ -151,6 +172,10 @@ type LiveFunctions = BaseFunctions & {
   }
   delete_app_expense: { Args: { p_expense_id: string }; Returns: string }
   delete_app_todo: { Args: { p_todo_id: string }; Returns: string }
+  delete_chatgpt_bucket_list_item: {
+    Args: { p_confirmed?: boolean; p_item_id: string; p_raw_input?: string | null; p_user_id: string }
+    Returns: string
+  }
   import_moneyforward_rows: {
     Args: { p_file_name?: string | null; p_paid_by: string; p_rows: MoneyForwardPayload[]; p_user_id: string }
     Returns: Array<{
@@ -168,6 +193,20 @@ type LiveFunctions = BaseFunctions & {
   register_app_todo: { Args: { p_payload: BaseTables['todos']['Insert'] }; Returns: BaseTables['todos']['Row'] }
   register_app_todos: { Args: { p_payloads: BaseTables['todos']['Insert'][] }; Returns: BaseTables['todos']['Row'][] }
   update_app_todo: { Args: { p_changes: BaseTables['todos']['Update']; p_todo_id: string }; Returns: BaseTables['todos']['Row'] }
+  register_chatgpt_bucket_list_item: {
+    Args: {
+      p_category?: string | null
+      p_memo?: string | null
+      p_raw_input?: string | null
+      p_title: string
+      p_user_id: string
+    }
+    Returns: BucketListItemRow
+  }
+  update_chatgpt_bucket_list_item: {
+    Args: { p_changes: Json; p_item_id: string; p_raw_input?: string | null; p_user_id: string }
+    Returns: BucketListItemRow
+  }
   resolve_expense_category_id: {
     Args: { p_category_name: string; p_couple_id: string; p_parent_category_name?: string | null }
     Returns: string
