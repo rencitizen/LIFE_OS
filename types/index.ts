@@ -35,6 +35,7 @@ export type Todo = NormalizeRequired<
   'couple_id' | 'created_by' | 'priority' | 'status' | 'visibility' | 'is_recurring' | 'created_at'
 >
 export type IdeaItem = Tables<'idea_items'>
+export type BucketListItem = Tables<'bucket_list_items'>
 export type Expense = NormalizeRequired<
   Tables<'expenses'>,
   'couple_id' | 'paid_by' | 'currency' | 'expense_type' | 'is_fixed' | 'source' | 'created_at' | 'counts_toward_totals' | 'record_kind' | 'import_meta'
