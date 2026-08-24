@@ -9,10 +9,7 @@ import {
   ShoppingCart,
   CheckSquare,
   Wallet,
-  BarChart3,
   Settings,
-  Target,
-  LineChart,
   Lightbulb,
   Heart,
 } from 'lucide-react'
@@ -26,13 +23,7 @@ const navigation = [
   { name: 'タスク', href: '/todos', icon: CheckSquare },
   { name: 'やりたいこと', href: '/bucket-list', icon: Heart },
   { name: '思考・アイデア', href: '/ideas', icon: Lightbulb },
-]
-
-const financeNavigation = [
-  { name: '現在', href: '/finance/dashboard', icon: BarChart3 },
-  { name: '計画', href: '/finance/plan', icon: Target },
-  { name: '履歴', href: '/finance/expenses', icon: Wallet },
-  { name: '分析', href: '/finance/analysis', icon: LineChart },
+  { name: '家計', href: '/finance/dashboard', activePrefix: '/finance', icon: Wallet },
 ]
 
 export function AppSidebar() {
@@ -57,29 +48,10 @@ export function AppSidebar() {
 
         <ScrollArea className="flex-1 py-4">
           <nav className="space-y-1 px-3">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  pathname === item.href
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.name}
-              </Link>
-            ))}
+            {navigation.map((item) => {
+              const activePrefix = item.activePrefix ?? item.href
+              const active = pathname === item.href || (item.activePrefix ? pathname.startsWith(activePrefix) : false)
 
-            <div className="pb-2 pt-4">
-              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">家計</p>
-            </div>
-
-            {financeNavigation.map((item) => {
-              const active = pathname === item.href || (item.href === '/finance/plan' && pathname === '/finance/life-plan')
               return (
                 <Link
                   key={item.href}
