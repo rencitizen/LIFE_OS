@@ -12,7 +12,6 @@ const tabs = [
   { name: '履歴', href: '/finance/expenses' },
   { name: '精算', href: '/finance/settlements' },
   { name: '計画', href: '/finance/plan' },
-  { name: '取込', href: '/finance/import' },
 ]
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
