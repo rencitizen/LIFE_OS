@@ -34,6 +34,41 @@ import { toast } from 'sonner'
 type SourceFilter = 'all' | 'ai' | 'manual'
 type TypeFilter = 'all' | 'expense' | 'income'
 
+const TYPE_FILTER_ITEMS = [
+  { value: 'all', label: 'すべて' },
+  { value: 'expense', label: '支出' },
+  { value: 'income', label: '収入' },
+]
+
+const SOURCE_FILTER_ITEMS = [
+  { value: 'all', label: '全ての入力元' },
+  { value: 'ai', label: 'AI' },
+  { value: 'manual', label: 'その他' },
+]
+
+const TRANSACTION_TYPE_ITEMS = [
+  { value: 'expense', label: '支出' },
+  { value: 'income', label: '収入' },
+]
+
+const EXPENSE_KIND_ITEMS = [
+  { value: 'shared', label: '共有' },
+  { value: 'personal', label: '個人' },
+]
+
+const PAYMENT_METHOD_ITEMS = [
+  { value: 'card', label: 'カード' },
+  { value: 'cash', label: '現金' },
+  { value: 'transfer', label: '振込' },
+]
+
+const INCOME_TYPE_ITEMS = [
+  { value: 'salary', label: '給与' },
+  { value: 'bonus', label: '賞与' },
+  { value: 'freelance', label: '副業' },
+  { value: 'other', label: 'その他' },
+]
+
 function displayPerson(id: string, user?: { id: string; display_name: string } | null, partner?: { id: string; display_name: string } | null) {
   if (user?.id === id) return user.display_name
   if (partner?.id === id) return partner.display_name
@@ -73,6 +108,14 @@ export default function FinanceHistoryPage() {
   const [settlementTarget, setSettlementTarget] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [incomeType, setIncomeType] = useState('salary')
+
+  const categoryItems = useMemo(
+    () => (categories || []).map((category) => ({
+      value: category.id,
+      label: `${category.icon ? `${category.icon} ` : ''}${category.name}`,
+    })),
+    [categories]
+  )
 
   const [year, month] = selectedMonth.split('-').map(Number)
   const displayDate = new Date(year, month - 1, 1)
@@ -253,20 +296,16 @@ export default function FinanceHistoryPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={typeFilter} onValueChange={(value) => setTypeFilter((value || 'all') as TypeFilter)}>
+            <Select items={TYPE_FILTER_ITEMS} value={typeFilter} onValueChange={(value) => setTypeFilter((value || 'all') as TypeFilter)}>
               <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">すべて</SelectItem>
-                <SelectItem value="expense">支出</SelectItem>
-                <SelectItem value="income">収入</SelectItem>
+                {TYPE_FILTER_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={sourceFilter} onValueChange={(value) => setSourceFilter((value || 'all') as SourceFilter)}>
+            <Select items={SOURCE_FILTER_ITEMS} value={sourceFilter} onValueChange={(value) => setSourceFilter((value || 'all') as SourceFilter)}>
               <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全ての入力元</SelectItem>
-                <SelectItem value="ai">AI</SelectItem>
-                <SelectItem value="manual">その他</SelectItem>
+                {SOURCE_FILTER_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -376,14 +415,14 @@ export default function FinanceHistoryPage() {
             <div>
               <Label>種類</Label>
               <Select
+                items={TRANSACTION_TYPE_ITEMS}
                 value={transactionType}
                 onValueChange={(value) => setTransactionType((value || 'expense') as 'income' | 'expense')}
                 disabled={Boolean(editingTransaction)}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="expense">支出</SelectItem>
-                  <SelectItem value="income">収入</SelectItem>
+                  {TRANSACTION_TYPE_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -408,13 +447,11 @@ export default function FinanceHistoryPage() {
               <>
                 <div>
                   <Label>カテゴリ</Label>
-                  <Select value={categoryId} onValueChange={(value) => setCategoryId(value || '')}>
+                  <Select items={categoryItems} value={categoryId} onValueChange={(value) => setCategoryId(value || '')}>
                     <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
                     <SelectContent>
-                      {(categories || []).map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.icon ? `${category.icon} ` : ''}{category.name}
-                        </SelectItem>
+                      {categoryItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -423,22 +460,19 @@ export default function FinanceHistoryPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>区分</Label>
-                    <Select value={expenseKind} onValueChange={(value) => setExpenseKind(value || 'shared')} disabled={settlementTarget}>
+                    <Select items={EXPENSE_KIND_ITEMS} value={expenseKind} onValueChange={(value) => setExpenseKind(value || 'shared')} disabled={settlementTarget}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="shared">共有</SelectItem>
-                        <SelectItem value="personal">個人</SelectItem>
+                        {EXPENSE_KIND_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label>支払方法</Label>
-                    <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value || 'card')}>
+                    <Select items={PAYMENT_METHOD_ITEMS} value={paymentMethod} onValueChange={(value) => setPaymentMethod(value || 'card')}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="card">カード</SelectItem>
-                        <SelectItem value="cash">現金</SelectItem>
-                        <SelectItem value="transfer">振込</SelectItem>
+                        {PAYMENT_METHOD_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -460,13 +494,10 @@ export default function FinanceHistoryPage() {
             ) : (
               <div>
                 <Label>収入種別</Label>
-                <Select value={incomeType} onValueChange={(value) => setIncomeType(value || 'salary')}>
+                <Select items={INCOME_TYPE_ITEMS} value={incomeType} onValueChange={(value) => setIncomeType(value || 'salary')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="salary">給与</SelectItem>
-                    <SelectItem value="bonus">賞与</SelectItem>
-                    <SelectItem value="freelance">副業</SelectItem>
-                    <SelectItem value="other">その他</SelectItem>
+                    {INCOME_TYPE_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
