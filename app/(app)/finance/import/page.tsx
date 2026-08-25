@@ -97,14 +97,29 @@ function mapCategory(parent: string, child: string) {
   const minor = child.trim()
   const combined = `${major} ${minor}`
 
-  if (major === '外食') return { category_name: '食事', parent_category_name: '外食' }
+  if (major === '外食') return { category_name: '外食費', parent_category_name: '食費' }
+
   if (major === '食費') {
-    if (/カフェ|喫茶|コーヒー|珈琲/.test(minor)) return { category_name: 'カフェ', parent_category_name: '外食' }
-    if (/飲み|飲酒|居酒屋|酒場|バー|宴会/.test(minor)) return { category_name: '飲み会', parent_category_name: '外食' }
+    if (/カフェ|喫茶|コーヒー|珈琲/.test(minor)) {
+      return { category_name: 'カフェ', parent_category_name: '食費' }
+    }
+    if (/飲み|飲酒|居酒屋|酒場|バー|宴会/.test(minor)) {
+      return { category_name: '飲み会', parent_category_name: '交際費' }
+    }
+    if (/食料品|食材|食品|スーパー/.test(minor)) {
+      return { category_name: '食材費', parent_category_name: '食費' }
+    }
     if (/外食|朝ご飯|朝食|昼ご飯|昼食|晩ご飯|夕食|ランチ|ディナー|レストラン/.test(combined)) {
-      return { category_name: '食事', parent_category_name: '外食' }
+      return { category_name: '外食費', parent_category_name: '食費' }
     }
     return { category_name: '食費', parent_category_name: null }
+  }
+
+  if (major === '交際費') {
+    if (/飲み|飲酒|居酒屋|酒場|バー|宴会/.test(minor)) {
+      return { category_name: '飲み会', parent_category_name: '交際費' }
+    }
+    return { category_name: '交際費', parent_category_name: null }
   }
 
   if (KNOWN_TOP_LEVEL.has(major)) return { category_name: major, parent_category_name: null }
@@ -250,7 +265,7 @@ export default function MoneyForwardImportPage() {
         </div>
         <h1 className="text-2xl font-bold">CSV明細取込</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          計算対象の支出明細だけを台帳へ登録します。振替・収入は除外し、同一IDまたは日付±1日・金額・摘要で重複を照合します。
+          計算対象の支出明細だけを台帳へ登録します。振替・収入は除外し、MoneyForwardの中項目もLIFE_OSのカテゴリ階層へ反映します。
         </p>
       </div>
 
