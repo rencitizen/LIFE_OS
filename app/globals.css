@@ -176,6 +176,37 @@
   --sidebar-ring: #84AEE0;
 }
 
+@layer components {
+  /* Finance: keep the dashboard neutral, with two restrained semantic surfaces. */
+  [data-slot="card"]:has(a[href="/finance/budgets"]) {
+    background-color: color-mix(in srgb, var(--color-info-soft) 72%, var(--card));
+  }
+
+  [data-slot="card"]:has(a[href="/finance/budgets"]) a[href="/finance/budgets"] {
+    color: var(--color-info);
+  }
+
+  [data-slot="card"]:has(a[href="/finance/budgets"]) p[class*="text-xl"] {
+    color: var(--color-info);
+  }
+
+  [data-slot="card"]:has(a[href="/finance/budgets"]) div[class*="bg-primary"] {
+    background-color: var(--color-info);
+  }
+
+  [data-slot="card"]:has(a[href="/finance/settlements"]) {
+    background-color: color-mix(in srgb, var(--color-success-soft) 72%, var(--card));
+  }
+
+  [data-slot="card"]:has(a[href="/finance/settlements"]) a[href="/finance/settlements"] {
+    color: var(--color-balance);
+  }
+
+  [data-slot="card"]:has(a[href="/finance/settlements"]) p[class*="text-xl"] {
+    color: var(--color-balance);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
