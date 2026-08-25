@@ -11,7 +11,7 @@ import {
   FileUp,
   ReceiptText,
   Scale,
-  WalletCards,
+  TrendingUp,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { useBudget } from '@/lib/hooks/use-budgets'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useExpenses, useYearExpenseHistory } from '@/lib/hooks/use-expenses'
+import { useFinancePlanItems } from '@/lib/hooks/use-finance-plan'
 import { useIncomes, useYearIncomeHistory } from '@/lib/hooks/use-incomes'
 import { useMonthlySettlementPreview } from '@/lib/hooks/use-settlements'
 import { useFinanceStore } from '@/stores/finance-store'
@@ -84,6 +85,7 @@ export default function FinanceDashboardPage() {
   const { data: categories } = useExpenseCategories(couple?.id)
   const { data: budget } = useBudget(couple?.id, selectedMonth)
   const { data: settlement } = useMonthlySettlementPreview(user?.id, selectedMonth)
+  const { data: financePlanItems } = useFinancePlanItems(couple?.id)
   const [categoryPath, setCategoryPath] = useState<string[]>([])
 
   const scopedExpenses = useMemo(
@@ -134,6 +136,15 @@ export default function FinanceDashboardPage() {
   )
   const settlementRows = useMemo(() => scopedExpenses.filter((row) => row.is_settlement_target), [scopedExpenses])
   const settlementTarget = useMemo(() => sumAmount(settlementRows), [settlementRows])
+
+  const assetFormationItems = useMemo(
+    () => (financePlanItems || []).filter((item) => item.category === '資産形成' && item.status === 'active' && Number(item.target_amount || 0) > 0),
+    [financePlanItems]
+  )
+  const monthlyInvestmentTotal = useMemo(
+    () => assetFormationItems.reduce((sum, item) => sum + Number(item.target_amount || 0), 0),
+    [assetFormationItems]
+  )
 
   const budgetLimit = financeScope === 'combined' ? Number(budget?.total_limit || 0) : 0
   const budgetRemaining = budgetLimit > 0 ? budgetLimit - monthExpense : null
@@ -361,19 +372,19 @@ export default function FinanceDashboardPage() {
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
-        <Card className="rounded-3xl border bg-card shadow-none">
+        <Card className="rounded-3xl border bg-[var(--color-info-soft)] shadow-none">
           <CardContent className="p-4 md:p-5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold text-muted-foreground">予算残</p>
-              <Link href="/finance/budgets" className="text-[11px] font-semibold text-primary">設定</Link>
+              <Link href="/finance/budgets" className="text-[11px] font-semibold text-[var(--color-info)]">設定</Link>
             </div>
             {budgetRemaining !== null ? (
               <>
                 <p className={budgetRemaining < 0 ? 'mt-2 text-xl font-black tabular-nums text-destructive' : 'mt-2 text-xl font-black tabular-nums'}>{formatYen(budgetRemaining)}</p>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${budgetUsedPct}%` }} />
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-background/70">
+                  <div className="h-full rounded-full bg-[var(--color-info)]" style={{ width: `${budgetUsedPct}%` }} />
                 </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">{budgetUsedPct.toFixed(0)}% 使用</p>
+                <p className="mt-2 text-[11px] text-muted-foreground">予算 {formatYen(budgetLimit)} · {budgetUsedPct.toFixed(0)}% 使用</p>
               </>
             ) : (
               <><p className="mt-2 text-xl font-black">未設定</p><p className="mt-2 text-[11px] text-muted-foreground">月次予算を設定</p></>
@@ -381,11 +392,11 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl border bg-card shadow-none">
+        <Card className="rounded-3xl border bg-[var(--color-success-soft)] shadow-none">
           <CardContent className="p-4 md:p-5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold text-muted-foreground">今月の精算</p>
-              <Link href="/finance/settlements" aria-label="精算を確認" className="text-primary"><Scale className="h-4 w-4" /></Link>
+              <Link href="/finance/settlements" aria-label="精算を確認" className="text-[var(--color-balance)]"><Scale className="h-4 w-4" /></Link>
             </div>
             <p className="mt-2 text-xl font-black tabular-nums">{formatYen(settlement?.amount || 0)}</p>
             <p className="mt-2 truncate text-[11px] font-medium text-muted-foreground">{settlementDirection}</p>
@@ -393,6 +404,37 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {assetFormationItems.length > 0 && (
+        <Card className="rounded-3xl border bg-card shadow-none">
+          <CardContent className="p-4 md:p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground">固定の資金配分</p>
+                <p className="mt-1 text-sm font-bold">NISA積立</p>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--color-info-soft)] text-[var(--color-info)]">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <p className="text-2xl font-black tabular-nums">{formatYen(monthlyInvestmentTotal)}<span className="ml-1 text-xs font-semibold text-muted-foreground">/月</span></p>
+              <p className="text-[11px] text-muted-foreground">年間 {formatYen(monthlyInvestmentTotal * 12)}</p>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {assetFormationItems.map((item) => {
+                const label = item.title.includes('：') ? item.title.split('：')[0] : item.title
+                return (
+                  <div key={item.id} className="rounded-2xl bg-muted/55 px-3 py-3">
+                    <p className="truncate text-[11px] font-medium text-muted-foreground">{label}</p>
+                    <p className="mt-1 text-base font-black tabular-nums">{formatYen(Number(item.target_amount || 0))}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {anomalies.length > 0 && (
         <div className="flex items-center justify-between gap-3 rounded-2xl bg-amber-500/10 px-4 py-3">
