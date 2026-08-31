@@ -156,7 +156,7 @@ export default function HomePage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold">{user?.display_name || 'ユーザー'}の現在地</h1>
+            <h1 className="text-2xl font-bold">今日のまとめ</h1>
             <Badge variant="outline" className="gap-1">
               <Bot className="h-3 w-3" /> ChatGPT連携中
             </Badge>
