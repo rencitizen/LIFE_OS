@@ -49,13 +49,13 @@
 
 :root {
   /* Neutral surfaces: information first, color second. */
-  --surface-base: #F5F7FA;
-  --surface-muted: #EEF2F6;
+  --surface-base: #F4F7FB;
+  --surface-muted: #EEF3F8;
   --surface-panel: #FFFFFF;
-  --surface-border: #D7DEE8;
+  --surface-border: #DEE5EE;
 
   /* Semantic palette. */
-  --chart-1: #213A57;
+  --chart-1: #071D42;
   --chart-2: #3568A8;
   --chart-3: #1F7A5C;
   --chart-4: #B66A12;
@@ -73,23 +73,23 @@
   --popover: var(--surface-panel);
   --popover-foreground: #1F2937;
 
-  --primary: #213A57;
+  --primary: #071D42;
   --primary-foreground: #FFFFFF;
-  --secondary: #E8EDF3;
-  --secondary-foreground: #213A57;
+  --secondary: #EAF0F7;
+  --secondary-foreground: #071D42;
   --muted: #EEF2F6;
   --muted-foreground: #667085;
   --accent: #EAF1FA;
-  --accent-foreground: #213A57;
+  --accent-foreground: #071D42;
   --destructive: #C2413B;
   --border: var(--surface-border);
   --input: #C9D2DE;
   --ring: #3568A8;
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
   --sidebar: #FBFCFD;
   --sidebar-foreground: #273444;
-  --sidebar-primary: #213A57;
+  --sidebar-primary: #071D42;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #EAF1FA;
   --sidebar-accent-foreground: #213A57;
@@ -106,8 +106,8 @@
   --color-warning: #B66A12;
   --color-warning-soft: var(--yellow-soft);
   --color-info-soft: var(--blue-soft);
-  --color-heading: #172033;
-  --color-navy: #213A57;
+  --color-heading: #0F1F3A;
+  --color-navy: #071D42;
   --color-blue: #3568A8;
   --color-cyan: #1F7A5C;
   --color-mint: #3D8C6E;
@@ -218,6 +218,11 @@
   h1,
   h2 {
     color: var(--color-heading);
+    letter-spacing: -0.025em;
+  }
+
+  h1 {
+    font-weight: 800;
   }
   html {
     @apply font-sans;
