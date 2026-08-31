@@ -15,14 +15,36 @@ export type MoneyForwardImportRow = {
   raw_payload?: Record<string, unknown>
 }
 
+export type MoneyForwardIncomeImportRow = {
+  income_date: string
+  amount: number
+  description: string
+  income_type: 'salary' | 'bonus' | 'freelance' | 'other'
+  external_id?: string | null
+  raw_payload?: Record<string, unknown>
+}
+
+type ImportError = {
+  row?: number
+  external_id?: string | null
+  description?: string | null
+  message?: string
+}
+
 export type MoneyForwardImportResult = {
-  run_id: string
+  run_id: string | null
   rows_total: number
   inserted_count: number
   linked_existing_count: number
   unchanged_count: number
   failed_count: number
-  errors: Array<{ row?: number; external_id?: string | null; description?: string | null; message?: string }>
+  errors: ImportError[]
+  income_rows_total: number
+  income_inserted_count: number
+  income_linked_existing_count: number
+  income_unchanged_count: number
+  income_failed_count: number
+  income_errors: ImportError[]
 }
 
 export type MoneyForwardImportRun = {
@@ -39,6 +61,15 @@ export type MoneyForwardImportRun = {
 
 type ImportRpcRow = {
   run_id: string
+  rows_total: number | string
+  inserted_count: number | string
+  linked_existing_count: number | string
+  unchanged_count: number | string
+  failed_count: number | string
+  errors: unknown
+}
+
+type IncomeImportRpcRow = {
   rows_total: number | string
   inserted_count: number | string
   linked_existing_count: number | string
@@ -68,25 +99,60 @@ export function useMoneyForwardImportRuns(coupleId: string | undefined) {
 export function useImportMoneyForward() {
   const supabase = createClient()
   const queryClient = useQueryClient()
+
   return useMutation({
-    mutationFn: async ({ userId, paidBy, rows, fileName }: { userId: string; paidBy: string; rows: MoneyForwardImportRow[]; fileName?: string | null }) => {
-      const { data, error } = await supabase.rpc('import_moneyforward_rows', {
-        p_user_id: userId,
-        p_paid_by: paidBy,
-        p_rows: rows,
-        p_file_name: fileName || null,
-      })
-      if (error) throw error
-      const row = (data as unknown as ImportRpcRow[] | null)?.[0]
-      if (!row) throw new Error('import_result_missing')
+    mutationFn: async ({
+      userId,
+      paidBy,
+      rows,
+      incomeRows,
+      fileName,
+    }: {
+      userId: string
+      paidBy: string
+      rows: MoneyForwardImportRow[]
+      incomeRows: MoneyForwardIncomeImportRow[]
+      fileName?: string | null
+    }) => {
+      let expenseResult: ImportRpcRow | null = null
+      let incomeResult: IncomeImportRpcRow | null = null
+
+      if (rows.length > 0) {
+        const { data, error } = await supabase.rpc('import_moneyforward_rows', {
+          p_user_id: userId,
+          p_paid_by: paidBy,
+          p_rows: rows,
+          p_file_name: fileName || null,
+        })
+        if (error) throw error
+        expenseResult = (data as unknown as ImportRpcRow[] | null)?.[0] ?? null
+        if (!expenseResult) throw new Error('expense_import_result_missing')
+      }
+
+      if (incomeRows.length > 0) {
+        const { data, error } = await supabase.rpc('import_moneyforward_income_rows', {
+          p_user_id: userId,
+          p_rows: incomeRows,
+        })
+        if (error) throw error
+        incomeResult = (data as unknown as IncomeImportRpcRow[] | null)?.[0] ?? null
+        if (!incomeResult) throw new Error('income_import_result_missing')
+      }
+
       return {
-        run_id: row.run_id,
-        rows_total: Number(row.rows_total || 0),
-        inserted_count: Number(row.inserted_count || 0),
-        linked_existing_count: Number(row.linked_existing_count || 0),
-        unchanged_count: Number(row.unchanged_count || 0),
-        failed_count: Number(row.failed_count || 0),
-        errors: Array.isArray(row.errors) ? row.errors as MoneyForwardImportResult['errors'] : [],
+        run_id: expenseResult?.run_id ?? null,
+        rows_total: Number(expenseResult?.rows_total || 0),
+        inserted_count: Number(expenseResult?.inserted_count || 0),
+        linked_existing_count: Number(expenseResult?.linked_existing_count || 0),
+        unchanged_count: Number(expenseResult?.unchanged_count || 0),
+        failed_count: Number(expenseResult?.failed_count || 0),
+        errors: Array.isArray(expenseResult?.errors) ? expenseResult!.errors as ImportError[] : [],
+        income_rows_total: Number(incomeResult?.rows_total || 0),
+        income_inserted_count: Number(incomeResult?.inserted_count || 0),
+        income_linked_existing_count: Number(incomeResult?.linked_existing_count || 0),
+        income_unchanged_count: Number(incomeResult?.unchanged_count || 0),
+        income_failed_count: Number(incomeResult?.failed_count || 0),
+        income_errors: Array.isArray(incomeResult?.errors) ? incomeResult!.errors as ImportError[] : [],
       } satisfies MoneyForwardImportResult
     },
     onSuccess: () => {
@@ -97,6 +163,10 @@ export function useImportMoneyForward() {
       queryClient.invalidateQueries({ queryKey: ['expense-history-year'] })
       queryClient.invalidateQueries({ queryKey: ['monthly-settlement-preview'] })
       queryClient.invalidateQueries({ queryKey: ['year-expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['incomes'] })
+      queryClient.invalidateQueries({ queryKey: ['income-history'] })
+      queryClient.invalidateQueries({ queryKey: ['income-history-year'] })
+      queryClient.invalidateQueries({ queryKey: ['income-actuals-years'] })
     },
   })
 }
