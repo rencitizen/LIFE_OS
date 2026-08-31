@@ -1,7 +1,13 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { FileSpreadsheet, Loader2, Upload } from 'lucide-react'
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  FileSpreadsheet,
+  Loader2,
+  Upload,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +22,7 @@ import {
   useMoneyForwardImportRuns,
   type MoneyForwardImportResult,
   type MoneyForwardImportRow,
+  type MoneyForwardIncomeImportRow,
 } from '@/lib/hooks/use-moneyforward-import'
 
 const KNOWN_TOP_LEVEL = new Set([
@@ -26,8 +33,10 @@ const KNOWN_TOP_LEVEL = new Set([
 
 type ParsedCsv = {
   rows: MoneyForwardImportRow[]
+  incomeRows: MoneyForwardIncomeImportRow[]
   skipped: number
   totalAmount: number
+  incomeTotalAmount: number
   fileName: string
 }
 
@@ -132,6 +141,14 @@ function inferPaymentMethod(account: string) {
   return null
 }
 
+function inferIncomeType(major: string, minor: string, description: string): MoneyForwardIncomeImportRow['income_type'] {
+  const combined = `${major} ${minor} ${description}`
+  if (/賞与|ボーナス/.test(combined)) return 'bonus'
+  if (/給与|給料|給料振込|salary/i.test(combined)) return 'salary'
+  if (/副業|業務委託|freelance/i.test(combined)) return 'freelance'
+  return 'other'
+}
+
 async function decodeCsv(file: File) {
   const buffer = await file.arrayBuffer()
   let text = new TextDecoder('utf-8', { fatal: false }).decode(buffer)
@@ -139,7 +156,7 @@ async function decodeCsv(file: File) {
     try {
       text = new TextDecoder('shift_jis', { fatal: false }).decode(buffer)
     } catch {
-      // Keep the UTF-8 result; validation below will surface malformed headers.
+      // Keep UTF-8 and let the header validation below surface malformed input.
     }
   }
   return text.replace(/^\uFEFF/, '')
@@ -157,8 +174,10 @@ async function parseMoneyForwardFile(file: File): Promise<ParsedCsv> {
 
   const index = (name: string) => headers.indexOf(name)
   const rows: MoneyForwardImportRow[] = []
+  const incomeRows: MoneyForwardIncomeImportRow[] = []
   let skipped = 0
   let totalAmount = 0
+  let incomeTotalAmount = 0
 
   for (const columns of grid.slice(1)) {
     const get = (name: string) => {
@@ -174,38 +193,54 @@ async function parseMoneyForwardFile(file: File): Promise<ParsedCsv> {
     }
 
     const signedAmount = normalizeAmount(get('金額（円）'))
-    // MoneyForward uses negative values for expenses. Positive rows are income and are not imported here.
-    if (!Number.isFinite(signedAmount) || signedAmount >= 0) {
+    const transactionDate = normalizeDate(get('日付'))
+    if (!Number.isFinite(signedAmount) || signedAmount === 0 || !transactionDate) {
       skipped += 1
       continue
     }
 
-    const expenseDate = normalizeDate(get('日付'))
-    if (!expenseDate) {
-      skipped += 1
-      continue
-    }
-
-    const mapped = mapCategory(get('大項目'), get('中項目'))
-    const amount = Math.abs(signedAmount)
     const description = get('内容') || get('メモ') || 'MoneyForward'
     const rawPayload = Object.fromEntries(headers.map((header, i) => [header, columns[i] || '']))
+    const externalId = get('ID') || null
 
-    rows.push({
-      expense_date: expenseDate,
-      amount,
+    if (signedAmount < 0) {
+      const mapped = mapCategory(get('大項目'), get('中項目'))
+      const amount = Math.abs(signedAmount)
+
+      rows.push({
+        expense_date: transactionDate,
+        amount,
+        description,
+        category_name: mapped.category_name,
+        parent_category_name: mapped.parent_category_name,
+        external_id: externalId,
+        payment_method: inferPaymentMethod(get('保有金融機関')),
+        is_settlement_target: false,
+        raw_payload: rawPayload,
+      })
+      totalAmount += amount
+      continue
+    }
+
+    incomeRows.push({
+      income_date: transactionDate,
+      amount: signedAmount,
       description,
-      category_name: mapped.category_name,
-      parent_category_name: mapped.parent_category_name,
-      external_id: get('ID') || null,
-      payment_method: inferPaymentMethod(get('保有金融機関')),
-      is_settlement_target: false,
+      income_type: inferIncomeType(get('大項目'), get('中項目'), description),
+      external_id: externalId,
       raw_payload: rawPayload,
     })
-    totalAmount += amount
+    incomeTotalAmount += signedAmount
   }
 
-  return { rows, skipped, totalAmount, fileName: file.name }
+  return {
+    rows,
+    incomeRows,
+    skipped,
+    totalAmount,
+    incomeTotalAmount,
+    fileName: file.name,
+  }
 }
 
 export default function MoneyForwardImportPage() {
@@ -232,7 +267,9 @@ export default function MoneyForwardImportPage() {
       const next = await parseMoneyForwardFile(file)
       setParsed(next)
       if (!paidBy && user?.id) setPaidBy(user.id)
-      if (next.rows.length === 0) toast.error('取り込み対象の支出明細がありません')
+      if (next.rows.length === 0 && next.incomeRows.length === 0) {
+        toast.error('取り込み対象の明細がありません')
+      }
     } catch (error) {
       setParsed(null)
       toast.error(error instanceof Error ? error.message : 'CSVを解析できませんでした')
@@ -246,31 +283,38 @@ export default function MoneyForwardImportPage() {
         userId: user.id,
         paidBy,
         rows: parsed.rows,
+        incomeRows: parsed.incomeRows,
         fileName: parsed.fileName,
       })
       setResult(next)
-      if (next.failed_count > 0) toast.warning(`${next.failed_count}件は確認が必要です`)
-      else toast.success('MoneyForward明細を取り込みました')
+
+      const failed = next.failed_count + next.income_failed_count
+      if (failed > 0) toast.warning(`${failed}件は確認が必要です`)
+      else toast.success('MoneyForwardの収支明細を取り込みました')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '取り込みに失敗しました')
     }
   }
 
+  const hasTransactions = Boolean(parsed && (parsed.rows.length > 0 || parsed.incomeRows.length > 0))
+
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="mb-2 flex items-center gap-2">
-          <Badge variant="outline">MoneyForward</Badge>
-          <span className="text-sm text-muted-foreground">何度アップロードしても差分だけ反映</span>
+    <div className="space-y-5 pb-8">
+      <section className="rounded-[28px] bg-[#071d42] px-5 py-6 text-white shadow-sm">
+        <div className="flex items-center gap-2">
+          <Badge className="border-0 bg-white/10 text-white hover:bg-white/10">MoneyForward</Badge>
+          <span className="text-xs font-semibold text-white/60">差分同期</span>
         </div>
-        <h1 className="text-2xl font-bold">CSV明細取込</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          計算対象の支出明細だけを台帳へ登録します。振替・収入は除外し、MoneyForwardの中項目もLIFE_OSのカテゴリ階層へ反映します。
+        <h1 className="mt-3 text-2xl font-black tracking-tight text-white">CSV明細取込</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/65">
+          支出と収入を同じCSVから同期します。振替は除外し、既存明細はIDまたは金額・月で重複を防ぎます。
         </p>
-      </div>
+      </section>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">1. CSVを選択</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">1. CSVを選択</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="mf-csv">MoneyForward CSV</Label>
@@ -281,17 +325,20 @@ export default function MoneyForwardImportPage() {
               onChange={(event) => handleFile(event.target.files?.[0] || null)}
             />
           </div>
+
           <div className="space-y-2">
-            <Label>支払者</Label>
+            <Label>所有者 / 支払者</Label>
             <Select value={paidBy} onValueChange={(value) => setPaidBy(value || '')}>
-              <SelectTrigger className="max-w-xs"><SelectValue placeholder="支払者を選択" /></SelectTrigger>
+              <SelectTrigger className="max-w-xs"><SelectValue placeholder="メンバーを選択" /></SelectTrigger>
               <SelectContent>
                 {payerOptions.map((member) => (
                   <SelectItem key={member.id} value={member.id}>{member.display_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">CSV内の全明細に適用します。精算対象は自動判定しません。</p>
+            <p className="text-xs text-muted-foreground">
+              支出は支払者、収入は同じメンバーの収入として登録します。
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -300,25 +347,47 @@ export default function MoneyForwardImportPage() {
         <Card>
           <CardHeader><CardTitle className="text-base">2. 取込プレビュー</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border p-4">
-                <p className="text-xs text-muted-foreground">支出明細</p>
-                <p className="mt-1 text-xl font-semibold">{parsed.rows.length}件</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl bg-rose-500/8 p-4">
+                <div className="flex items-center gap-2 text-rose-600">
+                  <ArrowUpFromLine className="h-4 w-4" />
+                  <p className="text-xs font-bold">支出</p>
+                </div>
+                <p className="mt-2 text-xl font-black">{parsed.rows.length}件</p>
+                <p className="mt-1 text-xs text-muted-foreground">{formatYen(parsed.totalAmount)}</p>
               </div>
-              <div className="rounded-xl border p-4">
-                <p className="text-xs text-muted-foreground">取込対象額</p>
-                <p className="mt-1 text-xl font-semibold">{formatYen(parsed.totalAmount)}</p>
+
+              <div className="rounded-2xl bg-blue-500/8 p-4">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <ArrowDownToLine className="h-4 w-4" />
+                  <p className="text-xs font-bold">収入</p>
+                </div>
+                <p className="mt-2 text-xl font-black">{parsed.incomeRows.length}件</p>
+                <p className="mt-1 text-xs text-muted-foreground">{formatYen(parsed.incomeTotalAmount)}</p>
               </div>
-              <div className="rounded-xl border p-4">
-                <p className="text-xs text-muted-foreground">除外</p>
-                <p className="mt-1 text-xl font-semibold">{parsed.skipped}件</p>
+
+              <div className="rounded-2xl bg-muted/60 p-4">
+                <p className="text-xs font-bold text-muted-foreground">全取込対象</p>
+                <p className="mt-2 text-xl font-black">{parsed.rows.length + parsed.incomeRows.length}件</p>
+              </div>
+
+              <div className="rounded-2xl bg-muted/60 p-4">
+                <p className="text-xs font-bold text-muted-foreground">除外</p>
+                <p className="mt-2 text-xl font-black">{parsed.skipped}件</p>
               </div>
             </div>
+
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <FileSpreadsheet className="h-4 w-4" /> {parsed.fileName}
             </div>
-            <Button onClick={handleImport} disabled={!paidBy || parsed.rows.length === 0 || importMutation.isPending}>
-              {importMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+
+            <Button
+              onClick={handleImport}
+              disabled={!paidBy || !hasTransactions || importMutation.isPending}
+            >
+              {importMutation.isPending
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <Upload className="mr-2 h-4 w-4" />}
               差分を取り込む
             </Button>
           </CardContent>
@@ -328,17 +397,31 @@ export default function MoneyForwardImportPage() {
       {result && (
         <Card>
           <CardHeader><CardTitle className="text-base">取込結果</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-4">
-              <div className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">新規</p><p className="text-lg font-semibold">{result.inserted_count}件</p></div>
-              <div className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">既存と統合</p><p className="text-lg font-semibold">{result.linked_existing_count}件</p></div>
-              <div className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">変更なし</p><p className="text-lg font-semibold">{result.unchanged_count}件</p></div>
-              <div className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">要確認</p><p className="text-lg font-semibold">{result.failed_count}件</p></div>
+          <CardContent className="space-y-5">
+            <div>
+              <p className="mb-2 text-xs font-black text-muted-foreground">支出</p>
+              <div className="grid gap-2 sm:grid-cols-4">
+                <div className="rounded-2xl bg-muted/45 p-3"><p className="text-xs text-muted-foreground">新規</p><p className="text-lg font-black">{result.inserted_count}件</p></div>
+                <div className="rounded-2xl bg-muted/45 p-3"><p className="text-xs text-muted-foreground">既存と統合</p><p className="text-lg font-black">{result.linked_existing_count}件</p></div>
+                <div className="rounded-2xl bg-muted/45 p-3"><p className="text-xs text-muted-foreground">変更なし</p><p className="text-lg font-black">{result.unchanged_count}件</p></div>
+                <div className="rounded-2xl bg-muted/45 p-3"><p className="text-xs text-muted-foreground">要確認</p><p className="text-lg font-black">{result.failed_count}件</p></div>
+              </div>
             </div>
-            {result.errors.length > 0 && (
-              <div className="space-y-2 rounded-xl border p-4">
-                <p className="text-sm font-medium">確認が必要な行</p>
-                {result.errors.slice(0, 20).map((error, index) => (
+
+            <div>
+              <p className="mb-2 text-xs font-black text-muted-foreground">収入</p>
+              <div className="grid gap-2 sm:grid-cols-4">
+                <div className="rounded-2xl bg-blue-500/8 p-3"><p className="text-xs text-muted-foreground">新規</p><p className="text-lg font-black">{result.income_inserted_count}件</p></div>
+                <div className="rounded-2xl bg-blue-500/8 p-3"><p className="text-xs text-muted-foreground">既存と統合</p><p className="text-lg font-black">{result.income_linked_existing_count}件</p></div>
+                <div className="rounded-2xl bg-blue-500/8 p-3"><p className="text-xs text-muted-foreground">変更なし</p><p className="text-lg font-black">{result.income_unchanged_count}件</p></div>
+                <div className="rounded-2xl bg-blue-500/8 p-3"><p className="text-xs text-muted-foreground">要確認</p><p className="text-lg font-black">{result.income_failed_count}件</p></div>
+              </div>
+            </div>
+
+            {[...result.errors, ...result.income_errors].length > 0 && (
+              <div className="space-y-2 rounded-2xl border p-4">
+                <p className="text-sm font-bold">確認が必要な行</p>
+                {[...result.errors, ...result.income_errors].slice(0, 20).map((error, index) => (
                   <p key={`${error.row}-${index}`} className="text-xs text-muted-foreground">
                     行 {error.row ?? '—'}: {error.description || error.external_id || '明細'} — {error.message || '取込エラー'}
                   </p>
@@ -350,15 +433,15 @@ export default function MoneyForwardImportPage() {
       )}
 
       <Card>
-        <CardHeader><CardTitle className="text-base">最近の取込</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">最近の支出取込</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {(runs || []).length === 0 ? (
             <p className="text-sm text-muted-foreground">まだ取込履歴はありません。</p>
           ) : (
             (runs || []).map((run) => (
-              <div key={run.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
+              <div key={run.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border p-3 text-sm">
                 <div>
-                  <p className="font-medium">{run.file_name || 'MoneyForward CSV'}</p>
+                  <p className="font-bold">{run.file_name || 'MoneyForward CSV'}</p>
                   <p className="text-xs text-muted-foreground">{new Date(run.created_at).toLocaleString('ja-JP')}</p>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
