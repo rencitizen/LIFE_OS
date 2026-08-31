@@ -51,10 +51,6 @@ const TRANSACTION_TYPE_ITEMS = [
   { value: 'income', label: '収入' },
 ]
 
-const EXPENSE_KIND_ITEMS = [
-  { value: 'shared', label: '共有' },
-  { value: 'personal', label: '個人' },
-]
 
 const PAYMENT_METHOD_ITEMS = [
   { value: 'card', label: 'カード' },
@@ -104,7 +100,6 @@ export default function FinanceHistoryPage() {
   const [amount, setAmount] = useState('')
   const [memo, setMemo] = useState('')
   const [categoryId, setCategoryId] = useState('')
-  const [expenseKind, setExpenseKind] = useState('shared')
   const [settlementTarget, setSettlementTarget] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [incomeType, setIncomeType] = useState('salary')
@@ -157,7 +152,6 @@ export default function FinanceHistoryPage() {
     setAmount('')
     setMemo('')
     setCategoryId('')
-    setExpenseKind('shared')
     setSettlementTarget(false)
     setPaymentMethod('card')
     setIncomeType('salary')
@@ -175,7 +169,6 @@ export default function FinanceHistoryPage() {
     setAmount(String(transaction.amount))
     setMemo(transaction.memo)
     setCategoryId(transaction.rawExpense?.category_id || '')
-    setExpenseKind(transaction.rawExpense?.expense_type || 'shared')
     setSettlementTarget(Boolean(transaction.rawExpense?.is_settlement_target))
     setPaymentMethod(transaction.rawExpense?.payment_method || 'card')
     setIncomeType(transaction.rawIncome?.income_type || 'salary')
@@ -190,7 +183,7 @@ export default function FinanceHistoryPage() {
     try {
       if (transactionType === 'expense') {
         if (!categoryId) return toast.error('カテゴリを選択してください')
-        const resolvedExpenseKind = settlementTarget ? 'shared' : expenseKind
+        const resolvedExpenseKind = settlementTarget ? 'shared' : 'personal'
 
         if (editingTransaction) {
           await updateExpenseWithSplits.mutateAsync({
@@ -457,31 +450,20 @@ export default function FinanceHistoryPage() {
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>利用区分</Label>
-                    <Select items={EXPENSE_KIND_ITEMS} value={expenseKind} onValueChange={(value) => setExpenseKind(value || 'shared')} disabled={settlementTarget}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {EXPENSE_KIND_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>支払方法</Label>
-                    <Select items={PAYMENT_METHOD_ITEMS} value={paymentMethod} onValueChange={(value) => setPaymentMethod(value || 'card')}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {PAYMENT_METHOD_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div>
+                  <Label>支払方法</Label>
+                  <Select items={PAYMENT_METHOD_ITEMS} value={paymentMethod} onValueChange={(value) => setPaymentMethod(value || 'card')}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHOD_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <label className="flex cursor-pointer items-center justify-between rounded-lg border p-3">
+                <label className="flex cursor-pointer items-center justify-between rounded-xl border p-3.5">
                   <div>
-                    <p className="text-sm font-medium">立替精算する</p>
-                    <p className="text-xs text-muted-foreground">ONにすると共有支出として標準負担割合で精算計算に入れます</p>
+                    <p className="text-sm font-semibold">精算対象</p>
+                    <p className="text-xs text-muted-foreground">ONにすると標準負担割合で精算計算に入れます</p>
                   </div>
                   <input
                     type="checkbox"
