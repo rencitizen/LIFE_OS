@@ -459,7 +459,7 @@ export default function FinanceHistoryPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label>区分</Label>
+                    <Label>利用区分</Label>
                     <Select items={EXPENSE_KIND_ITEMS} value={expenseKind} onValueChange={(value) => setExpenseKind(value || 'shared')} disabled={settlementTarget}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -480,8 +480,8 @@ export default function FinanceHistoryPage() {
 
                 <label className="flex cursor-pointer items-center justify-between rounded-lg border p-3">
                   <div>
-                    <p className="text-sm font-medium">精算対象</p>
-                    <p className="text-xs text-muted-foreground">ONにすると標準負担割合でsplitを作成します</p>
+                    <p className="text-sm font-medium">立替精算する</p>
+                    <p className="text-xs text-muted-foreground">ONにすると共有支出として標準負担割合で精算計算に入れます</p>
                   </div>
                   <input
                     type="checkbox"
