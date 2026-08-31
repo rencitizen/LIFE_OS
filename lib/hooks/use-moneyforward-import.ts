@@ -131,7 +131,7 @@ export function useImportMoneyForward() {
 
       if (incomeRows.length > 0) {
         const { data, error } = await supabase.rpc('import_moneyforward_income_rows', {
-          p_user_id: userId,
+          p_user_id: paidBy,
           p_rows: incomeRows,
         })
         if (error) throw error
