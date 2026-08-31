@@ -8,8 +8,8 @@ import { FINANCE_SCOPE_LABELS, type FinanceScope } from '@/lib/finance/scope'
 import { useFinanceStore } from '@/stores/finance-store'
 
 const tabs = [
-  { name: '家計', href: '/finance/dashboard' },
-  { name: '履歴', href: '/finance/expenses' },
+  { name: 'レポート', href: '/finance/dashboard' },
+  { name: '家計簿', href: '/finance/expenses' },
   { name: '精算', href: '/finance/settlements' },
   { name: '計画', href: '/finance/plan' },
 ]
@@ -21,7 +21,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-2 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2 rounded-[22px] border border-slate-200/80 bg-card p-1.5 shadow-[0_6px_24px_rgba(15,23,42,0.05)] md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
           {tabs.map((tab) => {
             const active = pathname === tab.href || (tab.href === '/finance/plan' && pathname === '/finance/life-plan')
@@ -30,9 +30,9 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
                 key={tab.href}
                 href={tab.href}
                 className={cn(
-                  'whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold transition-colors md:px-4',
+                  'whitespace-nowrap rounded-2xl px-3.5 py-2 text-sm font-bold transition-all md:px-4',
                   active
-                    ? 'bg-foreground text-background shadow-sm'
+                    ? 'bg-[#071d42] text-white shadow-sm'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
@@ -43,15 +43,15 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
         </div>
 
         {showScope && (
-          <div className="hidden shrink-0 items-center rounded-xl bg-muted p-1 md:flex">
+          <div className="hidden shrink-0 items-center rounded-2xl bg-muted/75 p-1 md:flex">
             {(['combined', 'mine', 'partner'] as FinanceScope[]).map((scope) => (
               <Button
                 key={scope}
                 size="sm"
                 variant="ghost"
                 className={cn(
-                  'h-8 rounded-lg px-3 text-xs font-semibold',
-                  financeScope === scope && 'bg-background text-foreground shadow-sm hover:bg-background'
+                  'h-8 rounded-xl px-3 text-xs font-bold',
+                  financeScope === scope && 'bg-background text-[#071d42] shadow-sm hover:bg-background'
                 )}
                 onClick={() => setFinanceScope(scope)}
               >
@@ -63,15 +63,15 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
       </div>
 
       {showScope && (
-        <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1 md:hidden">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-muted/75 p-1 md:hidden">
           {(['combined', 'mine', 'partner'] as FinanceScope[]).map((scope) => (
             <Button
               key={scope}
               size="sm"
               variant="ghost"
               className={cn(
-                'rounded-lg text-xs font-semibold',
-                financeScope === scope && 'bg-background text-foreground shadow-sm hover:bg-background'
+                'rounded-xl text-xs font-bold',
+                financeScope === scope && 'bg-background text-[#071d42] shadow-sm hover:bg-background'
               )}
               onClick={() => setFinanceScope(scope)}
             >
