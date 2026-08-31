@@ -4,7 +4,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Income, InsertTables, UpdateTables } from '@/types'
 
+type IncomeSourceRow = {
+  amount: number | string
+  income_date: string
+  income_type?: string | null
+  user_id?: string | null
+  source?: string | null
+}
+
 export type IncomeActualRow = Pick<Income, 'amount' | 'income_date' | 'income_type' | 'user_id'>
+
+function preferMoneyForwardRows<T extends IncomeSourceRow>(rows: T[]) {
+  const importedMonths = new Set(
+    rows
+      .filter((row) => row.source === 'moneyforward')
+      .map((row) => `${row.user_id || 'unknown'}:${row.income_date.slice(0, 7)}`)
+  )
+
+  return rows.filter((row) => {
+    const key = `${row.user_id || 'unknown'}:${row.income_date.slice(0, 7)}`
+    return row.source === 'moneyforward' || !importedMonths.has(key)
+  })
+}
 
 export function useIncomes(coupleId: string | undefined, yearMonth?: string) {
   const supabase = createClient()
@@ -29,7 +50,9 @@ export function useIncomes(coupleId: string | undefined, yearMonth?: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return data as unknown as Income[]
+
+      const preferred = preferMoneyForwardRows((data ?? []) as IncomeSourceRow[])
+      return preferred as unknown as Income[]
     },
     enabled: !!coupleId,
   })
@@ -47,13 +70,16 @@ export function useIncomeHistory(coupleId: string | undefined, months = 12) {
 
       const { data, error } = await supabase
         .from('incomes')
-        .select('amount, income_date')
+        .select('amount, income_date, user_id, source')
         .eq('couple_id', coupleId!)
         .gte('income_date', start.toISOString().slice(0, 10))
         .lt('income_date', end.toISOString().slice(0, 10))
       if (error) throw error
 
-      return data as Pick<Income, 'amount' | 'income_date'>[]
+      return preferMoneyForwardRows((data ?? []) as IncomeSourceRow[]).map((row) => ({
+        amount: Number(row.amount),
+        income_date: row.income_date,
+      })) as Pick<Income, 'amount' | 'income_date'>[]
     },
     enabled: !!coupleId,
   })
@@ -67,13 +93,18 @@ export function useYearIncomeHistory(coupleId: string | undefined, year: number)
     queryFn: async () => {
       const { data, error } = await supabase
         .from('incomes')
-        .select('amount, income_date, income_type, user_id')
+        .select('amount, income_date, income_type, user_id, source')
         .eq('couple_id', coupleId!)
         .gte('income_date', `${year}-01-01`)
         .lt('income_date', `${year + 1}-01-01`)
       if (error) throw error
 
-      return data as unknown as Pick<Income, 'amount' | 'income_date' | 'income_type' | 'user_id'>[]
+      return preferMoneyForwardRows((data ?? []) as IncomeSourceRow[]).map((row) => ({
+        amount: Number(row.amount),
+        income_date: row.income_date,
+        income_type: row.income_type,
+        user_id: row.user_id,
+      })) as unknown as Pick<Income, 'amount' | 'income_date' | 'income_type' | 'user_id'>[]
     },
     enabled: !!coupleId,
   })
@@ -91,14 +122,19 @@ export function useIncomeActualsByYears(coupleId: string | undefined, years: num
 
       const { data, error } = await supabase
         .from('incomes')
-        .select('amount, income_date, income_type, user_id')
+        .select('amount, income_date, income_type, user_id, source')
         .eq('couple_id', coupleId!)
         .gte('income_date', `${startYear}-01-01`)
         .lt('income_date', `${endYear + 1}-01-01`)
         .order('income_date', { ascending: true })
       if (error) throw error
 
-      return data as IncomeActualRow[]
+      return preferMoneyForwardRows((data ?? []) as IncomeSourceRow[]).map((row) => ({
+        amount: Number(row.amount),
+        income_date: row.income_date,
+        income_type: row.income_type,
+        user_id: row.user_id,
+      })) as IncomeActualRow[]
     },
     enabled: !!coupleId && normalizedYears.length > 0,
   })
@@ -122,6 +158,7 @@ export function useCreateIncome() {
       queryClient.invalidateQueries({ queryKey: ['incomes'] })
       queryClient.invalidateQueries({ queryKey: ['income-history'] })
       queryClient.invalidateQueries({ queryKey: ['income-history-year'] })
+      queryClient.invalidateQueries({ queryKey: ['income-actuals-years'] })
     },
   })
 }
@@ -145,6 +182,7 @@ export function useUpdateIncome() {
       queryClient.invalidateQueries({ queryKey: ['incomes'] })
       queryClient.invalidateQueries({ queryKey: ['income-history'] })
       queryClient.invalidateQueries({ queryKey: ['income-history-year'] })
+      queryClient.invalidateQueries({ queryKey: ['income-actuals-years'] })
     },
   })
 }
@@ -165,6 +203,7 @@ export function useDeleteIncome() {
       queryClient.invalidateQueries({ queryKey: ['incomes'] })
       queryClient.invalidateQueries({ queryKey: ['income-history'] })
       queryClient.invalidateQueries({ queryKey: ['income-history-year'] })
+      queryClient.invalidateQueries({ queryKey: ['income-actuals-years'] })
     },
   })
 }
