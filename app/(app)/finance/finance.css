@@ -1,9 +1,47 @@
 .finance-shell {
   --finance-divider: rgba(0, 0, 0, 0.07);
+  --finance-blue: #007aff;
+  --finance-green: #28a745;
+  --finance-orange: #e87b00;
+  --finance-purple: #8e44ad;
+  --finance-cyan: #0891b2;
+  --finance-blue-soft: color-mix(in srgb, var(--finance-blue) 8%, var(--card));
+  --finance-green-soft: color-mix(in srgb, var(--finance-green) 8%, var(--card));
+  --finance-orange-soft: color-mix(in srgb, var(--finance-orange) 8%, var(--card));
+  --finance-purple-soft: color-mix(in srgb, var(--finance-purple) 8%, var(--card));
+  --finance-cyan-soft: color-mix(in srgb, var(--finance-cyan) 8%, var(--card));
+  --finance-blue-border: color-mix(in srgb, var(--finance-blue) 22%, transparent);
+  --finance-green-border: color-mix(in srgb, var(--finance-green) 22%, transparent);
+  --finance-orange-border: color-mix(in srgb, var(--finance-orange) 22%, transparent);
+  --finance-purple-border: color-mix(in srgb, var(--finance-purple) 22%, transparent);
 }
 
 .dark .finance-shell {
   --finance-divider: rgba(255, 255, 255, 0.09);
+  --finance-blue: #0a84ff;
+  --finance-green: #30d158;
+  --finance-orange: #ff9f0a;
+  --finance-purple: #bf5af2;
+  --finance-cyan: #64d2ff;
+  --finance-blue-soft: color-mix(in srgb, var(--finance-blue) 14%, var(--card));
+  --finance-green-soft: color-mix(in srgb, var(--finance-green) 12%, var(--card));
+  --finance-orange-soft: color-mix(in srgb, var(--finance-orange) 12%, var(--card));
+  --finance-purple-soft: color-mix(in srgb, var(--finance-purple) 12%, var(--card));
+  --finance-cyan-soft: color-mix(in srgb, var(--finance-cyan) 12%, var(--card));
+}
+
+.finance-tab-active {
+  color: var(--finance-blue) !important;
+}
+
+.finance-tab-indicator {
+  background: var(--finance-blue) !important;
+}
+
+.finance-scope-active {
+  background: var(--finance-blue-soft) !important;
+  color: var(--finance-blue) !important;
+  box-shadow: inset 0 0 0 1px var(--finance-blue-border);
 }
 
 .finance-shell [data-slot="card"] {
@@ -11,6 +49,26 @@
   background: var(--card) !important;
   box-shadow: none !important;
   border-radius: 18px !important;
+}
+
+.finance-shell [data-slot="card"][data-tone="mint"] {
+  border-color: var(--finance-green-border) !important;
+  background: var(--finance-green-soft) !important;
+}
+
+.finance-shell [data-slot="card"][data-tone="cyan"] {
+  border-color: var(--finance-blue-border) !important;
+  background: var(--finance-blue-soft) !important;
+}
+
+.finance-shell [data-slot="card"][data-tone="blue"] {
+  border-color: var(--finance-blue-border) !important;
+  background: var(--finance-blue-soft) !important;
+}
+
+.finance-shell [data-slot="card"][data-tone="navy"] {
+  border-color: var(--finance-purple-border) !important;
+  background: var(--finance-purple-soft) !important;
 }
 
 .finance-shell [data-slot="card-title"] {
@@ -24,13 +82,46 @@
   box-shadow: none !important;
 }
 
-.finance-shell [class*="bg-rose-500/8"],
+.finance-shell [class*="bg-rose-500/8"] {
+  background: var(--finance-orange-soft) !important;
+}
+
+.finance-shell [class*="text-rose-600"] {
+  color: var(--finance-orange) !important;
+}
+
 .finance-shell [class*="bg-blue-500/8"],
-.finance-shell [class*="bg-sky-500/10"],
-.finance-shell [class*="bg-emerald-500/10"],
-.finance-shell [class*="bg-violet-500/10"],
+.finance-shell [class*="bg-sky-500/10"] {
+  background: var(--finance-blue-soft) !important;
+}
+
+.finance-shell [class*="text-blue-600"],
+.finance-shell [class*="text-sky-600"] {
+  color: var(--finance-blue) !important;
+}
+
+.finance-shell [class*="bg-emerald-500/10"] {
+  background: var(--finance-green-soft) !important;
+}
+
+.finance-shell [class*="text-emerald-600"] {
+  color: var(--finance-green) !important;
+}
+
+.finance-shell [class*="bg-violet-500/10"] {
+  background: var(--finance-purple-soft) !important;
+}
+
+.finance-shell [class*="text-violet-600"] {
+  color: var(--finance-purple) !important;
+}
+
 .finance-shell [class*="bg-amber-500/10"] {
-  background: var(--muted) !important;
+  background: var(--finance-orange-soft) !important;
+}
+
+.finance-shell [class*="text-amber-600"] {
+  color: var(--finance-orange) !important;
 }
 
 .finance-shell [data-slot="tabs-list"] {
@@ -57,7 +148,7 @@
 }
 
 .finance-shell [data-slot="tabs-trigger"][data-active] {
-  color: var(--foreground) !important;
+  color: var(--finance-blue) !important;
   font-weight: 600 !important;
 }
 
@@ -73,13 +164,12 @@
 }
 
 .finance-shell section[class*="text-white"] {
-  border-radius: 0 !important;
-  border-bottom: 1px solid var(--finance-divider) !important;
-  background: transparent !important;
+  border: 1px solid var(--finance-blue-border) !important;
+  border-radius: 18px !important;
+  background: var(--finance-blue-soft) !important;
   color: var(--foreground) !important;
   box-shadow: none !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
+  padding: 1.25rem !important;
 }
 
 .finance-shell section[class*="text-white"] h1,
@@ -94,14 +184,14 @@
 }
 
 .finance-shell section[class*="text-white"] [class*="bg-white"] {
-  background: var(--muted) !important;
-  color: var(--foreground) !important;
+  background: color-mix(in srgb, var(--finance-blue) 10%, var(--card)) !important;
+  color: var(--finance-blue) !important;
 }
 
 .finance-shell thead tr[class*="bg-primary"],
 .finance-shell thead[class*="bg-primary"] {
-  background: transparent !important;
-  color: var(--muted-foreground) !important;
+  background: var(--finance-blue-soft) !important;
+  color: var(--foreground) !important;
 }
 
 .finance-shell table th {
@@ -121,8 +211,8 @@
 }
 
 .finance-shell [class*="bg-accent"][class*="border-accent"] {
-  border-color: var(--input) !important;
-  background: var(--card) !important;
+  border-color: var(--finance-blue-border) !important;
+  background: var(--finance-blue-soft) !important;
   color: var(--foreground) !important;
 }
 
@@ -133,6 +223,131 @@
 
 .finance-shell [data-slot="badge"] {
   box-shadow: none !important;
+}
+
+/* Overview: one calm accent surface, semantic colors for the numbers. */
+.finance-route-dashboard > div > section:first-of-type {
+  margin-top: 1.75rem;
+  border: 1px solid var(--finance-blue-border) !important;
+  border-radius: 22px;
+  background: linear-gradient(145deg, var(--finance-blue-soft), var(--card));
+  padding: 1.6rem;
+}
+
+.finance-route-dashboard > div > section:first-of-type > p:first-child {
+  color: var(--finance-blue) !important;
+}
+
+.finance-route-dashboard > div > section:first-of-type .grid > div {
+  border-left: 3px solid transparent;
+  padding-left: 0.75rem;
+}
+
+.finance-route-dashboard > div > section:first-of-type .grid > div:nth-child(1) {
+  border-left-color: var(--finance-blue);
+}
+
+.finance-route-dashboard > div > section:first-of-type .grid > div:nth-child(1) p:last-child {
+  color: var(--finance-blue);
+}
+
+.finance-route-dashboard > div > section:first-of-type .grid > div:nth-child(2) {
+  border-left-color: var(--finance-orange);
+}
+
+.finance-route-dashboard > div > section:first-of-type .grid > div:nth-child(2) p:last-child {
+  color: var(--finance-orange);
+}
+
+.finance-route-dashboard > div > section:first-of-type .grid > div:nth-child(3) {
+  border-left-color: var(--finance-purple);
+}
+
+.finance-route-dashboard > div > section:first-of-type .grid > div:nth-child(3) p:last-child {
+  color: var(--finance-purple);
+}
+
+.finance-route-dashboard > div > section:nth-of-type(2) [class*="h-full"][class*="bg-foreground"] {
+  background: var(--finance-orange) !important;
+}
+
+.finance-route-dashboard > div > section:nth-of-type(3) {
+  border: 1px solid var(--finance-green-border) !important;
+  border-radius: 18px;
+  background: var(--finance-green-soft);
+  padding: 1.25rem;
+}
+
+/* Ledger: filters are a single blue-tinted control surface; money keeps semantic color. */
+.finance-route-expenses > div > div[class*="border-y"] {
+  border: 1px solid var(--finance-blue-border) !important;
+  border-radius: 16px;
+  background: var(--finance-blue-soft);
+  padding: 0.75rem;
+}
+
+.finance-route-expenses .group > div:last-child > p:first-child {
+  color: var(--finance-orange);
+}
+
+.finance-route-expenses p[class*="color-income"] {
+  color: var(--finance-blue) !important;
+}
+
+.finance-route-expenses section > div:first-child {
+  border-bottom-color: color-mix(in srgb, var(--finance-blue) 16%, var(--finance-divider)) !important;
+}
+
+/* Settlement: emphasize the one amount/action that matters. */
+.finance-route-settlements section[class*="rounded-[22px]"] {
+  border-color: var(--finance-blue-border) !important;
+  background: linear-gradient(145deg, var(--finance-blue-soft), var(--card)) !important;
+}
+
+.finance-route-settlements section[class*="rounded-[22px]"] p[class*="text-[38px]"] {
+  color: var(--finance-blue);
+}
+
+.finance-route-settlements section[class*="rounded-[22px]"] button {
+  background: var(--finance-blue) !important;
+  color: #fff !important;
+}
+
+/* Planning: purple for future decisions, then semantic annual actuals. */
+.finance-route-plan > div > section[class*="border-y"] {
+  border: 1px solid var(--finance-purple-border) !important;
+  border-radius: 18px;
+  background: var(--finance-purple-soft);
+  padding: 1.25rem;
+}
+
+.finance-route-plan > div > section[class*="border-y"] > p:first-child,
+.finance-route-plan > div > section[class*="border-y"] [class*="text-2xl"] {
+  color: var(--finance-purple);
+}
+
+.finance-route-plan [class*="grid-cols-3"][class*="divide-x"] > div:nth-child(1) p:nth-child(2) {
+  color: var(--finance-blue);
+}
+
+.finance-route-plan [class*="grid-cols-3"][class*="divide-x"] > div:nth-child(2) p:nth-child(2) {
+  color: var(--finance-orange);
+}
+
+.finance-route-plan [class*="grid-cols-3"][class*="divide-x"] > div:nth-child(3) p:nth-child(2) {
+  color: var(--finance-green);
+}
+
+.finance-route-plan [class*="lg:grid-cols-3"] > section:nth-child(1) > div:first-child {
+  border-bottom-color: var(--finance-blue-border) !important;
+}
+
+.finance-route-plan [class*="lg:grid-cols-3"] > section:nth-child(2) > div:first-child {
+  border-bottom-color: var(--finance-purple-border) !important;
+}
+
+.finance-route-plan [class*="lg:grid-cols-3"] > section:nth-child(3) > div:first-child {
+  border-bottom-color: var(--finance-green-border) !important;
 }
 
 @media (max-width: 767px) {
@@ -147,5 +362,17 @@
   .finance-shell h1,
   .finance-shell h2 {
     letter-spacing: -0.03em;
+  }
+
+  .finance-route-dashboard > div > section:first-of-type {
+    padding: 1.25rem;
+  }
+
+  .finance-route-dashboard > div > section:first-of-type .grid {
+    gap: 0.75rem;
+  }
+
+  .finance-route-dashboard > div > section:first-of-type .grid > div {
+    padding-left: 0.55rem;
   }
 }
