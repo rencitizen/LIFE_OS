@@ -17,12 +17,12 @@ export default async function AppLayout({
   if (!user) redirect('/login')
 
   return (
-    <div className="flex min-h-screen bg-[#f3f6fb] dark:bg-[#0f172a]">
+    <div className="flex min-h-screen bg-background">
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />
-        <main className="flex-1 overflow-y-auto px-4 py-4 pb-24 lg:px-6 lg:py-6 lg:pb-8">
-          <div className="mx-auto w-full max-w-6xl">
+        <main className="flex-1 overflow-y-auto px-4 pb-28 pt-5 sm:px-5 lg:px-8 lg:pb-10 lg:pt-8">
+          <div className="mx-auto w-full max-w-[1120px]">
             {children}
           </div>
         </main>
