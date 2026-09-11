@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { FINANCE_SCOPE_LABELS, type FinanceScope } from '@/lib/finance/scope'
 import { useFinanceStore } from '@/stores/finance-store'
+import './finance.css'
 
 const tabs = [
   { name: '概要', href: '/finance/dashboard' },
