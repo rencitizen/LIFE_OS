@@ -17,7 +17,7 @@ type BottomTab = {
 const tabs: BottomTab[] = [
   { name: 'ホーム', href: '/home', icon: Home },
   { name: '家計', href: '/finance/dashboard', activePrefix: '/finance', icon: Wallet },
-  { name: 'カレンダー', href: '/calendar', icon: Calendar },
+  { name: '予定', href: '/calendar', icon: Calendar },
   { name: '買い物', href: '/shopping', icon: ShoppingCart },
 ]
 
@@ -26,8 +26,8 @@ export function BottomNav() {
   const { toggleSidebar, sidebarOpen } = useUIStore()
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#071d42]/98 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(7,29,66,0.18)] backdrop-blur lg:hidden">
-      <div className="grid grid-cols-5 items-stretch">
+    <nav className="fixed inset-x-3 bottom-3 z-50 rounded-[22px] border border-black/[0.08] bg-white/88 pb-[env(safe-area-inset-bottom)] shadow-[0_8px_30px_rgba(0,0,0,0.10)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#2c2c2e]/88 lg:hidden">
+      <div className="grid grid-cols-5 items-stretch px-1">
         {tabs.map((tab) => {
           const activePrefix = tab.activePrefix ?? tab.href
           const isActive = pathname === tab.href || pathname.startsWith(activePrefix)
@@ -37,12 +37,11 @@ export function BottomNav() {
               key={tab.href}
               href={tab.href}
               className={cn(
-                'relative flex min-h-16 w-full flex-col items-center justify-center gap-1 px-2 py-2 text-[10px] font-bold transition-colors',
-                isActive ? 'text-white' : 'text-white/45'
+                'flex min-h-[58px] w-full flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 text-[10px] font-medium transition-colors',
+                isActive ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
-              {isActive && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-sky-400" />}
-              <tab.icon className={cn('h-5 w-5', isActive && 'text-sky-300')} />
+              <tab.icon className={cn('h-[19px] w-[19px] stroke-[1.8]', isActive && 'stroke-[2.1]')} />
               {tab.name}
             </Link>
           )
@@ -53,13 +52,12 @@ export function BottomNav() {
           variant="ghost"
           onClick={toggleSidebar}
           className={cn(
-            'relative flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-none px-2 py-2 text-[10px] font-bold hover:bg-white/5 hover:text-white',
-            sidebarOpen ? 'text-white' : 'text-white/45'
+            'flex min-h-[58px] w-full flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 text-[10px] font-medium hover:bg-black/[0.035] dark:hover:bg-white/[0.06]',
+            sidebarOpen ? 'text-foreground' : 'text-muted-foreground'
           )}
         >
-          {sidebarOpen && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-sky-400" />}
-          <Menu className={cn('h-5 w-5', sidebarOpen && 'text-sky-300')} />
-          メニュー
+          <Menu className={cn('h-[19px] w-[19px] stroke-[1.8]', sidebarOpen && 'stroke-[2.1]')} />
+          その他
         </Button>
       </div>
     </nav>

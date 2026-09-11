@@ -41,190 +41,174 @@
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) * 1.35);
+  --radius-2xl: calc(var(--radius) * 1.7);
+  --radius-3xl: calc(var(--radius) * 2.1);
+  --radius-4xl: calc(var(--radius) * 2.5);
 }
 
 :root {
-  /* Neutral surfaces: information first, color second. */
-  --surface-base: #F4F7FB;
-  --surface-muted: #EEF3F8;
-  --surface-panel: #FFFFFF;
-  --surface-border: #DEE5EE;
-
-  /* Semantic palette. */
-  --chart-1: #071D42;
-  --chart-2: #3568A8;
-  --chart-3: #1F7A5C;
-  --chart-4: #B66A12;
-  --chart-5: #6D5AA8;
-  --italian-blue: #3568A8;
-  --green-soft: #E8F5EF;
-  --red-soft: #FCECEB;
-  --yellow-soft: #FFF4E5;
-  --blue-soft: #EAF1FA;
+  --surface-base: #f5f5f7;
+  --surface-muted: #f2f2f4;
+  --surface-panel: #ffffff;
+  --surface-border: rgba(0, 0, 0, 0.07);
 
   --background: var(--surface-base);
-  --foreground: #1F2937;
+  --foreground: #1d1d1f;
   --card: var(--surface-panel);
-  --card-foreground: #1F2937;
-  --popover: var(--surface-panel);
-  --popover-foreground: #1F2937;
+  --card-foreground: #1d1d1f;
+  --popover: rgba(255, 255, 255, 0.96);
+  --popover-foreground: #1d1d1f;
 
-  --primary: #071D42;
-  --primary-foreground: #FFFFFF;
-  --secondary: #EAF0F7;
-  --secondary-foreground: #071D42;
-  --muted: #EEF2F6;
-  --muted-foreground: #667085;
-  --accent: #EAF1FA;
-  --accent-foreground: #071D42;
-  --destructive: #C2413B;
+  --primary: #1d1d1f;
+  --primary-foreground: #ffffff;
+  --secondary: #eeeeef;
+  --secondary-foreground: #1d1d1f;
+  --muted: #f0f0f2;
+  --muted-foreground: #6e6e73;
+  --accent: #ececef;
+  --accent-foreground: #1d1d1f;
+  --destructive: #d70015;
   --border: var(--surface-border);
-  --input: #C9D2DE;
-  --ring: #3568A8;
+  --input: rgba(0, 0, 0, 0.14);
+  --ring: #007aff;
   --radius: 0.75rem;
 
-  --sidebar: #FBFCFD;
-  --sidebar-foreground: #273444;
-  --sidebar-primary: #071D42;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EAF1FA;
-  --sidebar-accent-foreground: #213A57;
-  --sidebar-border: #D7DEE8;
-  --sidebar-ring: #3568A8;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1d1d1f;
+  --sidebar-primary: #1d1d1f;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f0f2;
+  --sidebar-accent-foreground: #1d1d1f;
+  --sidebar-border: rgba(0, 0, 0, 0.07);
+  --sidebar-ring: #007aff;
 
-  --color-income: #3568A8;
-  --color-expense: #B66A12;
-  --color-balance: #1F7A5C;
-  --color-info: #3568A8;
+  --chart-1: #1d1d1f;
+  --chart-2: #007aff;
+  --chart-3: #34c759;
+  --chart-4: #ff9f0a;
+  --chart-5: #af52de;
+
+  --italian-blue: #007aff;
+  --green-soft: #eef9f0;
+  --red-soft: #fff0f1;
+  --yellow-soft: #fff8ea;
+  --blue-soft: #eef6ff;
+
+  --color-income: #007aff;
+  --color-expense: #ff9500;
+  --color-balance: #34c759;
+  --color-info: #007aff;
   --color-income-soft: var(--blue-soft);
   --color-success-soft: var(--green-soft);
   --color-expense-soft: var(--yellow-soft);
-  --color-warning: #B66A12;
+  --color-warning: #ff9500;
   --color-warning-soft: var(--yellow-soft);
   --color-info-soft: var(--blue-soft);
-  --color-heading: #0F1F3A;
-  --color-navy: #071D42;
-  --color-blue: #3568A8;
-  --color-cyan: #1F7A5C;
-  --color-mint: #3D8C6E;
+  --color-heading: #1d1d1f;
+  --color-navy: #1d1d1f;
+  --color-blue: #007aff;
+  --color-cyan: #007aff;
+  --color-mint: #34c759;
 }
 
 .dark {
-  --surface-base: #111827;
-  --surface-muted: #1B2432;
-  --surface-panel: #172033;
-  --surface-border: #334155;
-
-  --chart-1: #D8E5F3;
-  --chart-2: #84AEE0;
-  --chart-3: #68B89B;
-  --chart-4: #E3A45D;
-  --chart-5: #A99AD7;
-  --italian-blue: #84AEE0;
-  --green-soft: #17392F;
-  --red-soft: #4A2325;
-  --yellow-soft: #46331D;
-  --blue-soft: #1D3551;
+  --surface-base: #000000;
+  --surface-muted: #1c1c1e;
+  --surface-panel: #1c1c1e;
+  --surface-border: rgba(255, 255, 255, 0.10);
 
   --background: var(--surface-base);
-  --foreground: #F3F4F6;
+  --foreground: #f5f5f7;
   --card: var(--surface-panel);
-  --card-foreground: #F3F4F6;
-  --popover: var(--surface-panel);
-  --popover-foreground: #F3F4F6;
+  --card-foreground: #f5f5f7;
+  --popover: rgba(44, 44, 46, 0.96);
+  --popover-foreground: #f5f5f7;
 
-  --primary: #D8E5F3;
-  --primary-foreground: #172033;
-  --secondary: #263447;
-  --secondary-foreground: #F3F4F6;
-  --muted: #1F2B3A;
-  --muted-foreground: #AAB4C2;
-  --accent: #1D3551;
-  --accent-foreground: #E6EEF7;
-  --destructive: #E07A74;
+  --primary: #f5f5f7;
+  --primary-foreground: #1c1c1e;
+  --secondary: #2c2c2e;
+  --secondary-foreground: #f5f5f7;
+  --muted: #2c2c2e;
+  --muted-foreground: #a1a1a6;
+  --accent: #2c2c2e;
+  --accent-foreground: #f5f5f7;
+  --destructive: #ff453a;
   --border: var(--surface-border);
-  --input: #475569;
-  --ring: #84AEE0;
+  --input: rgba(255, 255, 255, 0.16);
+  --ring: #0a84ff;
 
-  --color-income: #84AEE0;
-  --color-expense: #E3A45D;
-  --color-balance: #68B89B;
-  --color-info: #84AEE0;
+  --sidebar: #1c1c1e;
+  --sidebar-foreground: #f5f5f7;
+  --sidebar-primary: #f5f5f7;
+  --sidebar-primary-foreground: #1c1c1e;
+  --sidebar-accent: #2c2c2e;
+  --sidebar-accent-foreground: #f5f5f7;
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --sidebar-ring: #0a84ff;
+
+  --chart-1: #f5f5f7;
+  --chart-2: #0a84ff;
+  --chart-3: #30d158;
+  --chart-4: #ff9f0a;
+  --chart-5: #bf5af2;
+
+  --italian-blue: #0a84ff;
+  --green-soft: #102b16;
+  --red-soft: #351113;
+  --yellow-soft: #31230d;
+  --blue-soft: #0f2740;
+
+  --color-income: #0a84ff;
+  --color-expense: #ff9f0a;
+  --color-balance: #30d158;
+  --color-info: #0a84ff;
   --color-income-soft: var(--blue-soft);
   --color-success-soft: var(--green-soft);
   --color-expense-soft: var(--yellow-soft);
-  --color-warning: #E3A45D;
+  --color-warning: #ff9f0a;
   --color-warning-soft: var(--yellow-soft);
   --color-info-soft: var(--blue-soft);
-  --color-heading: #F8FAFC;
-  --color-navy: #D8E5F3;
-  --color-blue: #84AEE0;
-  --color-cyan: #68B89B;
-  --color-mint: #68B89B;
-
-  --sidebar: #141C28;
-  --sidebar-foreground: #E5E7EB;
-  --sidebar-primary: #D8E5F3;
-  --sidebar-primary-foreground: #172033;
-  --sidebar-accent: #1D3551;
-  --sidebar-accent-foreground: #F3F4F6;
-  --sidebar-border: #334155;
-  --sidebar-ring: #84AEE0;
-}
-
-@layer components {
-  /* Finance: keep the dashboard neutral, with two restrained semantic surfaces. */
-  [data-slot="card"]:has(a[href="/finance/budgets"]) {
-    background-color: color-mix(in srgb, var(--color-info-soft) 72%, var(--card));
-  }
-
-  [data-slot="card"]:has(a[href="/finance/budgets"]) a[href="/finance/budgets"] {
-    color: var(--color-info);
-  }
-
-  [data-slot="card"]:has(a[href="/finance/budgets"]) p[class*="text-xl"] {
-    color: var(--color-info);
-  }
-
-  [data-slot="card"]:has(a[href="/finance/budgets"]) div[class*="bg-primary"] {
-    background-color: var(--color-info);
-  }
-
-  [data-slot="card"]:has(a[href="/finance/settlements"]) {
-    background-color: color-mix(in srgb, var(--color-success-soft) 72%, var(--card));
-  }
-
-  [data-slot="card"]:has(a[href="/finance/settlements"]) a[href="/finance/settlements"] {
-    color: var(--color-balance);
-  }
-
-  [data-slot="card"]:has(a[href="/finance/settlements"]) p[class*="text-xl"] {
-    color: var(--color-balance);
-  }
+  --color-heading: #f5f5f7;
+  --color-navy: #f5f5f7;
+  --color-blue: #0a84ff;
+  --color-cyan: #0a84ff;
+  --color-mint: #30d158;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    @apply font-sans;
+    background: var(--background);
+  }
+
   body {
     @apply bg-background text-foreground;
+    min-height: 100vh;
     background-color: var(--background);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Hiragino Sans", "Yu Gothic UI", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+
   h1,
-  h2 {
+  h2,
+  h3 {
     color: var(--color-heading);
     letter-spacing: -0.025em;
   }
 
-  h1 {
-    font-weight: 800;
+  h1,
+  h2 {
+    font-weight: 650;
   }
-  html {
-    @apply font-sans;
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
   }
 }
