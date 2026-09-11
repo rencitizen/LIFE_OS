@@ -1,0 +1,151 @@
+.finance-shell {
+  --finance-divider: rgba(0, 0, 0, 0.07);
+}
+
+.dark .finance-shell {
+  --finance-divider: rgba(255, 255, 255, 0.09);
+}
+
+.finance-shell [data-slot="card"] {
+  border-color: var(--finance-divider) !important;
+  background: var(--card) !important;
+  box-shadow: none !important;
+  border-radius: 18px !important;
+}
+
+.finance-shell [data-slot="card-title"] {
+  font-weight: 600 !important;
+  letter-spacing: -0.015em !important;
+}
+
+.finance-shell [data-slot="card"] [class*="rounded-lg"][class*="border"],
+.finance-shell [data-slot="card"] [class*="rounded-xl"][class*="border"] {
+  border-color: var(--finance-divider) !important;
+  box-shadow: none !important;
+}
+
+.finance-shell [class*="bg-rose-500/8"],
+.finance-shell [class*="bg-blue-500/8"],
+.finance-shell [class*="bg-sky-500/10"],
+.finance-shell [class*="bg-emerald-500/10"],
+.finance-shell [class*="bg-violet-500/10"],
+.finance-shell [class*="bg-amber-500/10"] {
+  background: var(--muted) !important;
+}
+
+.finance-shell [data-slot="tabs-list"] {
+  width: 100% !important;
+  justify-content: flex-start !important;
+  gap: 1.25rem !important;
+  overflow-x: auto !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--finance-divider) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.finance-shell [data-slot="tabs-trigger"] {
+  flex: 0 0 auto !important;
+  min-height: 2.5rem !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 0 0.7rem !important;
+  color: var(--muted-foreground) !important;
+}
+
+.finance-shell [data-slot="tabs-trigger"][data-active] {
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+}
+
+.finance-shell [data-slot="tabs-trigger"] svg {
+  display: none !important;
+}
+
+.finance-shell input,
+.finance-shell textarea,
+.finance-shell [data-slot="select-trigger"] {
+  background: var(--card) !important;
+  box-shadow: none !important;
+}
+
+.finance-shell section[class*="text-white"] {
+  border-radius: 0 !important;
+  border-bottom: 1px solid var(--finance-divider) !important;
+  background: transparent !important;
+  color: var(--foreground) !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.finance-shell section[class*="text-white"] h1,
+.finance-shell section[class*="text-white"] h2,
+.finance-shell section[class*="text-white"] [class*="text-white"] {
+  color: var(--foreground) !important;
+}
+
+.finance-shell section[class*="text-white"] p[class*="text-white"],
+.finance-shell section[class*="text-white"] span[class*="text-white"] {
+  color: var(--muted-foreground) !important;
+}
+
+.finance-shell section[class*="text-white"] [class*="bg-white"] {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+
+.finance-shell thead tr[class*="bg-primary"],
+.finance-shell thead[class*="bg-primary"] {
+  background: transparent !important;
+  color: var(--muted-foreground) !important;
+}
+
+.finance-shell table th {
+  font-weight: 600 !important;
+}
+
+.finance-shell table tr {
+  border-color: var(--finance-divider) !important;
+}
+
+.finance-shell [class*="shadow-"] {
+  box-shadow: none !important;
+}
+
+.finance-shell [class*="rounded-[28px]"] {
+  border-radius: 18px !important;
+}
+
+.finance-shell [class*="bg-accent"][class*="border-accent"] {
+  border-color: var(--input) !important;
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+}
+
+.finance-shell [class*="uppercase"][class*="tracking-"] {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.finance-shell [data-slot="badge"] {
+  box-shadow: none !important;
+}
+
+@media (max-width: 767px) {
+  .finance-shell {
+    --finance-mobile-gap: 1.25rem;
+  }
+
+  .finance-shell > div:first-child nav {
+    gap: 1.25rem !important;
+  }
+
+  .finance-shell h1,
+  .finance-shell h2 {
+    letter-spacing: -0.03em;
+  }
+}
