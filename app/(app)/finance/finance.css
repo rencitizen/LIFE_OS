@@ -18,6 +18,21 @@
   letter-spacing: -0.015em !important;
 }
 
+.finance-shell [data-slot="card"] [class*="rounded-lg"][class*="border"],
+.finance-shell [data-slot="card"] [class*="rounded-xl"][class*="border"] {
+  border-color: var(--finance-divider) !important;
+  box-shadow: none !important;
+}
+
+.finance-shell [class*="bg-rose-500/8"],
+.finance-shell [class*="bg-blue-500/8"],
+.finance-shell [class*="bg-sky-500/10"],
+.finance-shell [class*="bg-emerald-500/10"],
+.finance-shell [class*="bg-violet-500/10"],
+.finance-shell [class*="bg-amber-500/10"] {
+  background: var(--muted) !important;
+}
+
 .finance-shell [data-slot="tabs-list"] {
   width: 100% !important;
   justify-content: flex-start !important;
