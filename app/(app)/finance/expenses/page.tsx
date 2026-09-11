@@ -2,26 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import { addMonths, format } from 'date-fns'
-import {
-  Bot,
-  ChevronLeft,
-  ChevronRight,
-  CircleDollarSign,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Search,
-  WalletCards,
-} from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getTodayJstDateKey } from '@/lib/date-utils'
-import { FINANCE_SCOPE_LABELS, matchesFinanceScope } from '@/lib/finance/scope'
+import { matchesFinanceScope } from '@/lib/finance/scope'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
@@ -41,7 +29,7 @@ const TYPE_FILTER_ITEMS = [
 ]
 
 const SOURCE_FILTER_ITEMS = [
-  { value: 'all', label: '全ての入力元' },
+  { value: 'all', label: '入力元すべて' },
   { value: 'ai', label: 'AI' },
   { value: 'manual', label: 'その他' },
 ]
@@ -50,7 +38,6 @@ const TRANSACTION_TYPE_ITEMS = [
   { value: 'expense', label: '支出' },
   { value: 'income', label: '収入' },
 ]
-
 
 const PAYMENT_METHOD_ITEMS = [
   { value: 'card', label: 'カード' },
@@ -72,11 +59,11 @@ function displayPerson(id: string, user?: { id: string; display_name: string } |
 }
 
 function sourceLabel(source: UnifiedTransaction['source']) {
-  if (source === 'ai') return 'AIから登録'
+  if (source === 'ai') return 'AI'
   if (source === 'manual') return '手動'
-  if (source === 'moneyforward_screenshot') return '旧インポート'
+  if (source === 'moneyforward_screenshot') return '旧取込'
   if (source === 'ocr') return 'OCR'
-  return '自動連携'
+  return '自動'
 }
 
 export default function FinanceHistoryPage() {
@@ -210,31 +197,29 @@ export default function FinanceHistoryPage() {
             expenseType: resolvedExpenseKind,
           })
         }
+      } else if (editingTransaction) {
+        await updateTransaction.mutateAsync({
+          transactionType: 'income',
+          values: {
+            id: editingTransaction.id,
+            amount: Number(amount),
+            description: memo || null,
+            income_date: date,
+            income_type: incomeType,
+          },
+        })
       } else {
-        if (editingTransaction) {
-          await updateTransaction.mutateAsync({
-            transactionType: 'income',
-            values: {
-              id: editingTransaction.id,
-              amount: Number(amount),
-              description: memo || null,
-              income_date: date,
-              income_type: incomeType,
-            },
-          })
-        } else {
-          await createTransaction.mutateAsync({
-            transactionType: 'income',
-            values: {
-              couple_id: couple.id,
-              user_id: user.id,
-              amount: Number(amount),
-              description: memo || null,
-              income_date: date,
-              income_type: incomeType,
-            },
-          })
-        }
+        await createTransaction.mutateAsync({
+          transactionType: 'income',
+          values: {
+            couple_id: couple.id,
+            user_id: user.id,
+            amount: Number(amount),
+            description: memo || null,
+            income_date: date,
+            income_type: incomeType,
+          },
+        })
       }
 
       setSelectedMonth(date.slice(0, 7))
@@ -253,155 +238,112 @@ export default function FinanceHistoryPage() {
   const isSaving = createManualExpense.isPending || updateExpenseWithSplits.isPending || createTransaction.isPending || updateTransaction.isPending
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="mx-auto max-w-4xl space-y-7 pb-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">履歴</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {FINANCE_SCOPE_LABELS[financeScope]}の生活ログ。ChatGPTに話した内容がここへ反映されます。
-          </p>
+          <h1 className="text-[28px] font-semibold tracking-tight">明細</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{filteredTransactions.length}件 · 支出 {formatYen(monthExpense)}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-lg border bg-card p-1">
-            <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="min-w-[88px] text-center text-sm font-semibold">{format(displayDate, 'yyyy/MM')}</span>
-            <Button variant="ghost" size="icon" onClick={() => navigateMonth(1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          <Button variant="outline" size="sm" onClick={openCreateDialog} className="gap-1.5">
-            <Plus className="h-4 w-4" /> 手動入力
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigateMonth(-1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="min-w-[84px] text-center text-sm font-medium">{format(displayDate, 'yyyy/MM')}</span>
+          <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigateMonth(1)}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={openCreateDialog} className="ml-1 gap-1.5 px-2">
+            <Plus className="h-4 w-4" /> 追加
           </Button>
         </div>
+      </header>
+
+      <div className="flex flex-wrap items-center gap-2 border-y py-3">
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="検索"
+            className="h-9 rounded-xl border-0 bg-muted/70 pl-9 shadow-none"
+          />
+        </div>
+        <Select items={TYPE_FILTER_ITEMS} value={typeFilter} onValueChange={(value) => setTypeFilter((value || 'all') as TypeFilter)}>
+          <SelectTrigger className="h-9 w-[105px] rounded-xl"><SelectValue /></SelectTrigger>
+          <SelectContent>{TYPE_FILTER_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
+        </Select>
+        <Select items={SOURCE_FILTER_ITEMS} value={sourceFilter} onValueChange={(value) => setSourceFilter((value || 'all') as SourceFilter)}>
+          <SelectTrigger className="h-9 w-[115px] rounded-xl"><SelectValue /></SelectTrigger>
+          <SelectContent>{SOURCE_FILTER_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
+        </Select>
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[220px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="店名・メモ・カテゴリで検索"
-                className="pl-9"
-              />
-            </div>
-            <Select items={TYPE_FILTER_ITEMS} value={typeFilter} onValueChange={(value) => setTypeFilter((value || 'all') as TypeFilter)}>
-              <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TYPE_FILTER_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select items={SOURCE_FILTER_ITEMS} value={sourceFilter} onValueChange={(value) => setSourceFilter((value || 'all') as SourceFilter)}>
-              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SOURCE_FILTER_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between border-t pt-4 text-sm">
-            <span className="text-muted-foreground">表示中 {filteredTransactions.length}件</span>
-            <span className="font-semibold">支出合計 {formatYen(monthExpense)}</span>
-          </div>
-        </CardContent>
-      </Card>
-
       {groups.length > 0 ? (
-        <div className="space-y-6">
+        <div className="space-y-7">
           {groups.map(([dateKey, items]) => (
-            <section key={dateKey} className="space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-sm font-semibold">{dateKey}</h2>
-                <span className="text-xs text-muted-foreground">{items.length}件</span>
+            <section key={dateKey}>
+              <div className="flex items-center justify-between border-b pb-2">
+                <h2 className="text-xs font-semibold text-muted-foreground">{dateKey}</h2>
+                <span className="text-[11px] text-muted-foreground">{items.length}件</span>
               </div>
+              <div className="divide-y">
+                {items.map((transaction) => {
+                  const expense = transaction.rawExpense
+                  const payerName = displayPerson(transaction.ownerId, user, partner)
+                  const partnerSplit = expense?.expense_splits?.find((split) => split.user_id === partner?.id)
+                  const userSplit = expense?.expense_splits?.find((split) => split.user_id === user?.id)
 
-              <Card>
-                <CardContent className="divide-y p-0">
-                  {items.map((transaction) => {
-                    const expense = transaction.rawExpense
-                    const isAi = transaction.source === 'ai'
-                    const payerName = displayPerson(transaction.ownerId, user, partner)
-                    const partnerSplit = expense?.expense_splits?.find((split) => split.user_id === partner?.id)
-                    const userSplit = expense?.expense_splits?.find((split) => split.user_id === user?.id)
-
-                    return (
-                      <div key={`${transaction.transactionType}-${transaction.id}`} className="group flex items-start gap-3 p-4">
-                        <div className="mt-0.5 rounded-full bg-muted p-2">
-                          {transaction.transactionType === 'expense'
-                            ? <WalletCards className="h-4 w-4" />
-                            : <CircleDollarSign className="h-4 w-4" />}
+                  return (
+                    <div key={`${transaction.transactionType}-${transaction.id}`} className="group flex items-start gap-4 py-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-medium">
+                            {transaction.memo || transaction.category || (transaction.transactionType === 'expense' ? '支出' : '収入')}
+                          </p>
+                          {expense?.is_settlement_target ? <span className="text-[11px] text-muted-foreground">精算対象</span> : null}
                         </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate font-semibold">
-                              {transaction.memo || transaction.category || (transaction.transactionType === 'expense' ? '支出' : '収入')}
-                            </p>
-                            {isAi && (
-                              <Badge variant="outline" className="gap-1 px-1.5 py-0 text-[10px]">
-                                <Bot className="h-3 w-3" /> AI
-                              </Badge>
-                            )}
-                            {expense?.is_settlement_target && (
-                              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">精算対象</Badge>
-                            )}
-                          </div>
-
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {transaction.category} · {transaction.transactionType === 'expense' ? `${payerName}支払` : `${payerName}受取`} · {sourceLabel(transaction.source)}
+                        </p>
+                        {expense?.is_settlement_target && (userSplit || partnerSplit) ? (
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {transaction.category} · {transaction.transactionType === 'expense' ? `${payerName}支払い` : `${payerName}受取`} · {sourceLabel(transaction.source)}
+                            負担 {user?.display_name || '自分'} {formatYen(Number(userSplit?.amount || 0))} / {partner?.display_name || 'パートナー'} {formatYen(Number(partnerSplit?.amount || 0))}
                           </p>
-
-                          {expense?.is_settlement_target && (userSplit || partnerSplit) && (
-                            <p className="mt-1.5 text-xs text-muted-foreground">
-                              負担: {user?.display_name || '自分'} {formatYen(Number(userSplit?.amount || 0))}
-                              {' / '}
-                              {partner?.display_name || 'パートナー'} {formatYen(Number(partnerSplit?.amount || 0))}
-                              {' · '}
-                              {expense.expense_splits?.every((split) => split.is_settled) ? '精算済' : '未精算'}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="shrink-0 text-right">
-                          <p className={transaction.transactionType === 'income' ? 'font-bold text-[var(--color-income)]' : 'font-bold'}>
-                            {transaction.transactionType === 'income' ? '+' : ''}{formatYen(transaction.amount)}
-                          </p>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="mt-1 h-8 w-8 text-muted-foreground opacity-70 transition-opacity group-hover:opacity-100"
-                            onClick={() => openEditDialog(transaction)}
-                            title="修正"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        ) : null}
                       </div>
-                    )
-                  })}
-                </CardContent>
-              </Card>
+
+                      <div className="flex shrink-0 items-start gap-1 text-right">
+                        <p className={`pt-1 text-sm font-semibold tabular-nums ${transaction.transactionType === 'income' ? 'text-[var(--color-income)]' : ''}`}>
+                          {transaction.transactionType === 'income' ? '+' : ''}{formatYen(transaction.amount)}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground opacity-50 transition-opacity group-hover:opacity-100"
+                          onClick={() => openEditDialog(transaction)}
+                          title="修正"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </section>
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-14 text-center">
-            <MoreHorizontal className="mb-3 h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">該当する履歴はありません</p>
-            <p className="mt-1 text-sm text-muted-foreground">ChatGPTで登録した支出もここに表示されます。</p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center border-y py-14 text-center">
+          <MoreHorizontal className="mb-3 h-6 w-6 text-muted-foreground" />
+          <p className="text-sm font-medium">該当する明細はありません</p>
+        </div>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingTransaction ? '履歴を修正' : '手動で登録'}</DialogTitle>
+            <DialogTitle>{editingTransaction ? '明細を修正' : '明細を追加'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -414,9 +356,7 @@ export default function FinanceHistoryPage() {
                 disabled={Boolean(editingTransaction)}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {TRANSACTION_TYPE_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{TRANSACTION_TYPE_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
 
@@ -442,11 +382,7 @@ export default function FinanceHistoryPage() {
                   <Label>カテゴリ</Label>
                   <Select items={categoryItems} value={categoryId} onValueChange={(value) => setCategoryId(value || '')}>
                     <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
-                    <SelectContent>
-                      {categoryItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                      ))}
-                    </SelectContent>
+                    <SelectContent>{categoryItems.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
 
@@ -454,23 +390,16 @@ export default function FinanceHistoryPage() {
                   <Label>支払方法</Label>
                   <Select items={PAYMENT_METHOD_ITEMS} value={paymentMethod} onValueChange={(value) => setPaymentMethod(value || 'card')}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_METHOD_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{PAYMENT_METHOD_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
 
                 <label className="flex cursor-pointer items-center justify-between rounded-xl border p-3.5">
                   <div>
                     <p className="text-sm font-semibold">精算対象</p>
-                    <p className="text-xs text-muted-foreground">ONにすると標準負担割合で精算計算に入れます</p>
+                    <p className="text-xs text-muted-foreground">標準負担割合で精算計算に含める</p>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={settlementTarget}
-                    onChange={(event) => setSettlementTarget(event.target.checked)}
-                    className="h-4 w-4"
-                  />
+                  <input type="checkbox" checked={settlementTarget} onChange={(event) => setSettlementTarget(event.target.checked)} className="h-4 w-4" />
                 </label>
               </>
             ) : (
@@ -478,9 +407,7 @@ export default function FinanceHistoryPage() {
                 <Label>収入種別</Label>
                 <Select items={INCOME_TYPE_ITEMS} value={incomeType} onValueChange={(value) => setIncomeType(value || 'salary')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {INCOME_TYPE_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-                  </SelectContent>
+                  <SelectContent>{INCOME_TYPE_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             )}
