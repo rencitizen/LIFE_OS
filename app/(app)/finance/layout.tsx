@@ -14,10 +14,22 @@ const tabs = [
   { name: '計画', href: '/finance/plan' },
 ]
 
+function financeRoute(pathname: string) {
+  if (pathname === '/finance/dashboard' || pathname === '/finance/analysis') return 'dashboard'
+  if (pathname === '/finance/expenses') return 'expenses'
+  if (pathname === '/finance/settlements') return 'settlements'
+  if (pathname === '/finance/plan' || pathname === '/finance/savings') return 'plan'
+  if (pathname === '/finance/life-plan') return 'life-plan'
+  if (pathname === '/finance/budgets') return 'budgets'
+  if (pathname === '/finance/import') return 'import'
+  return 'other'
+}
+
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { financeScope, setFinanceScope } = useFinanceStore()
   const showScope = pathname !== '/finance/plan' && pathname !== '/finance/life-plan' && pathname !== '/finance/import'
+  const route = financeRoute(pathname)
 
   return (
     <div className="finance-shell space-y-7">
@@ -32,11 +44,11 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
                   href={tab.href}
                   className={cn(
                     'relative pb-3 text-sm transition-colors',
-                    active ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground hover:text-foreground'
+                    active ? 'finance-tab-active font-semibold' : 'font-medium text-muted-foreground hover:text-foreground'
                   )}
                 >
                   {tab.name}
-                  {active ? <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-foreground" /> : null}
+                  {active ? <span className="finance-tab-indicator absolute inset-x-0 bottom-0 h-0.5 rounded-full" /> : null}
                 </Link>
               )
             })}
@@ -52,7 +64,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
                   className={cn(
                     'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                     financeScope === scope
-                      ? 'bg-foreground text-background'
+                      ? 'finance-scope-active'
                       : 'text-muted-foreground hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]'
                   )}
                 >
@@ -74,7 +86,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
               className={cn(
                 'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                 financeScope === scope
-                  ? 'bg-foreground text-background'
+                  ? 'finance-scope-active'
                   : 'text-muted-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
               )}
             >
@@ -84,7 +96,9 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
         </div>
       ) : null}
 
-      {children}
+      <div className={`finance-route finance-route-${route}`} data-finance-route={route}>
+        {children}
+      </div>
     </div>
   )
 }
