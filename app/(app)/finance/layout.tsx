@@ -19,7 +19,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
   const showScope = pathname !== '/finance/plan' && pathname !== '/finance/life-plan' && pathname !== '/finance/import'
 
   return (
-    <div className="space-y-7">
+    <div className="finance-shell space-y-7">
       <div className="border-b border-black/[0.06] dark:border-white/[0.08]">
         <div className="flex items-end justify-between gap-4 overflow-x-auto">
           <nav className="flex min-w-max items-center gap-6" aria-label="家計ナビゲーション">
