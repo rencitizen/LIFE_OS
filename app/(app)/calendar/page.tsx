@@ -91,6 +91,22 @@ function toEndIso(date: string, time?: string, allDay = false) {
   return new Date(`${date}T${time || '23:59'}:00+09:00`).toISOString()
 }
 
+function timeToMinutes(time: string) {
+  const [hour, minute] = time.split(':').map(Number)
+  return hour * 60 + minute
+}
+
+function shiftDateTime(date: string, time: string, deltaMinutes: number) {
+  const [year, month, day] = date.split('-').map(Number)
+  const [hour, minute] = time.split(':').map(Number)
+  const shifted = new Date(Date.UTC(year, month - 1, day, hour, minute + deltaMinutes))
+
+  return {
+    date: shifted.toISOString().slice(0, 10),
+    time: shifted.toISOString().slice(11, 16),
+  }
+}
+
 function addByFrequency(date: Date, frequency: RecurrenceFrequency) {
   if (frequency === 'daily') return addDays(date, 1)
   if (frequency === 'weekly') return addWeeks(date, 1)
@@ -273,6 +289,21 @@ export default function CalendarPage() {
     setEditingEventId(null)
     resetForm(date)
     setDialogOpen(true)
+  }
+
+  const handleStartTimeChange = (value: string) => {
+    const currentStartTime = newTime || '09:00'
+    const currentEndTime = newEndTime || currentStartTime
+    const currentEndDate = newEndDate || newStartDate
+
+    if (currentEndDate) {
+      const deltaMinutes = timeToMinutes(value) - timeToMinutes(currentStartTime)
+      const shiftedEnd = shiftDateTime(currentEndDate, currentEndTime, deltaMinutes)
+      setNewEndDate(shiftedEnd.date)
+      setNewEndTime(shiftedEnd.time)
+    }
+
+    setNewTime(value)
   }
 
   const openEditDialog = (event: CalendarEvent) => {
@@ -467,7 +498,7 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>開始時刻</Label>
-                  <Select value={newTime} onValueChange={(value) => setNewTime(value ?? '')}>
+                  <Select value={newTime} onValueChange={(value) => handleStartTimeChange(value ?? '')}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {TIME_OPTIONS.map((time) => (
