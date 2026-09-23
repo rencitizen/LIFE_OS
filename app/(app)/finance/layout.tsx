@@ -11,6 +11,7 @@ const tabs = [
   { name: '概要', href: '/finance/dashboard' },
   { name: '明細', href: '/finance/expenses' },
   { name: '精算', href: '/finance/settlements' },
+  { name: 'NISA', href: '/finance/nisa' },
   { name: '計画', href: '/finance/plan' },
 ]
 
@@ -18,6 +19,7 @@ function financeRoute(pathname: string) {
   if (pathname === '/finance/dashboard' || pathname === '/finance/analysis') return 'dashboard'
   if (pathname === '/finance/expenses') return 'expenses'
   if (pathname === '/finance/settlements') return 'settlements'
+  if (pathname === '/finance/nisa') return 'nisa'
   if (pathname === '/finance/plan' || pathname === '/finance/savings') return 'plan'
   if (pathname === '/finance/life-plan') return 'life-plan'
   if (pathname === '/finance/budgets') return 'budgets'
@@ -28,7 +30,11 @@ function financeRoute(pathname: string) {
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { financeScope, setFinanceScope } = useFinanceStore()
-  const showScope = pathname !== '/finance/plan' && pathname !== '/finance/life-plan' && pathname !== '/finance/import'
+  const showScope =
+    pathname !== '/finance/plan' &&
+    pathname !== '/finance/life-plan' &&
+    pathname !== '/finance/import' &&
+    pathname !== '/finance/nisa'
   const route = financeRoute(pathname)
 
   return (
