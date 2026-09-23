@@ -205,25 +205,42 @@ function MemberNisaCard({
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-muted/20 p-3">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-xs font-medium text-muted-foreground">生涯非課税枠の残り</div>
-              <div className="mt-1 text-base font-bold tabular-nums">
-                {lifetimeRemaining === null ? '未登録' : yen(lifetimeRemaining)}
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs font-semibold text-muted-foreground">生涯NISA枠</div>
+            <div className="text-[10px] text-muted-foreground">上限 {yen(LIFETIME_LIMIT)}</div>
+          </div>
+
+          {lifetimeUsed === null ? (
+            <div className="mt-3">
+              <div className="text-2xl font-bold">未登録</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                「実績を編集」から生涯枠の利用済み額を登録すると、1,800万円のうち何円埋まっているか表示します。
               </div>
             </div>
-            <div className="text-right text-[11px] text-muted-foreground">
-              {lifetimeUsed === null
-                ? '利用済み額を入力すると表示'
-                : `利用済み ${yen(lifetimeUsed)} / ${yen(LIFETIME_LIMIT)}`}
-            </div>
-          </div>
-          {lifetimeUsed !== null ? (
-            <div className="mt-2">
-              <ProgressBar value={lifetimeUsed} limit={LIFETIME_LIMIT} />
-            </div>
-          ) : null}
+          ) : (
+            <>
+              <div className="mt-3 flex items-end justify-between gap-4">
+                <div>
+                  <div className="text-[10px] text-muted-foreground">利用済み</div>
+                  <div className="text-2xl font-bold tabular-nums">{yen(lifetimeUsed)}</div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {((lifetimeUsed / LIFETIME_LIMIT) * 100).toFixed(1)}% 消化
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] text-muted-foreground">残り</div>
+                  <div className="text-lg font-bold tabular-nums">{yen(lifetimeRemaining ?? 0)}</div>
+                </div>
+              </div>
+              <div className="mt-3">
+                <ProgressBar value={lifetimeUsed} limit={LIFETIME_LIMIT} />
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground tabular-nums">
+                {yen(lifetimeUsed)} / {yen(LIFETIME_LIMIT)}
+              </div>
+            </>
+          )}
         </div>
 
         <details className="rounded-xl border border-border bg-background">
