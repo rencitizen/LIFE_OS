@@ -53,7 +53,7 @@ function ProgressBar({ value, limit }: { value: number; limit: number }) {
   )
 }
 
-function UsageMetric({
+function FrameBreakdown({
   label,
   used,
   limit,
@@ -66,22 +66,24 @@ function UsageMetric({
 }) {
   const remaining = clampRemaining(limit, used)
   return (
-    <div className="space-y-2 rounded-xl border border-border bg-background p-3">
+    <div className="rounded-xl border border-border bg-background p-3">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="text-sm font-semibold">{label}</span>
         <span className="text-[10px] text-muted-foreground">{basis}</span>
       </div>
-      <div className="flex items-end justify-between gap-3">
+      <div className="mt-2 flex items-baseline justify-between gap-3">
         <div>
-          <div className="text-lg font-bold tabular-nums">{yen(remaining)}</div>
-          <div className="text-[11px] text-muted-foreground">残り</div>
+          <div className="text-[10px] text-muted-foreground">残り</div>
+          <div className="text-base font-bold tabular-nums">{yen(remaining)}</div>
         </div>
-        <div className="text-right text-[11px] text-muted-foreground">
-          <div>{yen(used)} / {yen(limit)}</div>
-          <div>利用 / 上限</div>
+        <div className="text-right">
+          <div className="text-[10px] text-muted-foreground">利用済み</div>
+          <div className="text-sm font-medium tabular-nums">{yen(used)}</div>
         </div>
       </div>
-      <ProgressBar value={used} limit={limit} />
+      <div className="mt-2">
+        <ProgressBar value={used} limit={limit} />
+      </div>
     </div>
   )
 }
@@ -102,21 +104,23 @@ function MemberNisaCard({
 
   const monthlyTsumitate = Number(row?.monthly_tsumitate ?? 0)
   const monthlyGrowth = Number(row?.monthly_growth ?? 0)
+  const currentMonthlyInvestment = monthlyTsumitate + monthlyGrowth
   const plannedTsumitate = monthlyTsumitate * 12
   const plannedGrowth = monthlyGrowth * 12
 
   const actualTsumitate = numeric(row?.tsumitate_used)
   const actualGrowth = numeric(row?.growth_used)
-  const basisTsumitate = actualTsumitate === null ? '設定ベース（年換算）' : '実績ベース'
-  const basisGrowth = actualGrowth === null ? '設定ベース（年換算）' : '実績ベース'
+  const basisTsumitate = actualTsumitate === null ? '設定ベース' : '実績'
+  const basisGrowth = actualGrowth === null ? '設定ベース' : '実績'
   const usedTsumitate = actualTsumitate ?? plannedTsumitate
   const usedGrowth = actualGrowth ?? plannedGrowth
   const usedAnnual = usedTsumitate + usedGrowth
+  const annualRemaining = clampRemaining(TOTAL_ANNUAL_LIMIT, usedAnnual)
   const annualBasis =
     actualTsumitate !== null && actualGrowth !== null
       ? '実績ベース'
       : actualTsumitate === null && actualGrowth === null
-        ? '設定ベース（年換算）'
+        ? '設定ベース'
         : '実績＋設定ベース'
 
   const [tsumitateInput, setTsumitateInput] = useState('')
@@ -158,115 +162,124 @@ function MemberNisaCard({
   const lifetimeRemaining = lifetimeUsed === null ? null : clampRemaining(LIFETIME_LIMIT, lifetimeUsed)
 
   return (
-    <Card className="border-border">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <CardTitle className="text-base">{member.display_name}</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">
-              現在の積立設定 {yen(monthlyTsumitate)}/月
-              {monthlyGrowth > 0 ? ` + 成長枠 ${yen(monthlyGrowth)}/月` : ''}
-            </p>
-          </div>
-          <div className="rounded-full bg-muted px-3 py-1 text-xs font-medium tabular-nums">
-            年換算 {yen(plannedTsumitate + plannedGrowth)}
-          </div>
-        </div>
+    <Card className="overflow-hidden border-border">
+      <CardHeader className="border-b border-border bg-muted/20 pb-3">
+        <CardTitle className="text-base">{member.display_name}</CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-3">
-          <UsageMetric
-            label="年間NISA枠"
-            used={usedAnnual}
-            limit={TOTAL_ANNUAL_LIMIT}
-            basis={annualBasis}
-          />
-          <UsageMetric
-            label="つみたて投資枠"
-            used={usedTsumitate}
-            limit={TSUMITATE_ANNUAL_LIMIT}
-            basis={basisTsumitate}
-          />
-          <UsageMetric
-            label="成長投資枠"
-            used={usedGrowth}
-            limit={GROWTH_ANNUAL_LIMIT}
-            basis={basisGrowth}
-          />
+      <CardContent className="space-y-4 pt-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+            <div className="text-xs font-medium text-muted-foreground">現在の積立額</div>
+            <div className="mt-1 text-2xl font-bold tabular-nums">{yen(currentMonthlyInvestment)}</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">毎月</div>
+          </div>
+
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-medium text-muted-foreground">{year}年 残りNISA枠</div>
+              <div className="text-[10px] text-muted-foreground">{annualBasis}</div>
+            </div>
+            <div className="mt-1 text-2xl font-bold tabular-nums">{yen(annualRemaining)}</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              利用済み {yen(usedAnnual)} / {yen(TOTAL_ANNUAL_LIMIT)}
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-muted/30 p-3">
+        <div>
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">枠の内訳</div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <FrameBreakdown
+              label="つみたて投資枠"
+              used={usedTsumitate}
+              limit={TSUMITATE_ANNUAL_LIMIT}
+              basis={basisTsumitate}
+            />
+            <FrameBreakdown
+              label="成長投資枠"
+              used={usedGrowth}
+              limit={GROWTH_ANNUAL_LIMIT}
+              basis={basisGrowth}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-muted/20 p-3">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="text-xs font-medium text-muted-foreground">生涯非課税保有限度額</div>
-              <div className="mt-1 text-lg font-bold tabular-nums">
+              <div className="text-xs font-medium text-muted-foreground">生涯非課税枠の残り</div>
+              <div className="mt-1 text-base font-bold tabular-nums">
                 {lifetimeRemaining === null ? '未登録' : yen(lifetimeRemaining)}
               </div>
-              <div className="text-[11px] text-muted-foreground">
-                {lifetimeUsed === null ? '取得価額ベースの利用済み額を入力すると残りを計算' : `${yen(lifetimeUsed)} / ${yen(LIFETIME_LIMIT)}`}
-              </div>
             </div>
-            {lifetimeUsed !== null ? (
-              <div className="w-32">
-                <ProgressBar value={lifetimeUsed} limit={LIFETIME_LIMIT} />
-              </div>
-            ) : null}
+            <div className="text-right text-[11px] text-muted-foreground">
+              {lifetimeUsed === null
+                ? '利用済み額を入力すると表示'
+                : `利用済み ${yen(lifetimeUsed)} / ${yen(LIFETIME_LIMIT)}`}
+            </div>
           </div>
+          {lifetimeUsed !== null ? (
+            <div className="mt-2">
+              <ProgressBar value={lifetimeUsed} limit={LIFETIME_LIMIT} />
+            </div>
+          ) : null}
         </div>
 
-        <div className="border-t border-border pt-4">
-          <div className="mb-3">
-            <div className="text-sm font-semibold">{year}年の実績を入力</div>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              評価額ではなく、NISAで実際に買い付けた取得価額を入力。空欄なら現在の月額設定を年換算して表示します。
+        <details className="rounded-xl border border-border bg-background">
+          <summary className="cursor-pointer px-3 py-2.5 text-xs font-medium text-muted-foreground">
+            実績を編集
+          </summary>
+          <div className="border-t border-border p-3">
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              評価額ではなく、NISAで実際に買い付けた取得価額を入力します。
             </p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">つみたて投資枠 利用済み</Label>
-              <Input
-                inputMode="numeric"
-                type="number"
-                min={0}
-                max={TSUMITATE_ANNUAL_LIMIT}
-                placeholder="未登録"
-                value={tsumitateInput}
-                onChange={(e) => setTsumitateInput(e.target.value)}
-              />
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">つみたて投資枠 利用済み</Label>
+                <Input
+                  inputMode="numeric"
+                  type="number"
+                  min={0}
+                  max={TSUMITATE_ANNUAL_LIMIT}
+                  placeholder="未登録"
+                  value={tsumitateInput}
+                  onChange={(e) => setTsumitateInput(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">成長投資枠 利用済み</Label>
+                <Input
+                  inputMode="numeric"
+                  type="number"
+                  min={0}
+                  max={GROWTH_ANNUAL_LIMIT}
+                  placeholder="未登録"
+                  value={growthInput}
+                  onChange={(e) => setGrowthInput(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">生涯枠 利用済み</Label>
+                <Input
+                  inputMode="numeric"
+                  type="number"
+                  min={0}
+                  max={LIFETIME_LIMIT}
+                  placeholder="未登録"
+                  value={lifetimeInput}
+                  onChange={(e) => setLifetimeInput(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">成長投資枠 利用済み</Label>
-              <Input
-                inputMode="numeric"
-                type="number"
-                min={0}
-                max={GROWTH_ANNUAL_LIMIT}
-                placeholder="未登録"
-                value={growthInput}
-                onChange={(e) => setGrowthInput(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">生涯枠 利用済み</Label>
-              <Input
-                inputMode="numeric"
-                type="number"
-                min={0}
-                max={LIFETIME_LIMIT}
-                placeholder="未登録"
-                value={lifetimeInput}
-                onChange={(e) => setLifetimeInput(e.target.value)}
-              />
+            <div className="mt-3 flex justify-end">
+              <Button onClick={() => save.mutate()} disabled={save.isPending} size="sm">
+                <Save className="mr-1.5 h-4 w-4" />
+                保存
+              </Button>
             </div>
           </div>
-          <div className="mt-3 flex justify-end">
-            <Button onClick={() => save.mutate()} disabled={save.isPending} size="sm">
-              <Save className="mr-1.5 h-4 w-4" />
-              保存
-            </Button>
-          </div>
-        </div>
+        </details>
       </CardContent>
     </Card>
   )
@@ -306,35 +319,16 @@ export default function NisaPage() {
     return <div className="p-8 text-center text-sm text-muted-foreground">NISA情報を表示できません。</div>
   }
 
-  const householdPlannedAnnual = members.reduce((sum, member) => {
-    const row = rowByUser.get(member.id)
-    return sum + Number(row?.monthly_tsumitate ?? 0) * 12 + Number(row?.monthly_growth ?? 0) * 12
-  }, 0)
-  const householdAnnualLimit = TOTAL_ANNUAL_LIMIT * members.length
-  const householdPlannedRemaining = clampRemaining(householdAnnualLimit, householdPlannedAnnual)
-
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <WalletCards className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-bold text-[var(--color-heading)]">NISA枠</h2>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            年間枠・つみたて投資枠・成長投資枠・生涯枠の残りを、2人分まとめて確認できます。
-          </p>
+      <div>
+        <div className="flex items-center gap-2">
+          <WalletCards className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-bold text-[var(--color-heading)]">NISA</h2>
         </div>
-        <div className="rounded-xl border border-border bg-background px-4 py-2 text-right">
-          <div className="text-[11px] text-muted-foreground">世帯の年間枠残り（設定ベース）</div>
-          <div className="text-lg font-bold tabular-nums">{yen(householdPlannedRemaining)}</div>
-          <div className="text-[10px] text-muted-foreground">{yen(householdPlannedAnnual)} / {yen(householdAnnualLimit)}</div>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-        現行の成人NISAは、1人あたり年間360万円（つみたて投資枠120万円＋成長投資枠240万円）、
-        非課税保有限度額は合計1,800万円です。実績未登録の項目は現在の積立設定を12ヶ月換算して表示します。
+        <p className="mt-1 text-xs text-muted-foreground">
+          まず「毎月の積立額」と「今年の残り枠」を確認。詳細な枠内訳と生涯枠はその下に表示します。
+        </p>
       </div>
 
       <div className="space-y-4">
