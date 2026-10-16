@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, ShoppingCart, Check, Undo2, Pencil } from 'lucide-react'
+import { Plus, ShoppingCart, Check, Undo2, Pencil, ReceiptText } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useShoppingLists, useShoppingItems, useCreateShoppingList, useCreateShoppingItem, useToggleShoppingItem, useUpdateShoppingList, useUpdateShoppingItem } from '@/lib/hooks/use-shopping'
+import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -30,6 +32,8 @@ const priorityColors: Record<string, string> = {
 
 export default function ShoppingPage() {
   const { user, couple } = useAuth()
+  const supabase = createClient()
+  const queryClient = useQueryClient()
   const { data: lists } = useShoppingLists(couple?.id)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const { data: items } = useShoppingItems(selectedListId || undefined)
@@ -42,11 +46,13 @@ export default function ShoppingPage() {
   const [newListName, setNewListName] = useState('')
   const [newListCategory, setNewListCategory] = useState('general')
   const [newItemName, setNewItemName] = useState('')
+  const [newItemPrice, setNewItemPrice] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingListId, setEditingListId] = useState<string | null>(null)
   const [editingListName, setEditingListName] = useState('')
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editingItemName, setEditingItemName] = useState('')
+  const [editingItemPrice, setEditingItemPrice] = useState('')
 
   const handleCreateList = async () => {
     if (!newListName) { toast.error('リスト名を入力してください'); return }
@@ -71,12 +77,21 @@ export default function ShoppingPage() {
   const handleAddItem = async () => {
     if (!newItemName) { toast.error('アイテム名を入力してください'); return }
     if (!selectedListId) { toast.error('リストを選択してください'); return }
+
+    const parsedPrice = newItemPrice.trim() === '' ? null : Number(newItemPrice)
+    if (parsedPrice !== null && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
+      toast.error('金額は0以上の数値で入力してください')
+      return
+    }
+
     try {
       await createItem.mutateAsync({
         list_id: selectedListId,
         name: newItemName,
+        estimated_price: parsedPrice,
       })
       setNewItemName('')
+      setNewItemPrice('')
     } catch {
       toast.error('アイテムの追加に失敗しました')
     }
@@ -114,21 +129,67 @@ export default function ShoppingPage() {
   const handleSaveItemName = async () => {
     if (!editingItemId || !editingItemName.trim()) {
       setEditingItemId(null)
+      setEditingItemPrice('')
       return
     }
+
+    const parsedPrice = editingItemPrice.trim() === '' ? null : Number(editingItemPrice)
+    if (parsedPrice !== null && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
+      toast.error('金額は0以上の数値で入力してください')
+      return
+    }
+
     try {
-      await updateItem.mutateAsync({ id: editingItemId, name: editingItemName.trim() })
-      toast.success('アイテム名を更新しました')
+      await updateItem.mutateAsync({
+        id: editingItemId,
+        name: editingItemName.trim(),
+        estimated_price: parsedPrice,
+      })
+      toast.success('アイテムを更新しました')
     } catch {
       toast.error('アイテムの更新に失敗しました')
     } finally {
       setEditingItemId(null)
       setEditingItemName('')
+      setEditingItemPrice('')
     }
   }
 
   const uncheckedCount = items?.filter((i) => !i.is_checked).length || 0
   const checkedCount = items?.filter((i) => i.is_checked).length || 0
+  const readyToExpenseItems = (items || []).filter((item) => item.is_checked && !item.expense_created && Number(item.estimated_price ?? 0) > 0)
+
+  const handleCreateExpensesFromCheckedItems = async () => {
+    if (!user?.id || !couple?.id) {
+      toast.error('ログイン状態とカップル情報を確認してください')
+      return
+    }
+
+    const itemsToConvert = (items || []).filter((item) => item.is_checked && !item.expense_created)
+    const validItems = itemsToConvert.filter((item) => Number(item.estimated_price ?? 0) > 0)
+
+    if (validItems.length === 0) {
+      toast.info('支出化できる購入済みアイテムがありません')
+      return
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('convert_shopping_items_to_expenses', {
+        p_item_ids: validItems.map((item) => item.id),
+        p_paid_by: user.id,
+      })
+
+      if (error) throw error
+
+      await queryClient.invalidateQueries({ queryKey: ['shopping-items'] })
+      await queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      await queryClient.invalidateQueries({ queryKey: ['expense-summary'] })
+
+      toast.success(`${Number(data ?? validItems.length)}件を支出として登録しました`)
+    } catch {
+      toast.error('支出の登録に失敗しました')
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -241,19 +302,37 @@ export default function ShoppingPage() {
           {selectedListId ? (
             <Card tone="cyan">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-base">
                     アイテム
                     {uncheckedCount > 0 && (
                       <Badge variant="secondary" className="ml-2">{uncheckedCount}件</Badge>
                     )}
                   </CardTitle>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleCreateExpensesFromCheckedItems}
+                    disabled={readyToExpenseItems.length === 0}
+                  >
+                    <ReceiptText className="h-4 w-4 mr-1" />
+                    支出に変換
+                  </Button>
                 </div>
-                <div className="flex gap-2 mt-2">
+                <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_140px_auto]">
                   <Input
                     placeholder="アイテムを追加..."
                     value={newItemName}
                     onChange={(e) => setNewItemName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="10"
+                    placeholder="金額"
+                    value={newItemPrice}
+                    onChange={(e) => setNewItemPrice(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
                   />
                   <Button size="sm" onClick={handleAddItem} disabled={createItem.isPending}>
@@ -274,20 +353,36 @@ export default function ShoppingPage() {
                           />
                           <div className="flex-1">
                             {editingItemId === item.id ? (
-                              <Input
-                                value={editingItemName}
-                                onChange={(e) => setEditingItemName(e.target.value)}
-                                onBlur={handleSaveItemName}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleSaveItemName()
-                                  if (e.key === 'Escape') {
-                                    setEditingItemId(null)
-                                    setEditingItemName('')
-                                  }
-                                }}
-                                autoFocus
-                                className="h-8 text-sm"
-                              />
+                              <div className="space-y-2">
+                                <Input
+                                  value={editingItemName}
+                                  onChange={(e) => setEditingItemName(e.target.value)}
+                                  onBlur={handleSaveItemName}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveItemName()
+                                    if (e.key === 'Escape') {
+                                      setEditingItemId(null)
+                                      setEditingItemName('')
+                                      setEditingItemPrice('')
+                                    }
+                                  }}
+                                  autoFocus
+                                  className="h-8 text-sm"
+                                />
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="10"
+                                  value={editingItemPrice}
+                                  placeholder="金額"
+                                  onChange={(e) => setEditingItemPrice(e.target.value)}
+                                  onBlur={handleSaveItemName}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveItemName()
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
                             ) : (
                               <button
                                 type="button"
@@ -295,6 +390,7 @@ export default function ShoppingPage() {
                                 onClick={() => {
                                   setEditingItemId(item.id)
                                   setEditingItemName(item.name)
+                                  setEditingItemPrice(item.estimated_price != null ? String(item.estimated_price) : '')
                                 }}
                               >
                                 <span>{item.name}</span>
@@ -303,7 +399,7 @@ export default function ShoppingPage() {
                             )}
                             {item.memo && <p className="text-xs text-muted-foreground">{item.memo}</p>}
                           </div>
-                          {item.estimated_price && (
+                          {item.estimated_price !== null && item.estimated_price !== undefined && Number(item.estimated_price) > 0 && (
                             <span className="text-xs text-muted-foreground">
                               ¥{Number(item.estimated_price).toLocaleString()}
                             </span>

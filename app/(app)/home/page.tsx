@@ -170,6 +170,22 @@ export default function HomePage() {
         )}
       </div>
 
+      {!couple && (
+        <Card className="border-dashed border-primary/60 bg-primary/5">
+          <CardContent className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-primary">ペア設定がまだありません</p>
+              <p className="text-sm text-muted-foreground">
+                まずはペアを作成するか、招待コードで参加して、家計・買い物・予定を共有しましょう。
+              </p>
+            </div>
+            <Link href="/settings">
+              <Button>ペア設定へ</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Link href="/calendar" className="block">
           <Card tone="cyan" className="h-full transition-transform hover:-translate-y-0.5">
