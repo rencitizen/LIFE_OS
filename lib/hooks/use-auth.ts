@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 import { useFinanceStore } from '@/stores/finance-store'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { User, Couple } from '@/types'
 import type { User as AuthUser } from '@supabase/supabase-js'
 
@@ -30,6 +30,7 @@ function toFallbackProfile(authUser: AuthUser): User {
 export function useAuth() {
   const supabase = createClient()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { setUser, setCouple, setPartner, reset } = useAuthStore()
   const setLivingMode = useFinanceStore((state) => state.setLivingMode)
 
@@ -106,6 +107,7 @@ export function useAuth() {
 
   const signOut = async () => {
     await supabase.auth.signOut()
+    queryClient.clear()
     reset()
     router.push('/login')
   }

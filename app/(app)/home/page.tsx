@@ -1,9 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { format, subMonths } from 'date-fns'
-import { Calendar, CheckSquare, TrendingUp, Wallet } from 'lucide-react'
+import { Calendar, CheckSquare, ShoppingCart, TrendingUp, Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { enumerateDateKeys, eventOverlapsDateRange, getJstDayRange, getTodayJstDateKey } from '@/lib/date-utils'
 import { LIVING_MODE_LABELS } from '@/lib/finance/constants'
@@ -11,8 +13,11 @@ import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCalendarEvents } from '@/lib/hooks/use-calendar-events'
 import { useMonthlyExpenseSummary } from '@/lib/hooks/use-expenses'
+import { useBudget } from '@/lib/hooks/use-budgets'
 import { useIncomes } from '@/lib/hooks/use-incomes'
+import { useShoppingLists } from '@/lib/hooks/use-shopping'
 import { useTodos } from '@/lib/hooks/use-todos'
+import { createClient } from '@/lib/supabase/client'
 
 function getTaskAnchorDate(startDate?: string | null, dueDate?: string | null, endDate?: string | null) {
   return startDate ?? dueDate ?? endDate ?? null
@@ -49,12 +54,54 @@ export default function HomePage() {
     weekRange.end.toISOString()
   )
   const { data: todos } = useTodos(couple?.id)
+  const { data: shoppingLists } = useShoppingLists(couple?.id)
+  const { data: budget } = useBudget(couple?.id, monthStr)
   const { data: summary } = useMonthlyExpenseSummary(couple?.id, monthStr)
   const { data: lastMonthExpenseSummary } = useMonthlyExpenseSummary(couple?.id, lastMonthStr)
   const { data: lastMonthIncomes } = useIncomes(couple?.id, lastMonthStr)
+  const [pendingShoppingItems, setPendingShoppingItems] = useState(0)
   const lastMonthIncomeTotal = (lastMonthIncomes || []).reduce((sum, income) => sum + Number(income.amount), 0)
   const lastMonthExpenseTotal = lastMonthExpenseSummary?.total || 0
   const lastMonthBalance = lastMonthIncomeTotal - lastMonthExpenseTotal
+  const remainingBudget = (budget?.total_limit ?? 0) - (summary?.total ?? 0)
+
+  useEffect(() => {
+    if (!couple?.id) {
+      setPendingShoppingItems(0)
+      return
+    }
+
+    let isActive = true
+    const supabase = createClient()
+
+    const loadShoppingSummary = async () => {
+      const { data: activeLists } = await supabase
+        .from('shopping_lists')
+        .select('id')
+        .eq('couple_id', couple.id)
+        .eq('is_active', true)
+
+      const listIds = (activeLists ?? []).map((list) => list.id)
+      if (listIds.length === 0) {
+        if (isActive) setPendingShoppingItems(0)
+        return
+      }
+
+      const { data: pendingItems } = await supabase
+        .from('shopping_items')
+        .select('id')
+        .in('list_id', listIds)
+        .eq('is_checked', false)
+
+      if (isActive) setPendingShoppingItems(pendingItems?.length ?? 0)
+    }
+
+    void loadShoppingSummary()
+
+    return () => {
+      isActive = false
+    }
+  }, [couple?.id])
 
   const groupedUpcomingEvents = useMemo(
     () =>
@@ -100,7 +147,23 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {!couple && (
+        <Card className="border-dashed border-primary/60 bg-primary/5">
+          <CardContent className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-primary">ペア設定がまだありません</p>
+              <p className="text-sm text-muted-foreground">
+                まずはペアを作成するか、招待コードで参加して、家計・買い物・予定を共有しましょう。
+              </p>
+            </div>
+            <Link href="/settings">
+              <Button>ペア設定へ</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card tone="cyan">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">今後の予定</CardTitle>
@@ -125,6 +188,17 @@ export default function HomePage() {
 
         <Card tone="blue">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">買い物</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-[var(--color-warning)]" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingShoppingItems}</div>
+            <p className="mt-1 text-xs text-muted-foreground">未購入 {shoppingLists?.length ?? 0} リスト</p>
+          </CardContent>
+        </Card>
+
+        <Card tone="blue">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">今月の支出</CardTitle>
             <Wallet className="h-4 w-4 text-[var(--color-expense)]" />
           </CardHeader>
@@ -136,15 +210,13 @@ export default function HomePage() {
 
         <Card tone="cyan">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">先月の収支差額</CardTitle>
+            <CardTitle className="text-sm font-medium">残予算</CardTitle>
             <TrendingUp className="h-4 w-4 text-[var(--color-info)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[var(--color-info)]">
-              {lastMonthBalance >= 0 ? '+' : '-'}{formatYen(Math.abs(lastMonthBalance))}
-            </div>
+            <div className="text-2xl font-bold text-[var(--color-info)]">{formatYen(remainingBudget)}</div>
             <p className="mt-1 text-xs text-muted-foreground">
-              収入 {formatYen(lastMonthIncomeTotal)} / 支出 {formatYen(lastMonthExpenseTotal)}
+              予算 {formatYen(budget?.total_limit ?? 0)} / 支出 {formatYen(summary?.total || 0)}
             </p>
           </CardContent>
         </Card>

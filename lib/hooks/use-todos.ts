@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { isMissingTodoColumnError, stripUnsupportedTodoColumns } from '@/lib/todo-compat'
 import type { Todo, InsertTables, UpdateTables } from '@/types'
 
 export function useTodos(coupleId: string | undefined, filters?: {
@@ -13,28 +14,45 @@ export function useTodos(coupleId: string | undefined, filters?: {
   return useQuery({
     queryKey: ['todos', coupleId, filters],
     queryFn: async () => {
-      let query = supabase
-        .from('todos')
-        .select('*')
-        .eq('couple_id', coupleId!)
-        .order('start_date', { ascending: true, nullsFirst: false })
-        .order('due_date', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: false })
+      const makeQuery = (withExtendedColumns: boolean) => {
+        let query = supabase
+          .from('todos')
+          .select('*')
+          .eq('couple_id', coupleId!)
 
-      if (filters?.status) {
-        query = query.eq('status', filters.status)
-      }
-      if (filters?.assignedTo !== undefined) {
-        if (filters.assignedTo === null) {
-          query = query.is('assigned_to', null)
-        } else {
-          query = query.eq('assigned_to', filters.assignedTo)
+        if (withExtendedColumns) {
+          query = query.order('start_date', { ascending: true, nullsFirst: false })
         }
+
+        query = query
+          .order('due_date', { ascending: true, nullsFirst: false })
+          .order('created_at', { ascending: false })
+
+        if (filters?.status) {
+          query = query.eq('status', filters.status)
+        }
+        if (filters?.assignedTo !== undefined) {
+          if (filters.assignedTo === null) {
+            query = query.is('assigned_to', null)
+          } else {
+            query = query.eq('assigned_to', filters.assignedTo)
+          }
+        }
+
+        return query
       }
 
-      const { data, error } = await query
-      if (error) throw error
-      return data as unknown as Todo[]
+      try {
+        const { data, error } = await makeQuery(true)
+        if (error) throw error
+        return data as unknown as Todo[]
+      } catch (error) {
+        if (!isMissingTodoColumnError(error)) throw error
+
+        const { data, error: fallbackError } = await makeQuery(false)
+        if (fallbackError) throw fallbackError
+        return data as unknown as Todo[]
+      }
     },
     enabled: !!coupleId,
   })
@@ -46,13 +64,24 @@ export function useCreateTodo() {
 
   return useMutation({
     mutationFn: async (todo: InsertTables<'todos'>) => {
-      const { data, error } = await supabase
-        .from('todos')
-        .insert(todo)
-        .select()
-        .single()
-      if (error) throw error
-      return data as unknown as Todo
+      const executeInsert = async (payload: InsertTables<'todos'>) => {
+        const { data, error } = await supabase
+          .from('todos')
+          .insert(payload)
+          .select()
+          .single()
+        if (error) throw error
+        return data as unknown as Todo
+      }
+
+      try {
+        return await executeInsert(todo)
+      } catch (error) {
+        if (!isMissingTodoColumnError(error)) throw error
+
+        const fallbackPayload = stripUnsupportedTodoColumns(todo as Record<string, unknown>) as InsertTables<'todos'>
+        return executeInsert(fallbackPayload)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] })
@@ -66,12 +95,23 @@ export function useCreateTodos() {
 
   return useMutation({
     mutationFn: async (todos: InsertTables<'todos'>[]) => {
-      const { data, error } = await supabase
-        .from('todos')
-        .insert(todos)
-        .select()
-      if (error) throw error
-      return (data ?? []) as unknown as Todo[]
+      const executeInsert = async (payload: InsertTables<'todos'>[]) => {
+        const { data, error } = await supabase
+          .from('todos')
+          .insert(payload)
+          .select()
+        if (error) throw error
+        return (data ?? []) as unknown as Todo[]
+      }
+
+      try {
+        return await executeInsert(todos)
+      } catch (error) {
+        if (!isMissingTodoColumnError(error)) throw error
+
+        const fallbackPayload = todos.map((todo) => stripUnsupportedTodoColumns(todo as Record<string, unknown>) as InsertTables<'todos'>)
+        return executeInsert(fallbackPayload)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] })
@@ -85,14 +125,25 @@ export function useUpdateTodo() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: UpdateTables<'todos'> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('todos')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-      if (error) throw error
-      return data as unknown as Todo
+      const executeUpdate = async (payload: UpdateTables<'todos'>) => {
+        const { data, error } = await supabase
+          .from('todos')
+          .update(payload)
+          .eq('id', id)
+          .select()
+          .single()
+        if (error) throw error
+        return data as unknown as Todo
+      }
+
+      try {
+        return await executeUpdate(updates)
+      } catch (error) {
+        if (!isMissingTodoColumnError(error)) throw error
+
+        const fallbackPayload = stripUnsupportedTodoColumns(updates as Record<string, unknown>) as UpdateTables<'todos'>
+        return executeUpdate(fallbackPayload)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] })
