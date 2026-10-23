@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save, WalletCards } from 'lucide-react'
 import { toast } from 'sonner'
@@ -123,15 +123,9 @@ function MemberNisaCard({
         ? '設定ベース'
         : '実績＋設定ベース'
 
-  const [tsumitateInput, setTsumitateInput] = useState('')
-  const [growthInput, setGrowthInput] = useState('')
-  const [lifetimeInput, setLifetimeInput] = useState('')
-
-  useEffect(() => {
-    setTsumitateInput(row?.tsumitate_used === null || row?.tsumitate_used === undefined ? '' : String(row.tsumitate_used))
-    setGrowthInput(row?.growth_used === null || row?.growth_used === undefined ? '' : String(row.growth_used))
-    setLifetimeInput(row?.lifetime_used === null || row?.lifetime_used === undefined ? '' : String(row.lifetime_used))
-  }, [row?.growth_used, row?.lifetime_used, row?.tsumitate_used])
+  const [tsumitateInput, setTsumitateInput] = useState(String(row?.tsumitate_used ?? ''))
+  const [growthInput, setGrowthInput] = useState(String(row?.growth_used ?? ''))
+  const [lifetimeInput, setLifetimeInput] = useState(String(row?.lifetime_used ?? ''))
 
   const save = useMutation({
     mutationFn: async () => {
@@ -351,7 +345,7 @@ export default function NisaPage() {
       <div className="space-y-4">
         {members.map((member) => (
           <MemberNisaCard
-            key={member.id}
+            key={JSON.stringify([member.id, year, rowByUser.get(member.id)?.tsumitate_used, rowByUser.get(member.id)?.growth_used, rowByUser.get(member.id)?.lifetime_used])}
             member={member}
             row={rowByUser.get(member.id)}
             coupleId={couple.id}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { addMonths, format } from 'date-fns'
-import { ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Plus, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,7 @@ import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
 import { useCreateManualExpense, useUpdateExpenseWithSplits } from '@/lib/hooks/use-expenses'
-import { useCreateTransaction, useTransactions, useUpdateTransaction } from '@/lib/hooks/use-transactions'
+import { useCreateTransaction, useDeleteTransaction, useTransactions, useUpdateTransaction } from '@/lib/hooks/use-transactions'
 import { useFinanceStore } from '@/stores/finance-store'
 import type { UnifiedTransaction } from '@/types'
 import { toast } from 'sonner'
@@ -75,6 +75,7 @@ export default function FinanceHistoryPage() {
   const updateExpenseWithSplits = useUpdateExpenseWithSplits()
   const createTransaction = useCreateTransaction()
   const updateTransaction = useUpdateTransaction()
+  const deleteTransaction = useDeleteTransaction()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
@@ -163,6 +164,7 @@ export default function FinanceHistoryPage() {
   }
 
   const handleSave = async () => {
+    if (isBusy) return
     if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
     if (!date) return toast.error('日付を入力してください')
     if (!amount || Number(amount) <= 0) return toast.error('金額を入力してください')
@@ -231,11 +233,27 @@ export default function FinanceHistoryPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!editingTransaction || isBusy) return
+    const label = editingTransaction.memo || editingTransaction.category || '明細'
+    if (!window.confirm(`「${label}」${formatYen(editingTransaction.amount)}を削除しますか？\n削除すると元に戻せません。`)) return
+
+    try {
+      await deleteTransaction.mutateAsync(editingTransaction)
+      setDialogOpen(false)
+      resetForm()
+      toast.success('明細を削除しました')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '削除に失敗しました')
+    }
+  }
+
   const navigateMonth = (direction: number) => {
     setSelectedMonth(format(addMonths(displayDate, direction), 'yyyy-MM'))
   }
 
   const isSaving = createManualExpense.isPending || updateExpenseWithSplits.isPending || createTransaction.isPending || updateTransaction.isPending
+  const isBusy = isSaving || deleteTransaction.isPending
 
   return (
     <div className="mx-auto max-w-4xl space-y-7 pb-8">
@@ -340,7 +358,7 @@ export default function FinanceHistoryPage() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!isBusy) setDialogOpen(open) }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingTransaction ? '明細を修正' : '明細を追加'}</DialogTitle>
@@ -413,8 +431,14 @@ export default function FinanceHistoryPage() {
             )}
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
-              <Button onClick={handleSave} disabled={isSaving}>{isSaving ? '保存中…' : '保存'}</Button>
+              {editingTransaction ? (
+                <Button variant="destructive" className="mr-auto" onClick={handleDelete} disabled={isBusy}>
+                  <Trash2 className="h-4 w-4" />
+                  {deleteTransaction.isPending ? '削除中…' : '削除'}
+                </Button>
+              ) : null}
+              <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isBusy}>キャンセル</Button>
+              <Button onClick={handleSave} disabled={isBusy}>{isSaving ? '保存中…' : '保存'}</Button>
             </div>
           </div>
         </DialogContent>
