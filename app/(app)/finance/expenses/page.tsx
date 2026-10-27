@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getTodayJstDateKey } from '@/lib/date-utils'
 import { matchesFinanceScope } from '@/lib/finance/scope'
+import { expenseSaveError } from '@/lib/finance/expense-errors'
 import { formatYen } from '@/lib/finance/utils'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useExpenseCategories } from '@/lib/hooks/use-categories'
@@ -168,6 +169,9 @@ export default function FinanceHistoryPage() {
     if (!user?.id || !couple?.id) return toast.error('ペア情報を確認してください')
     if (!date) return toast.error('日付を入力してください')
     if (!amount || Number(amount) <= 0) return toast.error('金額を入力してください')
+    if (transactionType === 'expense' && settlementTarget && !partner?.id) {
+      return toast.error('精算対象にするにはパートナーの参加が必要です。個人の支出は精算対象をオフにして保存してください。')
+    }
 
     try {
       if (transactionType === 'expense') {
@@ -228,8 +232,7 @@ export default function FinanceHistoryPage() {
       setDialogOpen(false)
       toast.success(editingTransaction ? '更新しました' : '登録しました')
     } catch (error) {
-      const message = error instanceof Error ? error.message : '保存に失敗しました'
-      toast.error(message)
+      toast.error(expenseSaveError(error))
     }
   }
 
@@ -415,9 +418,9 @@ export default function FinanceHistoryPage() {
                 <label className="flex cursor-pointer items-center justify-between rounded-xl border p-3.5">
                   <div>
                     <p className="text-sm font-semibold">精算対象</p>
-                    <p className="text-xs text-muted-foreground">標準負担割合で精算計算に含める</p>
+                    <p className="text-xs text-muted-foreground">{partner?.id ? '標準負担割合で精算計算に含める' : 'パートナー参加後に利用できます。個人の支出はオフのまま保存してください。'}</p>
                   </div>
-                  <input type="checkbox" checked={settlementTarget} onChange={(event) => setSettlementTarget(event.target.checked)} className="h-4 w-4" />
+                  <input type="checkbox" checked={settlementTarget} disabled={!partner?.id && !settlementTarget} onChange={(event) => setSettlementTarget(event.target.checked)} className="h-4 w-4 disabled:cursor-not-allowed disabled:opacity-50" />
                 </label>
               </>
             ) : (

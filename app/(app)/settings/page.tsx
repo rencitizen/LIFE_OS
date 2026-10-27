@@ -410,9 +410,7 @@ export default function SettingsPage() {
           <CardDescription>生活費の予算を月単位で設定・変更できます。</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild>
-            <Link href="/finance/budgets">月ごとの予算を設定</Link>
-          </Button>
+          <Button render={<Link href="/finance/budgets" />}>月ごとの予算を設定</Button>
         </CardContent>
       </Card>
 
