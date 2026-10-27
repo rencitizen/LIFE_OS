@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Check, Copy, Loader2, UserPlus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -400,6 +401,18 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">月ごとの予算</CardTitle>
+          <CardDescription>生活費の予算を月単位で設定・変更できます。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href="/finance/budgets">月ごとの予算を設定</Link>
+          </Button>
         </CardContent>
       </Card>
 
