@@ -46,3 +46,8 @@ revoke execute on function public.lifeos_autocategory_imported_expense() from pu
 grant execute on function public.lifeos_merchant_key(text) to service_role;
 grant execute on function public.lifeos_suggest_category(uuid,text) to service_role;
 grant execute on function public.lifeos_autocategory_imported_expense() to service_role;
+
+-- Authenticated expense inserts may fire this trigger under the caller role.
+grant execute on function public.lifeos_merchant_key(text) to authenticated;
+grant execute on function public.lifeos_suggest_category(uuid,text) to authenticated;
+grant execute on function public.lifeos_autocategory_imported_expense() to authenticated;
