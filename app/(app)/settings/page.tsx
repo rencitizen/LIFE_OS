@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Check, Copy, Loader2, UserPlus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+import { GmailIntegration } from '@/components/settings/gmail-integration'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -204,6 +205,8 @@ export default function SettingsPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">設定</h1>
+
+      {user?.id && couple?.id && <GmailIntegration userId={user.id} />}
 
       <Card>
         <CardHeader>
